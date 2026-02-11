@@ -5,7 +5,7 @@ services:
     ports:
       - "8081:80"
     volumes:
-      - .:/var/www/html
+      - ./src:/var/www/html
     depends_on:
       - db
       - mongodb
