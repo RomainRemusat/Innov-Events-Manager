@@ -1,0 +1,38 @@
+services:
+  # Serveur Web (ton application PHP)
+  app:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - db
+      - mongodb
+    networks:
+      - innovevents-net
+
+  # Base de données Relationnelle (MySQL) [cite: 426]
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_DATABASE: innovevents_db
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3306:3306"
+    networks:
+      - innovevents-net
+
+  # Base NoSQL pour la journalisation (MongoDB) [cite: 265, 428]
+  mongodb:
+    image: mongo:latest
+    restart: always
+    ports:
+      - "27017:27017"
+    networks:
+      - innovevents-net
+
+networks:
+  innovevents-net:
+    driver: bridge

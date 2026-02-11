@@ -1,0 +1,14 @@
+# Dépendances
+vendor/
+node_modules/
+
+# Variables d'environnement (Sensible !)
+.env
+
+# Docker
+.docker/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
