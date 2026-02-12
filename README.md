@@ -1,7 +1,3 @@
-Voici ton fichier `README.md` mis en forme. Tu peux copier-coller ce bloc directement à la racine de ton projet sur la branche **dev**.
-
----
-
 # 📅 Innov'Events Manager
 
 **Innov'Events Manager** est une application web et mobile conçue pour centraliser et sécuriser la gestion événementielle de l'agence Innov'Events. Ce projet vise à remplacer un système obsolète basé sur des fichiers Excel et Word par une **source unique de vérité** afin de garantir la fiabilité des données et d'automatiser les tâches répétitives.
