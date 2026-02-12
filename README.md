@@ -10,8 +10,7 @@ Pour exécuter cette application sur votre machine, suivez les étapes ci-dessou
 
 ### Prérequis
 
-*
-**Docker** et **Docker Compose** installés sur votre système.
+* **Docker** et **Docker Compose** installés sur votre système.
 
 
 * Un client **Git**.
@@ -36,16 +35,13 @@ docker-compose up -d --build
 
 
 3. **Accès aux services :**
-*
-**Application Web :** `http://localhost:8080`.
+* **Application Web :** `http://localhost:8080`.
 
 
-*
-**Base de données SQL :** `localhost:3306`.
+* **Base de données SQL :** `localhost:3306`.
 
 
-*
-**Base NoSQL (Logs) :** `localhost:27017`.
+* **Base NoSQL (Logs) :** `localhost:27017`.
 
 
 
@@ -55,20 +51,16 @@ docker-compose up -d --build
 
 ## 🛠️ Stack Technique
 
-*
-**Conteneurisation :** Docker & Docker Compose.
+* **Conteneurisation :** Docker & Docker Compose.
 
 
-*
-**Base de données relationnelle :** SQL (MySQL/PostgreSQL) pour les données métier (Clients, Événements, Devis).
+* **Base de données relationnelle :** SQL (MySQL/PostgreSQL) pour les données métier (Clients, Événements, Devis).
 
 
-*
-**Base de données NoSQL :** MongoDB pour la journalisation des actions sensibles (Logs).
+* **Base de données NoSQL :** MongoDB pour la journalisation des actions sensibles (Logs).
 
 
-*
-**Langages suggérés :** PHP (PDO) / JS.
+* **Langages suggérés :** PHP (PDO) / JS.
 
 
 
@@ -78,19 +70,13 @@ docker-compose up -d --build
 
 Ce projet respecte une stratégie de branches stricte pour garantir la stabilité du code:
 
-*
-**main :** Branche de production contenant uniquement du code testé et validé.
-
+* **main :** Branche de production contenant uniquement du code testé et validé.
 
 * **dev :** Branche principale de développement. Toutes les fonctionnalités partent de cette branche.
 
+* **Fusion :** Les modifications sont fusionnées de `dev` vers `main` uniquement après validation des tests.
 
-*
-**Fusion :** Les modifications sont fusionnées de `dev` vers `main` uniquement après validation des tests.
-
-
-*
-**Commits :** Chaque commit est fréquent et accompagné d'un message clair décrivant les changements.
+* **Commits :** Chaque commit est fréquent et accompagné d'un message clair décrivant les changements.
 
 
 
@@ -98,25 +84,15 @@ Ce projet respecte une stratégie de branches stricte pour garantir la stabilit�
 
 ## 🔐 Fonctionnalités Clés
 
-*
-**Gestion des Prospects :** Formulaire de demande de devis et conversion automatique en client.
+* **Gestion des Prospects :** Formulaire de demande de devis et conversion automatique en client.
 
+* **Gestion Commerciale :** Création de prestations et génération automatique de devis en PDF.
 
-*
-**Gestion Commerciale :** Création de prestations et génération automatique de devis en PDF.
+* **Espace Administrateur :** Dashboard avec indicateurs clés et gestion des employés.
 
-
-*
-**Espace Administrateur :** Dashboard avec indicateurs clés et gestion des employés.
-
-
-*
-**Journalisation NoSQL :** Traçabilité complète des actions sensibles (connexions, CRUD client, statuts).
-
-
-*
-**Conformité :** Respect du RGPD (données personnelles) et du RGAA (accessibilité).
-
+* **Journalisation NoSQL :** Traçabilité complète des actions sensibles (connexions, CRUD client, statuts).
+ 
+* **Conformité :** Respect du RGPD (données personnelles) et du RGAA (accessibilité).
 
 
 ---
@@ -125,13 +101,8 @@ Ce projet respecte une stratégie de branches stricte pour garantir la stabilit�
 
 Pour garantir la qualité du code, les suites de tests suivantes sont intégrées:
 
-*
-**Tests Unitaires :** Validation des composants métier.
+* **Tests Unitaires :** Validation des composants métier.
 
+* **Tests Fonctionnels & E2E :** Vérification des parcours utilisateurs critiques.
 
-*
-**Tests Fonctionnels & E2E :** Vérification des parcours utilisateurs critiques.
-
-
-*
-**Couverture de code :** Un rapport de couverture est disponible dans la documentation technique.
+* **Couverture de code :** Un rapport de couverture est disponible dans la documentation technique.
