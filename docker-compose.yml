@@ -1,7 +1,5 @@
-version: '3.8'
-
 services:
-  # Serveur Web (ton application PHP en architecture MVC)
+  # Serveur Web (ton application PHP)
   app:
     build: .
     ports:
@@ -14,7 +12,7 @@ services:
     networks:
       - innovevents-net
 
-  # Base de données Relationnelle (MySQL)
+  # Base de données Relationnelle (MySQL) [cite: 426]
   db:
     image: mysql:8.0
     restart: always
@@ -26,26 +24,12 @@ services:
     networks:
       - innovevents-net
 
-  # Base NoSQL pour la journalisation des logs (MongoDB)
+  # Base NoSQL pour la journalisation (MongoDB) [cite: 265, 428]
   mongodb:
     image: mongo:latest
     restart: always
     ports:
       - "27017:27017"
-    networks:
-      - innovevents-net
-
-  # Interface graphique web pour l'administration simplifiée de MySQL (phpMyAdmin)
-  phpmyadmin:
-    image: phpmyadmin:latest
-    restart: always
-    environment:
-      PMA_HOST: db
-      MYSQL_ROOT_PASSWORD: root_password
-    ports:
-      - "8082:80"
-    depends_on:
-      - db
     networks:
       - innovevents-net
 
