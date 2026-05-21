@@ -1,3 +1,20 @@
+<?php
+/**
+ * Vue : Formulaire de demande de devis public
+ *
+ * Ce fichier gère l'affichage de l'interface utilisateur permettant aux prospects
+ * de soumettre une première demande de devis sur la plateforme Innov'Events Manager.
+ * * Conformité d'accessibilité (RGAA) :
+ * - Utilisation d'une structure sémantique propre.
+ * - Association explicite de chaque étiquette (label) à son champ via l'attribut 'for'.
+ * - Attributs 'required' pour la validation native de l'accessibilité au clavier.
+ *
+ * @package    InnovEventsManager
+ * @subpackage Views
+ * @author     Romain Remusat
+ * @version    1.0.0
+ */
+?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -17,6 +34,7 @@
                     <p class="text-muted text-center mb-4">Parlez-nous de votre projet, Chloé vous recontactera rapidement.</p>
 
                     <form action="index.php?action=devis" method="POST">
+
                         <div class="mb-3">
                             <label for="company_name" class="form-label">Nom de l'entreprise *</label>
                             <input type="text" class="form-control" id="company_name" name="company_name" required>
