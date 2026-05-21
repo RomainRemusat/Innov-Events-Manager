@@ -1,18 +1,23 @@
 <?php
+// Fichier : src/index.php
+require_once __DIR__ . '/controllers/QuoteController.php';
 
-$host = 'db'; // Nom du service dans ton docker-compose.yml
-$db = 'innovevents_db';
-$user = 'root';
-$pass = 'root_password';
-$charset = 'utf8mb4';
+$action = $_GET['action'] ?? 'home';
 
-$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+if ($action === 'devis') {
+    $controller = new QuoteController();
 
-try {
-    $pdo = new PDO($dsn, $user, $pass);
-    echo "<h1>✅ Succès !</h1>";
-    echo "<p>L'application Innov'Events est connectée à la base de données SQL.</p>";
-} catch (\PDOException $e) {
-    echo "<h1>❌ Erreur de connexion</h1>";
-    echo "<p>Message : " . $e->getMessage() . "</p>";
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $controller->submitQuote($_POST);
+    } else {
+        $controller->showForm();
+    }
+} else {
+    // Accueil simplifié pour ton MVP
+    echo "<!DOCTYPE html><html lang='fr'><head><title>Innov'Events Manager</title>";
+    echo "<link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'></head>";
+    echo "<body class='bg-light'><div class='container mt-5 text-center'>";
+    echo "<h1 class='mb-4'>Bienvenue sur Innov'Events Manager</h1>";
+    echo "<a href='index.php?action=devis' class='btn btn-success btn-lg'>Demander un devis</a>";
+    echo "</div></body></html>";
 }
