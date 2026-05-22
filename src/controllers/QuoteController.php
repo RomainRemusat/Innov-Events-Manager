@@ -7,11 +7,14 @@
  * les requêtes HTTP, applique les validations de sécurité de premier niveau,
  * délègue la persistance des données au modèle SQL 'Prospect', puis sélectionne
  * et charge la réponse visuelle appropriée via le système de composants (Partials).
+ * * NOUVEAU (AT2) : Implémentation du pattern de Double Persistance.
+ * Génération asynchrone d'un log de traçabilité immuable (NoSQL - MongoDB)
+ * à des fins d'audit technique, exécuté post-insertion SQL.
  *
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    2.0.0
+ * @version    2.1.0
  */
 
 require_once __DIR__ . '/../models/sql/Prospect.php';
@@ -20,8 +23,6 @@ class QuoteController
 {
     /**
      * Point d'entrée pour l'affichage du formulaire de devis.
-     * * Charge et injecte la vue contenant le formulaire HTML public au sein du
-     * cycle de vie de la requête courante.
      *
      * @return void
      */
@@ -32,22 +33,18 @@ class QuoteController
 
     /**
      * Traite la soumission des données du formulaire de devis (Requête POST).
-     * * Valide la présence et la conformité des champs obligatoires côté serveur
-     * afin de parer à tout contournement des validations natives HTML5. Transmet
-     * les variables nettoyées à la couche d'accès aux données (DAL) et encapsule
-     * le retour utilisateur au sein de la charte graphique globale.
      *
      * @param array $data Tableau associatif contenant les variables $_POST soumises.
      * @return void
      */
     public function submitQuote(array $data): void
     {
-        // Validation stricte côté serveur : Sécurité de surface contre l'altération des requêtes HTTP
+        // Validation stricte côté serveur
         if (empty($data['company_name']) || empty($data['email']) || empty($data['contact_name']) || empty($data['phone']) || empty($data['event_type'])) {
             die("Erreur de validation : L'ensemble des champs obligatoires marqués d'un astérisque (*) doivent être documentés.");
         }
 
-        // Nettoyage des entrées utilisateurs (Sanitisation de base contre les failles XSS persistantes)
+        // Nettoyage des entrées utilisateurs (Sanitisation XSS)
         $sanitizedData = [
             'company_name' => htmlspecialchars(trim($data['company_name']), ENT_QUOTES, 'UTF-8'),
             'contact_name' => htmlspecialchars(trim($data['contact_name']), ENT_QUOTES, 'UTF-8'),
@@ -56,24 +53,52 @@ class QuoteController
             'event_type'   => htmlspecialchars(trim($data['event_type']), ENT_QUOTES, 'UTF-8')
         ];
 
-        // Validation stricte du format de l'adresse de messagerie électronique
+        // Validation stricte du format email
         if (!filter_var($sanitizedData['email'], FILTER_VALIDATE_EMAIL)) {
             die("Erreur de validation : Le format de l'adresse email professionnelle fourni est incorrect.");
         }
 
-        // Instanciation de la couche d'accès aux données (Modèle SQL hérité du pattern Table Data Gateway)
+        // Instanciation de la couche d'accès aux données (SQL)
         $prospectModel = new Prospect();
 
-        // Exécution de la transaction d'insertion en base de données
+        // 1. PERSISTANCE RELATIONNELLE (MySQL)
         $result = $prospectModel->create($sanitizedData);
 
-        // Injection du titre global pour la mise en forme de la réponse utilisateur
-        $pageTitle = "Statut de votre demande - Innov'Events";
+        // --- NOUVEAUTÉ : DOUBLE PERSISTANCE MONGODB (AT2) ---
+        // Si l'insertion SQL a réussi, on génère le log de traçabilité NoSQL
+        if ($result) {
+            try {
+                // Instanciation du driver natif MongoDB (Ajuster l'hôte 'mongodb' selon le nom du service Docker)
+                $mongoManager = new \MongoDB\Driver\Manager("mongodb://mongodb:27017");
 
-        // Initialisation du rendu graphique de la page de réponse (Header Partials)
+                // Préparation du document BSON (NoSQL)
+                $logDocument = [
+                    'action'        => 'nouvelle_demande_devis',
+                    'timestamp'     => new \MongoDB\BSON\UTCDateTime(), // Horodatage précis
+                    'ip_address'    => $_SERVER['REMOTE_ADDR'] ?? 'IP_INCONNUE',
+                    'prospect_data' => $sanitizedData
+                ];
+
+                // Initialisation du buffer d'écriture
+                $bulk = new \MongoDB\Driver\BulkWrite;
+                $bulk->insert($logDocument);
+
+                // Exécution de la requête dans la base 'innovevents_logs' et la collection 'devis_logs'
+                $mongoManager->executeBulkWrite('innovevents_logs.devis_logs', $bulk);
+
+            } catch (\Exception $e) {
+                // Stratégie de tolérance aux pannes :
+                // L'échec du log NoSQL ne doit pas bloquer le parcours client.
+                error_log("Erreur de persistance MongoDB : " . $e->getMessage());
+            }
+        }
+        // ----------------------------------------------------
+
+        // Injection du titre global
+        $pageTitle = "Statut de votre demande - Innov'Events";
         require __DIR__ . '/../views/partials/header.php';
 
-        // Aiguillage algorithmique selon le statut de retour de la transaction d'écriture
+        // Aiguillage algorithmique (Rendu Vues)
         if ($result) {
             ?>
             <main class="container my-5 py-5">
@@ -118,7 +143,6 @@ class QuoteController
             <?php
         }
 
-        // Clôture sémantique et exécution des scripts (Footer Partials)
         require __DIR__ . '/../views/partials/footer.php';
     }
 }
