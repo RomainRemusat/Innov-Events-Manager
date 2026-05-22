@@ -1,0 +1,132 @@
+/**
+ * Design System — Innov'Events Manager
+ *
+ * Feuille de style centralisée regroupant l'ensemble des surcharges graphiques applicables
+ * au tunnel public. Ce fichier assure l'alignement strict avec la charte graphique
+ * officielle et les maquettes fil de fer (Wireframes Figma) de l'application.
+ *
+ * Spécifications techniques :
+ * - Gestion de la typographie Inter et réduction du contraste pour le confort de lecture.
+ * - Composants de formulaires épurés (Minimal Look) et boutons sans fioritures lourdes.
+ * - Architecture adaptative pour les blocs immersifs (Hero Gallery Full-Width).
+ *
+ * @package    InnovEventsManager
+ * @subpackage Public/Assets/CSS
+ * @author     Romain Remusat
+ * @version    1.0.0
+ */
+
+/* ==========================================================================
+   1. BASES ET TYPOGRAPHIE (Design System)
+   ========================================================================== */
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+    color: #475569 !important; /* Slate 600 : Réduction du contraste agressif pour le confort visuel */
+}
+
+.text-dark-custom {
+    color: #0F172A !important;
+}
+
+/* ==========================================================================
+   2. COMPOSANTS DE NAVIGATION ET ACTIONS (Navbar & Boutons)
+   ========================================================================== */
+.bg-navbar-custom {
+    background-color: #0F172A !important; /* Slate Dark : Couleur dominante de la charte (#0F172A) */
+}
+
+.btn-primary-custom {
+    background-color: #3B82F6 !important; /* Bleu Électrique : Couleur d'action de la charte (#3B82F6) */
+    border-color: #3B82F6 !important;
+    color: #FFFFFF !important;
+    font-weight: 500;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.6rem 1.5rem;
+    border-radius: 4px; /* Format rectangulaire épuré calqué sur le fil de fer Figma */
+    transition: background-color 0.2s ease-in-out;
+}
+
+.btn-primary-custom:hover {
+    background-color: #2563EB !important; /* Assombrissement ergonomique pour l'état de survol (Hover) */
+}
+
+/* ==========================================================================
+   3. STRUCTURE DES FORMULAIRES (High-Fidelity Wireframe Look)
+   ========================================================================== */
+.label-minimal {
+    font-size: 0.72rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    font-weight: 600 !important;
+    color: #64748B !important; /* Slate 500 */
+}
+
+.form-control-minimal {
+    display: block;
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.9rem;
+    color: #0F172A;
+    background-color: #FFFFFF;
+    border: 1px solid #E2E8F0; /* Slate 200 */
+    border-radius: 4px;
+}
+
+.form-control-minimal:focus {
+    border-color: #3B82F6;
+    outline: 0;
+    box-shadow: none; /* Suppression des halos lourds natifs Bootstrap pour préserver la légèreté visuelle */
+}
+
+/* ==========================================================================
+   4. UTILITIES ET DECO
+   ========================================================================== */
+.divider-fine {
+    border-top: 1px solid #F1F5F9 !important; /* Slate 100 : Ligne fine de délimitation de section figma */
+    opacity: 1;
+}
+
+/* ==========================================================================
+   5. GLAMOUR & EFFETS IMMERSIFS (Hero Gallery Full-Width)
+   ========================================================================== */
+.hero-gallery-fullwidth {
+    position: relative;
+    background-color: #0F172A;
+    width: 100%;
+    overflow: hidden;
+}
+
+/* Masque de contraste pour optimiser la lisibilité du texte blanc (Norme Accessibilité WCAG) */
+.gallery-overlay-immersive {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.5) 100%);
+    z-index: 2;
+}
+
+.gallery-carousel-inner {
+    height: 420px; /* Légère augmentation de la hauteur pour équilibrer le ratio grand écran */
+}
+
+.gallery-img {
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+    opacity: 0.8;
+}
+
+.hero-gallery-content-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+}

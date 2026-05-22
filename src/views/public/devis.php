@@ -104,7 +104,7 @@ require __DIR__ . '/../partials/header.php';
         <div class="pt-4">
             <h2 class="fw-bold text-dark  mb-5  tracking-wide" >Parlez-nous de votre projet.</h2>
 
-            <form action="index.php?action=devis" method="POST" class="row g-4">
+            <form action="index.php?action=devis" method="POST" class="row g-4 border p-4">
 
                 <div class="col-md-6">
                     <label for="company_name" class="form-label label-minimal mb-2">Nom de l'entreprise *</label>

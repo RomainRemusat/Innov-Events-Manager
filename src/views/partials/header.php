@@ -34,59 +34,7 @@ if (session_status() === PHP_SESSION_NONE) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-
-    <style>
-        body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
-            color: #475569 !important; /* Slate 600 : Réduction du contraste agressif pour le confort visuel */
-        }
-        .bg-navbar-custom {
-            background-color: #0F172A !important; /* Slate Dark : Couleur dominante de la charte (#0F172A) */
-        }
-        .btn-primary-custom {
-            background-color: #3B82F6 !important; /* Bleu Électrique : Couleur d'action de la charte (#3B82F6) */
-            border-color: #3B82F6 !important;
-            color: #FFFFFF !important;
-            font-weight: 500;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            padding: 0.6rem 1.5rem;
-            border-radius: 4px; /* Format rectangulaire épuré calqué sur le fil de fer figma */
-            transition: background-color 0.2s ease-in-out;
-        }
-        .btn-primary-custom:hover {
-            background-color: #2563EB !important; /* Assombrissement ergonomique pour l'état de survol (Hover) */
-        }
-        /* Style minimaliste appliqué aux libellés de formulaires (High-Fidelity Wireframe Look) */
-        .label-minimal {
-            font-size: 0.72rem !important;
-            text-transform: uppercase !important;
-            letter-spacing: 0.08em !important;
-            font-weight: 600 !important;
-            color: #64748B !important; /* Slate 500 */
-        }
-        /* Intégration épurée des champs de saisie (Zéro boîte lourde, bordures ultra-fines) */
-        .form-control-minimal {
-            display: block;
-            width: 100%;
-            padding: 0.65rem 0.85rem;
-            font-size: 0.9rem;
-            color: #0F172A;
-            background-color: #FFFFFF;
-            border: 1px solid #E2E8F0; /* Slate 200 */
-            border-radius: 4px;
-        }
-        .form-control-minimal:focus {
-            border-color: #3B82F6;
-            outline: 0;
-            box-shadow: none; /* Suppression des halos lourds natifs Bootstrap pour préserver la légèreté visuelle */
-        }
-        .divider-fine {
-            border-top: 1px solid #F1F5F9 !important; /* Slate 100 : Ligne fine de délimitation de section figma */
-            opacity: 1;
-        }
-    </style>
+    <link rel="stylesheet" href="views/css/style.css">
 </head>
 <body>
 
