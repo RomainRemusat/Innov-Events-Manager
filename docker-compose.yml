@@ -12,7 +12,7 @@ services:
     networks:
       - innovevents-net
 
-  # Base de données Relationnelle (MySQL) [cite: 426]
+  # Base de données Relationnelle (MySQL) - Pour les Prospects, Clients et Événements
   db:
     image: mysql:8.0
     restart: always
@@ -24,12 +24,25 @@ services:
     networks:
       - innovevents-net
 
-  # Base NoSQL pour la journalisation (MongoDB) [cite: 265, 428]
+  # Base NoSQL (MongoDB) - Exigence ECF pour la journalisation des actions
   mongodb:
     image: mongo:latest
     restart: always
     ports:
       - "27017:27017"
+    networks:
+      - innovevents-net
+
+  # Outil de gestion graphique pour MySQL
+  phpmyadmin:
+    image: phpmyadmin:latest
+    restart: always
+    ports:
+      - "8082:80"
+    environment:
+      PMA_HOST: db
+      PMA_USER: root
+      PMA_PASSWORD: root_password
     networks:
       - innovevents-net
 
