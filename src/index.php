@@ -2,25 +2,40 @@
 /**
  * Routeur Central / Point d'entrée unique de l'application (Front Controller)
  *
+ * Ce fichier agit comme le point d'entrée unique de l'application (pattern Front Controller).
+ * Il intercepte toutes les requêtes HTTP entrantes, initialise le contexte global
+ * (comme les sessions sécurisées), et délègue le traitement métier et l'affichage
+ * au contrôleur approprié en fonction du paramètre 'action' passé dans l'URL.
+ *
  * @package    InnovEventsManager
  * @subpackage Core
  * @author     Romain Remusat
- * @version    1.1.2
+ * @version    1.2.1
  */
 
+// Chargement des dépendances métiers (Contrôleurs)
 require_once __DIR__ . '/controllers/QuoteController.php';
 require_once __DIR__ . '/controllers/AuthController.php';
+require_once __DIR__ . '/controllers/DashboardController.php';
 
+// Initialisation sécurisée du contexte utilisateur (Session)
+// Permet de maintenir l'état d'authentification et les droits d'accès à travers l'application.
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Récupération de la route demandée (Fallback sur 'home' si non spécifiée)
 $action = $_GET['action'] ?? 'home';
 
-// Système de routage via structure de garde (Switch)
+// Système de routage principal (Délégation MVC)
 switch (true) {
+
+    // -------------------------------------------------------------------
+    // ROUTE : GESTION DES DEVIS (Espace Public)
+    // -------------------------------------------------------------------
     case ($action === 'devis'):
         $controller = new QuoteController();
+        // Aiguillage selon le verbe HTTP : Traitement de formulaire (POST) ou Affichage (GET)
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $controller->submitQuote($_POST);
         } else {
@@ -28,6 +43,9 @@ switch (true) {
         }
         break;
 
+    // -------------------------------------------------------------------
+    // ROUTE : AUTHENTIFICATION (Espace Public / Admin)
+    // -------------------------------------------------------------------
     case ($action === 'login'):
         $authController = new AuthController();
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -37,18 +55,32 @@ switch (true) {
         }
         break;
 
+    // -------------------------------------------------------------------
+    // ROUTE : DÉCONNEXION (Espace Admin)
+    // -------------------------------------------------------------------
     case ($action === 'logout'):
         $authController = new AuthController();
         $authController->logout();
         break;
 
-    default: // Route par défaut : Accueil
-        // On prépare les variables nécessaires pour la vue si besoin (ex: gestion session)
+    // -------------------------------------------------------------------
+    // ROUTE : TABLEAU DE BORD (Espace Admin Sécurisé)
+    // -------------------------------------------------------------------
+    case ($action === 'dashboard'):
+        $dashboardController = new DashboardController();
+        $dashboardController->showDashboard();
+        break;
+
+    // -------------------------------------------------------------------
+    // ROUTE PAR DÉFAUT : PAGE D'ACCUEIL (Espace Public)
+    // -------------------------------------------------------------------
+    default:
+        // Préparation des variables de contexte pour personnaliser l'affichage de l'accueil
         $isLoggedIn = isset($_SESSION['user_id']);
         $userName = $_SESSION['user_name'] ?? '';
         $userRole = $_SESSION['user_role'] ?? '';
 
-        // On appelle proprement la vue isolée
+        // Injection directe de la vue (Page d'accueil statique ne nécessitant pas de traitement métier complexe)
         require_once __DIR__ . '/views/public/home.php';
         break;
 }

@@ -9,7 +9,7 @@
  * @package    InnovEventsManager
  * @subpackage Models\SQL
  * @author     Romain Remusat
- * @version    1.0.0
+ * @version    1.1.0
  */
 
 require_once __DIR__ . '/../../config/Database.php';
@@ -56,4 +56,30 @@ class Prospect
             ':event_type'   => htmlspecialchars($data['event_type'], ENT_QUOTES, 'UTF-8')
         ]);
     }
+
+    /**
+     * Récupère l'ensemble des demandes de devis (prospects).
+     * Les résultats sont triés par date de création décroissante (les plus récents en premier).
+     *
+     * @return array Tableau contenant tous les enregistrements de la table prospects.
+     */
+    public function findAll(): array
+    {
+        try {
+            // Préparation de la requête SQL (Tri par ID décroissant pour avoir les plus récents)
+            $query = "SELECT * FROM prospects ORDER BY id DESC";
+
+            $stmt = $this->db->prepare($query);
+            $stmt->execute();
+
+            // Récupération de tous les résultats sous forme de tableau associatif
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (\PDOException $e) {
+            // Enregistrement de l'erreur dans les logs du serveur sans bloquer l'application
+            error_log("Erreur lors de la récupération des prospects : " . $e->getMessage());
+            return []; // Retourne un tableau vide en cas d'échec pour éviter un crash de la vue
+        }
+    }
+
 }
