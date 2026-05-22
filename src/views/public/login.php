@@ -1,64 +1,68 @@
 <?php
 /**
- * Vue : Formulaire d'Authentification (Login)
+ * Vue : Formulaire d'Authentification (Login) - Version Modulaire Épurée
  *
- * Cette vue présente l'interface utilisateur permettant aux administrateurs,
- * employés et clients de s'authentifier. Elle est chargée par l'AuthController
- * et transmet de manière sécurisée (POST) les identifiants saisis au routeur.
+ * Ce fichier implémente l'interface de connexion sécurisée pour les utilisateurs
+ * de la plateforme (Back-Office de Chloé). Alignée sur les directives d'élégance
+ * et de minimalisme de la charte graphique, elle utilise le mécanisme des composants
+ * (Partials) pour l'en-tête et le pied de page afin d'assurer l'homogénéité du design.
+ *
+ * Sécurité et Ergonomie :
+ * - Chiffrement des flux : Transmission des données sensibles via la méthode HTTP POST.
+ * - Attributs d'accessibilité (RGAA) : Labels explicites liés aux contrôles correspondants.
+ * - Auto-complétion native activée pour fluidifier l'expérience utilisateur (UX).
  *
  * @package    InnovEventsManager
- * @subpackage Views\Public
+ * @subpackage Views/Public
  * @author     Romain Remusat
- * @version    1.1.0
+ * @version    2.0.0
  */
+
+// Définition du titre de l'onglet de navigation pour le composant d'en-tête global
+$pageTitle = "Connexion - Innov'Events Manager";
+
+// Architecture Modulaire : Chargement de l'en-tête global et de la barre de navigation
+require __DIR__ . '/../partials/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion - Innov'Events Manager</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-5">
+    <div class="container my-5 py-5">
+        <div class="row justify-content-center my-4">
+            <div class="col-md-6 col-lg-4">
 
-            <div class="card shadow-sm mt-5 border-0">
-                <div class="card-body p-4">
+                <div class="text-center mb-4">
+                    <h2 class="fw-bold text-dark tracking-tight">Espace Gestion</h2>
+                    <p class="text-muted small">Accédez à votre console d'administration sécurisée.</p>
+                </div>
 
-                    <h2 class="card-title text-center mb-3 text-primary">Connexion</h2>
-                    <p class="text-muted text-center mb-4">Accédez à votre espace sécurisé Innov'Events Manager.</p>
+                <div class="pt-4 divider-fine">
 
-                    <form action="index.php?action=login" method="POST">
+                    <form action="index.php?action=login" method="POST" class="d-flex flex-column gap-4">
 
-                        <div class="mb-3">
-                            <label for="email" class="form-label fw-bold">Adresse Email</label>
-                            <input type="email" class="form-control form-control-lg" id="email" name="email" required placeholder="exemple@innovevents.fr" autocomplete="email">
+                        <div>
+                            <label for="email" class="form-label label-minimal mb-2">Adresse Email</label>
+                            <input type="email" class="form-control-minimal" id="email" name="email" required placeholder="chloe@innovevents.fr" autocomplete="email">
                         </div>
 
-                        <div class="mb-4">
-                            <label for="password" class="form-label fw-bold">Mot de passe</label>
-                            <input type="password" class="form-control form-control-lg" id="password" name="password" required placeholder="••••••••" autocomplete="current-password">
+                        <div>
+                            <label for="password" class="form-label label-minimal mb-2">Mot de passe</label>
+                            <input type="password" class="form-control-minimal" id="password" name="password" required placeholder="••••••••" autocomplete="current-password">
                         </div>
 
-                        <div class="d-grid mt-4">
-                            <button type="submit" class="btn btn-primary btn-lg">Se connecter</button>
+                        <div class="mt-2">
+                            <button type="submit" class="btn btn-primary-custom w-100">Se connecter</button>
                         </div>
                     </form>
 
                     <div class="text-center mt-4">
-                        <a href="index.php" class="text-decoration-none text-secondary">← Retour à l'accueil</a>
+                        <a href="index.php" class="text-decoration-none small text-muted opacity-75">← Retour à l'accueil public</a>
                     </div>
-
                 </div>
-            </div>
 
+            </div>
         </div>
     </div>
-</div>
 
-</body>
-</html>
+<?php
+// Architecture Modulaire : Chargement du pied de page global (Fermeture des structures HTML)
+require __DIR__ . '/../partials/footer.php';
+?>
