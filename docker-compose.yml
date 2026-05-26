@@ -5,7 +5,7 @@ services:
     ports:
       - "8081:80"
     volumes:
-      - ./src:/var/www/html
+    - ./:/var/www/html
     depends_on:
       - db
       - mongodb
@@ -22,7 +22,7 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - db_data:/var/lib/mysql # <-- SAUVEGARDE DE LA BASE MYSQL
+      - db_data:/var/lib/mysql
     networks:
       - innovevents-net
 
