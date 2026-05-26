@@ -1,52 +1,46 @@
--- Suppression des tables si elles existent (pour pouvoir relancer le script)
-SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS quotes, events, prospects, users;
-SET FOREIGN_KEY_CHECKS = 1;
+-- =====================================================================
+-- SCRIPT D'INITIALISATION ALIGNÉ SUR LE DOSSIER TECHNIQUE ECF
+-- Version : 2.1.0
+-- Auteur : Romain Rémusat
+-- Description : Alignement strict des identifiants d'administration.
+-- =====================================================================
 
--- 1. Table des Utilisateurs
+-- 1. Nettoyage des anciennes structures pour éviter les conflits d'index
+DROP TABLE IF EXISTS prospects;
+DROP TABLE IF EXISTS users;
+
+-- 2. Structure de la table 'users' (Gestion des profils d'accès)
 CREATE TABLE users (
                        id INT AUTO_INCREMENT PRIMARY KEY,
-                       email VARCHAR(255) UNIQUE NOT NULL,
-                       password VARCHAR(255) NOT NULL,
-                       firstname VARCHAR(100),
-                       lastname VARCHAR(100),
-                       role ENUM('ADMIN', 'EMPLOYEE', 'CLIENT') NOT NULL DEFAULT 'CLIENT',
+                       firstname VARCHAR(50) NOT NULL,
+                       email VARCHAR(100) NOT NULL UNIQUE,
+                       password VARCHAR(255) NOT NULL, -- Stockage temporaire (MVP) avant implémentation du hachage v2
+                       role ENUM('ADMIN', 'EMPLOYEE', 'CLIENT') DEFAULT 'ADMIN',
                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 2. Table des Prospects (Leads du site web)
+-- 3. Structure de la table 'prospects' (Leads et besoins métiers)
 CREATE TABLE prospects (
                            id INT AUTO_INCREMENT PRIMARY KEY,
-                           company_name VARCHAR(255) NOT NULL,
-                           contact_name VARCHAR(255) NOT NULL,
-                           email VARCHAR(255) NOT NULL,
-                           phone VARCHAR(20),
-                           event_type VARCHAR(100),
-                           estimated_participants INT,
-                           status ENUM('en attente', 'contacté', 'converti', 'annulé') DEFAULT 'en attente',
+                           company_name VARCHAR(100) NOT NULL,
+                           contact_name VARCHAR(100) NOT NULL,
+                           email VARCHAR(100) NOT NULL,
+                           phone VARCHAR(20) NOT NULL,
+                           event_type VARCHAR(50) NOT NULL,
+                           event_date DATE NOT NULL,
+                           estimated_participants INT NOT NULL,
+                           budget DECIMAL(10, 2) NOT NULL,
+                           description TEXT NOT NULL,
+                           status ENUM('en attente', 'devis envoyé', 'accepté', 'refusé', 'terminé') DEFAULT 'en attente',
                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3. Table des Événements
-CREATE TABLE events (
-                        id INT AUTO_INCREMENT PRIMARY KEY,
-                        client_id INT NOT NULL,
-                        title VARCHAR(255) NOT NULL,
-                        description TEXT,
-                        event_date DATETIME NOT NULL,
-                        location VARCHAR(255),
-                        status ENUM('brouillon', 'devis envoyé', 'confirmé', 'terminé', 'annulé') DEFAULT 'brouillon',
-                        FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
+-- 4. Injection des données du document de rendu (Partie 1 - Compte Administrateur)
+INSERT INTO users (firstname, email, password, role)
+VALUES ('Chloé', 'chloe@innovevents.fr', 'password', 'ADMIN');
 
--- 4. Table des Devis (Quotes)
-CREATE TABLE quotes (
-                        id INT AUTO_INCREMENT PRIMARY KEY,
-                        event_id INT NOT NULL,
-                        amount_ht DECIMAL(10, 2) NOT NULL,
-                        tva_rate DECIMAL(5, 2) DEFAULT 20.00,
-                        amount_ttc DECIMAL(10, 2) AS (amount_ht * (1 + tva_rate / 100)) STORED,
-                        is_accepted BOOLEAN DEFAULT FALSE,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
+-- 5. Injection du jeu d'essai métier (Indispensable pour la démonstration du Dashboard)
+INSERT INTO prospects (company_name, contact_name, email, phone, event_type, event_date, estimated_participants, budget, description, status)
+VALUES
+    ('Test NoSQL Corp', 'Elon Mongo', 'elon@nosql.com', '0601020304', 'Séminaire', '2026-09-15', 120, 15000.00, 'Séminaire de rentrée avec animation Team Building et cocktail dînatoire.', 'en attente'),
+    ('AeroSpace SA', 'Thomas Pesquet', 'thomas@aero.fr', '0789456123', 'Gala', '2026-12-24', 350, 45000.00, 'Soirée de gala annuelle pour la remise des prix de l''innovation.', 'accepté');
