@@ -17,7 +17,7 @@ CREATE TABLE users (
 
 -- Injection Jeux d'essais Utilisateurs (Mot de passe haché : 'password')
 INSERT INTO users (email, password, firstname, lastname, role) VALUES
-                                                                   ('chloe@innovevents.fr', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Chloé', 'Admin', 'ADMIN'),
+                                                                   ('chloe@innovevents.fr', 'password', 'Chloé', 'Admin', 'ADMIN'),
                                                                    ('client@luxe.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Alice', 'Vancort', 'CLIENT');
 
 -- 2. Table Prospects (Flux du Formulaire de Devis)
