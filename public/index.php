@@ -73,6 +73,16 @@ switch (true) {
         break;
 
     // -------------------------------------------------------------------
+    // ROUTE : DÉTAILS D'UN PROSPECT (Espace Admin Sécurisé)
+    // -------------------------------------------------------------------
+    case ($action === 'view_prospect'):
+        $dashboardController = new DashboardController();
+        // On récupère l'ID depuis l'URL en le castant en int pour la sécurité
+        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        $dashboardController->showProspectDetails($id);
+        break;
+
+    // -------------------------------------------------------------------
     // ROUTE PAR DÉFAUT : PAGE D'ACCUEIL (Espace Public)
     // -------------------------------------------------------------------
     default:

@@ -58,4 +58,41 @@ class DashboardController
         require __DIR__ . '/../views/admin/dashboard.php';
         require __DIR__ . '/../views/partials/footer.php';
     }
+
+    /**
+     * Orchestre l'affichage des détails complets d'un prospect.
+     *
+     * @param int $id Identifiant du prospect à afficher.
+     * @return void
+     */
+    public function showProspectDetails(int $id): void
+    {
+        // 1. Contrôle de sécurité de la session
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        // Clause de garde (Guard Clause)
+        if (empty($_SESSION['user_id'])) {
+            header('Location: index.php?action=login');
+            exit;
+        }
+
+        // 2. Récupération du prospect via le Modèle
+        $prospectModel = new Prospect();
+        $prospect = $prospectModel->find($id);
+
+        // Si le prospect n'existe pas, redirection de sécurité vers le dashboard
+        if (!$prospect) {
+            header('Location: index.php?action=dashboard');
+            exit;
+        }
+
+        // 3. Préparation du contexte pour la vue
+        $pageTitle = "Détails du Prospect - " . htmlspecialchars($prospect['company_name']);
+
+        // 4. Rendu de la vue (Pas besoin de header.php/footer.php classiques car on garde la sidebar)
+        require __DIR__ . '/../views/admin/view_prospect.php';
+
+    }
 }

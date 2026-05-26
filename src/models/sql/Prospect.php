@@ -86,4 +86,25 @@ class Prospect
         }
     }
 
+    /**
+     * Recherche et récupère un prospect unique par son identifiant.
+     * Utilise une requête préparée pour faire barrage aux injections SQL.
+     *
+     * @param int $id L'identifiant unique du prospect.
+     * @return array|false Tableau associatif des données du prospect ou false si non trouvé.
+     */
+    public function find(int $id)
+    {
+        try {
+            $query = "SELECT * FROM prospects WHERE id = :id LIMIT 1";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':id' => $id]);
+
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            error_log("Erreur lors de la récupération du prospect $id : " . $e->getMessage());
+            return false;
+        }
+    }
+
 }
