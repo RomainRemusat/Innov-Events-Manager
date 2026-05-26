@@ -14,9 +14,10 @@
  */
 
 // Chargement des dépendances métiers (Contrôleurs)
-require_once __DIR__ . '/controllers/QuoteController.php';
-require_once __DIR__ . '/controllers/AuthController.php';
-require_once __DIR__ . '/controllers/DashboardController.php';
+// Mise à jour des chemins : on remonte du dossier public/ vers le dossier src/
+require_once __DIR__ . '/../src/controllers/QuoteController.php';
+require_once __DIR__ . '/../src/controllers/AuthController.php';
+require_once __DIR__ . '/../src/controllers/DashboardController.php';
 
 // Initialisation sécurisée du contexte utilisateur (Session)
 // Permet de maintenir l'état d'authentification et les droits d'accès à travers l'application.
@@ -80,7 +81,7 @@ switch (true) {
         $userName = $_SESSION['user_name'] ?? '';
         $userRole = $_SESSION['user_role'] ?? '';
 
-        // Injection directe de la vue (Page d'accueil statique ne nécessitant pas de traitement métier complexe)
-        require_once __DIR__ . '/views/public/home.php';
+        // Injection directe de la vue (Chemin mis à jour vers src/)
+        require_once __DIR__ . '/../src/views/public/home.php';
         break;
 }
