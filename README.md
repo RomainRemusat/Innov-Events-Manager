@@ -37,7 +37,7 @@ Pour exécuter cette application sur votre machine, suivez les étapes ci-dessou
    * **Mot de passe :** `root_password`
 
 
-   *(Veuillez exécuter le script SQL fourni dans l'onglet SQL de phpMyAdmin pour générer le schéma métier complet `innovevents_db` et le compte d'administration par défaut).*
+   *(Veuillez exécuter le script SQL fourni : /script/test_data.sql dans l'onglet SQL de phpMyAdmin pour générer le schéma métier complet `innovevents_db` et le compte d'administration par défaut).*
 
 4. **Accès aux services :**
    * **Application Web Publique :** `http://localhost:8081`
