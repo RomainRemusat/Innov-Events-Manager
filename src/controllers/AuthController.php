@@ -10,7 +10,7 @@
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    1.1.0
+ * @version    1.2.0
  */
 
 require_once __DIR__ . '/../models/sql/User.php';
@@ -36,13 +36,15 @@ class AuthController
      * Cette méthode intercepte les données POST, applique des filtres de sécurité
      * sanitaires, interroge le modèle d'accès aux données pour vérifier l'existence
      * du compte, valide les droits d'accès et initialise la session en cas de succès.
+     * Une fois le contexte de sécurité établi, l'utilisateur est redirigé vers
+     * le tableau de bord d'administration (Back-Office).
      *
      * @param array $postData Tableau associatif contenant les données du formulaire ($_POST).
      * @return void
      */
     public function login(array $postData): void
     {
-        // Assainissement et validation du format de l'adresse email
+        // Assainissement et validation du format de l'adresse email (Programmation défensive)
         $email = filter_var($postData['email'] ?? '', FILTER_VALIDATE_EMAIL);
         $password = $postData['password'] ?? '';
 
@@ -50,10 +52,10 @@ class AuthController
         if (!$email || empty($password)) {
             echo "<div class='container mt-5'><div class='alert alert-danger text-center'>Veuillez remplir tous les champs correctement.</div></div>";
             $this->showLoginForm();
-            return;
+            return; // Interruption précoce du flux (Early Return)
         }
 
-        // Instanciation du modèle d'accès aux données SQL de l'utilisateur
+        // Instanciation de la couche d'accès aux données de l'utilisateur (DAL)
         $userModel = new User();
         $user = $userModel->findByEmail($email);
 
@@ -70,7 +72,7 @@ class AuthController
                 session_start();
             }
 
-            // Hydratation des variables de session avec les données de l'utilisateur connecté
+            // Hydratation des variables de session avec les données de l'utilisateur authentifié
             $_SESSION['user_id']    = $user['id'];
             $_SESSION['user_email'] = $user['email'];
 
@@ -80,19 +82,20 @@ class AuthController
             // Alignement avec la structure physique de la table users (colonne 'firstname')
             $_SESSION['user_name']  = $user['firstname'] ?? 'Chloé';
 
-            // Redirection immédiate vers le point d'entrée de l'application
-            header('Location: index.php');
+            // --- CORRECTION APPORTÉE : REDIRECTION CIBLÉE ---
+            // Redirection immédiate vers le point d'entrée de l'espace d'administration sécurisé
+            header('Location: index.php?action=dashboard');
             exit();
 
         } else {
-            // Gestion de l'échec d'authentification : notification générique pour éviter le user enumeration
+            // Gestion de l'échec d'authentification : notification générique pour prévenir l'énumération d'utilisateurs (User Enumeration)
             echo "<div class='container mt-5'><div class='alert alert-danger text-center'>Email ou mot de passe incorrect.</div></div>";
             $this->showLoginForm();
         }
     }
 
     /**
-     * Clôture la session de l'utilisateur (Déconnexion).
+     * Clôture la session de l'utilisateur (Déconnexion sécurisée).
      *
      * Restaure le contexte de session, supprime toutes les variables globales associées,
      * détruit physiquement la session sur le serveur pour prévenir les attaques de fixation
@@ -106,7 +109,7 @@ class AuthController
             session_start();
         }
 
-        // Nettoyage complet du tableau des variables de session
+        // Nettoyage complet du tableau des variables de session en mémoire
         $_SESSION = array();
 
         // Destruction physique des données de session stockées côté serveur
