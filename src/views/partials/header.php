@@ -50,6 +50,7 @@ if (session_status() === PHP_SESSION_NONE) {
                 <li class="nav-item"><a class="nav-link text-white-50 text-uppercase fw-semibold" style="font-size: 0.85rem;" href="index.php#partenaires">Partenaires</a></li>
 
                 <?php if (isset($_SESSION['user_id'])): ?>
+                    <li class="nav-item"><a class="btn btn-light  btn-sm me-2" href="index.php?action=dashboard"><i class="bi bi-speedometer2 me-2"></i> Tableau de bord</a></li>
                     <li class="nav-item"><a class="btn btn-danger btn-sm px-3" href="index.php?action=logout">Déconnexion</a></li>
                 <?php else: ?>
                     <li class="nav-item"><a class="btn btn-sm btn-outline-light px-3" href="index.php?action=login" style="font-size: 0.85rem;">Espace Pro</a></li>

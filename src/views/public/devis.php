@@ -25,44 +25,6 @@ $pageTitle = "Innov'Events - Demande de Devis";
 require __DIR__ . '/../partials/header.php';
 ?>
 
-    <style>
-        .hero-gallery-fullwidth {
-            position: relative;
-            background-color: #0F172A;
-            width: 100%;
-            overflow: hidden;
-        }
-        /* Masque de contraste pour optimiser la lisibilité du texte blanc (Norme Accessibilité WCAG) */
-        .gallery-overlay-immersive {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.5) 100%);
-            z-index: 2;
-        }
-        .gallery-carousel-inner {
-            height: 420px; /* Légère augmentation de la hauteur pour équilibrer le ratio grand écran */
-        }
-        .gallery-img {
-            object-fit: cover;
-            width: 100%;
-            height: 100%;
-            opacity: 0.8;
-        }
-        .hero-gallery-content-wrapper {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 3;
-            display: flex;
-            align-items: center;
-        }
-    </style>
-
     <header class="container-fluid px-0 mb-5">
         <div class="hero-gallery-fullwidth shadow-sm">
             <div class="gallery-overlay-immersive"></div>
@@ -103,52 +65,73 @@ require __DIR__ . '/../partials/header.php';
     <main class="container my-5">
         <div class="pt-4">
             <h2 class="fw-bold text-dark  mb-5  tracking-wide" >Parlez-nous de votre projet.</h2>
+            <form action="index.php?action=submit_quote" method="POST" class="p-4 border rounded shadow-sm bg-white">
 
-            <form action="index.php?action=devis" method="POST" class="row g-4 border p-4">
-
-                <div class="col-md-6">
-                    <label for="company_name" class="form-label label-minimal mb-2">Nom de l'entreprise *</label>
-                    <input type="text" class="form-control-minimal" id="company_name" name="company_name" placeholder="Ex: TechCorp" required>
-                </div>
-
-                <div class="col-md-6">
-                    <label for="contact_name" class="form-label label-minimal mb-2">Nom & Prénom du contact *</label>
-                    <input type="text" class="form-control-minimal" id="contact_name" name="contact_name" placeholder="Ex: Jean Dupont" required>
-                </div>
-
-                <div class="col-md-6">
-                    <label for="email" class="form-label label-minimal mb-2">Adresse email professionnelle *</label>
-                    <input type="email" class="form-control-minimal" id="email" name="email" placeholder="Ex: j.dupont@entreprise.com" required>
-                </div>
-
-                <div class="col-md-6">
-                    <label for="phone" class="form-label label-minimal mb-2">Numéro de téléphone *</label>
-                    <input type="tel" class="form-control-minimal" id="phone" name="phone" placeholder="Ex: 01 23 45 67 89" required>
-                </div>
-
-                <div class="col-md-6">
-                    <label for="event_type" class="form-label label-minimal mb-2">Type d'événement envisagé *</label>
-                    <select class="form-control-minimal form-select" id="event_type" name="event_type" required>
-                        <option value="" selected disabled>Choisir une option...</option>
-                        <option value="Séminaire">Séminaire & Team Building</option>
-                        <option value="Soirée d'entreprise">Soirée d'Entreprise & Gala</option>
-                        <option value="Conférence">Conférence & Congrès</option>
-                        <option value="Autre">Autre Projet unique</option>
-                    </select>
-                </div>
-
-                <div class="col-12 my-3">
-                    <div class="form-check text-muted">
-                        <input class="form-check-input" type="checkbox" id="rgpd_check" required checked>
-                        <label class="form-check-label lh-sm opacity-75" for="rgpd_check" style="font-size: 0.8rem;">
-                            J'accepte que mes données soient traitées dans le cadre de ma demande de devis conformément aux directives RGPD.
-                        </label>
+                <div class="row mb-3">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <label for="company_name" class="form-label text-muted small fw-bold">NOM DE L'ENTREPRISE *</label>
+                        <input type="text" class="form-control" id="company_name" name="company_name" placeholder="Ex: TechCorp" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="contact_name" class="form-label text-muted small fw-bold">NOM & PRÉNOM DU CONTACT *</label>
+                        <input type="text" class="form-control" id="contact_name" name="contact_name" placeholder="Ex: Jean Dupont" required>
                     </div>
                 </div>
 
-                <div class="col-12 mt-4">
-                    <button type="submit" class="btn btn-primary-custom">Envoyer la demande</button>
+                <div class="row mb-3">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <label for="email" class="form-label text-muted small fw-bold">ADRESSE EMAIL PROFESSIONNELLE *</label>
+                        <input type="email" class="form-control" id="email" name="email" placeholder="Ex: j.dupont@entreprise.com" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="phone" class="form-label text-muted small fw-bold">NUMÉRO DE TÉLÉPHONE *</label>
+                        <input type="tel" class="form-control" id="phone" name="phone" placeholder="Ex: 01 23 45 67 89" required>
+                    </div>
                 </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <label for="event_type" class="form-label text-muted small fw-bold">TYPE D'ÉVÉNEMENT *</label>
+                        <select class="form-select" id="event_type" name="event_type" required>
+                            <option value="" selected disabled>Choisir une option...</option>
+                            <option value="Séminaire">Séminaire</option>
+                            <option value="Soirée de Gala">Soirée de Gala</option>
+                            <option value="Lancement de produit">Lancement de produit</option>
+                            <option value="Team Building">Team Building</option>
+                            <option value="Autre">Autre</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <label for="event_date" class="form-label text-muted small fw-bold">DATE SOUHAITÉE *</label>
+                        <input type="date" class="form-control" id="event_date" name="event_date" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="estimated_participants" class="form-label text-muted small fw-bold">PARTICIPANTS *</label>
+                        <input type="number" class="form-control" id="estimated_participants" name="estimated_participants" placeholder="Ex: 50" min="1" required>
+                    </div>
+                    <div class="col-md-6 mb-3 mb-md-3">
+                        <label for="budget" class="form-label text-muted small fw-bold">BUDGET ESTIMÉ (€) *</label>
+                        <input type="number" class="form-control" id="budget" name="budget" placeholder="Ex: 5000" min="0" step="100" required>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <label for="description" class="form-label text-muted small fw-bold">DESCRIPTION DU PROJET *</label>
+                        <textarea class="form-control" id="description" name="description" rows="8" placeholder="Décrivez brièvement vos attentes (ex: besoin d'un traiteur, location de salle...)" required></textarea>
+                    </div>
+                </div>
+
+                <div class="form-check mb-4">
+                    <input class="form-check-input" type="checkbox" id="rgpd_consent" name="rgpd_consent" required>
+                    <label class="form-check-label text-muted small" for="rgpd_consent">
+                        J'accepte que mes données soient traitées dans le cadre de ma demande de devis conformément aux directives RGPD.
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-primary px-4 py-2 fw-bold" style="background-color: #4b6bfb; border: none;">
+                    ENVOYER LA DEMANDE
+                </button>
             </form>
         </div>
     </main>
