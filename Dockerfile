@@ -14,7 +14,7 @@ ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/do
 #install-php-extensions pdo pdo_mysql -> mongodb <- PECL non dispo actuellement 26/05/2026
 
 RUN chmod +x /usr/local/bin/install-php-extensions && \
-    install-php-extensions pdo pdo_mysql
+    install-php-extensions pdo pdo_mysql mongodb
 
 # Active le module de réécriture d'Apache
 RUN a2enmod rewrite
