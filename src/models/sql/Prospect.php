@@ -41,19 +41,23 @@ class Prospect
     {
         // Préparation de la requête SQL d'insertion.
         // Le statut est forcé par défaut selon la spécification fonctionnelle.
-        $sql = "INSERT INTO prospects (company_name, contact_name, email, phone, event_type, status) 
-                VALUES (:company_name, :contact_name, :email, :phone, :event_type, 'en attente')";
+        $sql = "INSERT INTO prospects (company_name, contact_name, email, phone, event_type, event_date, estimated_participants, budget, description) 
+            VALUES (:company_name, :contact_name, :email, :phone, :event_type, :event_date, :estimated_participants, :budget, :description)";
 
         // Sécurisation contre les injections SQL grâce à l'utilisation d'une requête préparée
         $stmt = $this->db->prepare($sql);
 
         // Exécution de la requête avec nettoyage et sanitisation des entrées (Protection failles XSS)
         return $stmt->execute([
-            ':company_name' => htmlspecialchars($data['company_name'], ENT_QUOTES, 'UTF-8'),
-            ':contact_name' => htmlspecialchars($data['contact_name'], ENT_QUOTES, 'UTF-8'),
-            ':email'        => filter_var($data['email'], FILTER_SANITIZE_EMAIL),
-            ':phone'        => htmlspecialchars($data['phone'], ENT_QUOTES, 'UTF-8'),
-            ':event_type'   => htmlspecialchars($data['event_type'], ENT_QUOTES, 'UTF-8')
+            ':company_name'           => $data['company_name'],
+            ':contact_name'           => $data['contact_name'],
+            ':email'                  => $data['email'],
+            ':phone'                  => $data['phone'],
+            ':event_type'             => $data['event_type'],
+            ':event_date'             => $data['event_date'] ?? null,
+            ':estimated_participants' => $data['estimated_participants'] ?? null,
+            ':budget'                 => $data['budget'] ?? null,
+            ':description'            => htmlspecialchars($data['description'] ?? '', ENT_QUOTES, 'UTF-8')
         ]);
     }
 

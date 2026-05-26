@@ -203,10 +203,13 @@ foreach ($prospects as $p) {
                                                 </td>
                                                 <td>
                                                     <span class="badge bg-secondary"><?= htmlspecialchars($prospect['event_type']) ?></span>
-                                                    <div class="small text-muted mt-1"><i class="fa-solid fa-calendar me-1"></i><?= date('d/m/Y', strtotime($prospect['event_date'])) ?></div>
+                                                    <div class="small text-muted mt-1">
+                                                        <i class="fa-solid fa-calendar me-1"></i>
+                                                        <?= $prospect['event_date'] ? date('d/m/Y', strtotime($prospect['event_date'])) : 'Non définie' ?>
+                                                    </div>
                                                 </td>
                                                 <td class="fw-bold text-secondary">
-                                                    <?= number_format($prospect['budget'], 2, ',', ' ') ?> €
+                                                    <?= number_format($prospect['budget'] ?? 0, 2, ',', ' ') ?> €
                                                 </td>
                                                 <td>
                                                     <?php
