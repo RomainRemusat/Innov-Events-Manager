@@ -88,3 +88,6 @@ Pour garantir la qualité du code, les suites de tests suivantes sont intégrée
 * **Tests Unitaires :** Validation des composants métier.
 * **Tests Fonctionnels & E2E :** Vérification des parcours utilisateurs critiques.
 * **Couverture de code :** Un rapport de couverture sera disponible dans la documentation technique finale.
+
+
+Note pour le jury : L'architecture a été optimisée sur la branche dev (Sprint 2). Pour tester cette branche, merci de lancer docker-compose up -d --build après le checkout.
