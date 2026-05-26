@@ -107,4 +107,27 @@ class Prospect
         }
     }
 
+
+    /**
+     * Met à jour le statut d'un prospect spécifique.
+     *
+     * @param int    $id     L'identifiant unique du prospect.
+     * @param string $status Le nouveau statut à appliquer.
+     * @return bool True en cas de succès, false sinon.
+     */
+    public function updateStatus(int $id, string $status): bool
+    {
+        try {
+            $query = "UPDATE prospects SET status = :status WHERE id = :id";
+            $stmt = $this->db->prepare($query);
+
+            return $stmt->execute([
+                ':status' => $status,
+                ':id'     => $id
+            ]);
+        } catch (\PDOException $e) {
+            error_log("Erreur lors de la mise à jour du statut pour le prospect $id : " . $e->getMessage());
+            return false;
+        }
+    }
 }

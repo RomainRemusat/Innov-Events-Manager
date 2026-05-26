@@ -83,6 +83,14 @@ switch (true) {
         break;
 
     // -------------------------------------------------------------------
+    // ROUTE : MISE À JOUR DU STATUT PROSPECT (Requête POST - Admin)
+    // -------------------------------------------------------------------
+    case ($action === 'update_prospect_status'):
+        $dashboardController = new DashboardController();
+        $dashboardController->updateProspectStatus();
+        break;
+
+    // -------------------------------------------------------------------
     // ROUTE PAR DÉFAUT : PAGE D'ACCUEIL (Espace Public)
     // -------------------------------------------------------------------
     default:

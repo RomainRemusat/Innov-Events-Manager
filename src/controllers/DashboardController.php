@@ -93,6 +93,45 @@ class DashboardController
 
         // 4. Rendu de la vue (Pas besoin de header.php/footer.php classiques car on garde la sidebar)
         require __DIR__ . '/../views/admin/view_prospect.php';
+    }
+    /**
+     * Traite la soumission du formulaire de changement de statut (Requête POST).
+     *
+     * @return void
+     */
+    public function updateProspectStatus(): void
+    {
+        // 1. Contrôle de sécurité d'accès
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
 
+        if (empty($_SESSION['user_id'])) {
+            header('Location: index.php?action=login');
+            exit;
+        }
+
+        // 2. Vérification de la présence des données requises en POST
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['id']) && !empty($_POST['status'])) {
+            $id = (int)$_POST['id'];
+            // Sanitisation de base du statut
+            $status = htmlspecialchars(trim($_POST['status']), ENT_QUOTES, 'UTF-8');
+
+            // 3. Appel de la couche Modèle pour persistance
+            $prospectModel = new Prospect();
+            $success = $prospectModel->updateStatus($id, $status);
+
+            if ($success) {
+                // Redirection flash vers la fiche avec un paramètre de succès si tu veux (optionnel)
+                header("Location: index.php?action=view_prospect&id=" . $id);
+                exit;
+            } else {
+                die("Erreur technique : Impossible de mettre à jour le statut commercial.");
+            }
+        } else {
+            // Si accès frauduleux ou incomplet, retour au tableau de bord
+            header('Location: index.php?action=dashboard');
+            exit;
+        }
     }
 }

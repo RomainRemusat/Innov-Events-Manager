@@ -65,7 +65,7 @@ require __DIR__ . '/../partials/header.php';
     <main class="container my-5">
         <div class="pt-4">
             <h2 class="fw-bold text-dark  mb-5  tracking-wide" >Parlez-nous de votre projet.</h2>
-            <form action="index.php?action=submit_quote" method="POST" class="p-4 border rounded shadow-sm bg-white">
+            <form action="index.php?action=devis" method="POST" class="p-4 border rounded shadow-sm bg-white">
 
                 <div class="row mb-3">
                     <div class="col-md-6 mb-3 mb-md-0">
