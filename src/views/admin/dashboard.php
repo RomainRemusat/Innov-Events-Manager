@@ -1,40 +1,50 @@
 <?php
 /**
- * Vue : Dashboard d'Administration
+ * Vue : Dashboard d'Administration (Haute Fidélité)
  *
- * Interface principale du Back-Office (Tableau de bord Haute Fidélité).
- * Elle présente les indicateurs clés de performance (KPI) calculés dynamiquement,
- * la liste décisionnelle des prospects issus de MySQL, ainsi que le fil
- * d'activité transverse ("Pilotages").
+ * Interface principale du Back-Office. Elle agrège les données issues de
+ * la double persistance (Polyglot Persistence) :
+ * 1. MySQL (Données structurées) : Calcul des KPI et gestion du cycle de vie des prospects.
+ * 2. MongoDB (Données orientées documents) : Affichage du flux d'audit en temps réel.
  *
  * @package    InnovEventsManager
  * @subpackage Views\Admin
  * @author     Romain Remusat
- * @version    2.0.0
- * * @var array $prospects Liste des prospects transmise par le DashboardController.
+ * @version    2.1.0
+ *
+ * @var array $prospects    Liste des prospects (MySQL) injectée par le DashboardController.
+ * @var array $activityLogs Liste des logs d'audit (MongoDB) injectée par le DashboardController.
  */
 
-// Sécurité : Block d'accès direct si la session n'est pas initialisée
+// -----------------------------------------------------------------------------
+// CLAUSE DE GARDE : Sécurisation de l'accès à la vue (Guard Pattern)
+// -----------------------------------------------------------------------------
 if (!isset($_SESSION['user_id'])) {
     header('Location: index.php?action=login');
     exit();
 }
 
-// --- CALCUL DYNAMIQUE DES KPI (Basé sur le jeu de données MySQL) ---
+// -----------------------------------------------------------------------------
+// MOTEUR DE CALCUL DES KPI (Indicateurs Clés de Performance)
+// Algorithme d'agrégation basé sur les règles métiers de l'entreprise
+// -----------------------------------------------------------------------------
 $totalProspects = count($prospects);
 $projetsEnAttente = 0;
 $caPrevisionnel = 0;
 $clientsActifs = 0;
 
 foreach ($prospects as $p) {
+    // Comptage des flux entrants nécessitant une action
     if ($p['status'] === 'en attente') {
         $projetsEnAttente++;
     }
+    // Un devis accepté ou terminé transforme un prospect en "Client Actif"
     if ($p['status'] === 'accepté' || $p['status'] === 'terminé') {
-        $clientsActifs++; // Un devis accepté valide un client actif
+        $clientsActifs++;
     }
+    // Calcul du pipeline financier (on exclut uniquement les projets refusés)
     if ($p['status'] !== 'refusé') {
-        $caPrevisionnel += $p['budget']; // Cumul des budgets des projets viables
+        $caPrevisionnel += $p['budget'];
     }
 }
 ?>
@@ -53,7 +63,7 @@ foreach ($prospects as $p) {
         .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background-color: rgba(255,255,255,0.1); border-radius: 4px; }
         .sidebar-heading { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1rem; color: #6c757d; padding: 0.75rem 1rem 0.25rem; }
         .kpi-card { border: none; border-radius: 10px; transition: transform 0.2s; }
-        .kpi-card:hover { transform: translateY(-5px); }
+        .kpi-card:hover { transform: translateY(-5px); } /* Effet de survol UX */
         .status-badge { font-size: 0.85rem; padding: 0.4em 0.6em; }
     </style>
 </head>
@@ -69,8 +79,8 @@ foreach ($prospects as $p) {
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-4 border-bottom">
                 <h1 class="h2 fw-bold text-dark">Tableau de bord</h1>
                 <div class="btn-toolbar mb-2 mb-md-0">
-                    <span class="badge bg-dark p-2 fs-6">
-                        <i class="fa-solid fa-user-shield me-2"></i> Session : <?= htmlspecialchars($_SESSION['user_name']) ?> (<?= htmlspecialchars($_SESSION['user_role']) ?>)
+                    <span class="badge bg-dark p-2 fs-6 shadow-sm">
+                        <i class="fa-solid fa-user-shield me-2"></i> Session : <?= htmlspecialchars($_SESSION['user_name'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($_SESSION['user_role'], ENT_QUOTES, 'UTF-8') ?>)
                     </span>
                 </div>
             </div>
@@ -144,17 +154,17 @@ foreach ($prospects as $p) {
                                     <tbody>
                                     <?php if (empty($prospects)): ?>
                                         <tr>
-                                            <td colspan="5" class="text-center py-4 text-muted">Aucune demande de devis enregistrée.</td>
+                                            <td colspan="5" class="text-center py-4 text-muted">Aucune demande de devis enregistrée en base.</td>
                                         </tr>
                                     <?php else: ?>
                                         <?php foreach ($prospects as $prospect): ?>
                                             <tr>
                                                 <td>
-                                                    <div class="fw-bold text-dark"><?= htmlspecialchars($prospect['company_name']) ?></div>
-                                                    <small class="text-muted"><i class="fa-solid fa-user me-1"></i><?= htmlspecialchars($prospect['contact_name']) ?></small>
+                                                    <div class="fw-bold text-dark"><?= htmlspecialchars($prospect['company_name'], ENT_QUOTES, 'UTF-8') ?></div>
+                                                    <small class="text-muted"><i class="fa-solid fa-user me-1"></i><?= htmlspecialchars($prospect['contact_name'], ENT_QUOTES, 'UTF-8') ?></small>
                                                 </td>
                                                 <td>
-                                                    <span class="badge bg-secondary"><?= htmlspecialchars($prospect['event_type']) ?></span>
+                                                    <span class="badge bg-secondary"><?= htmlspecialchars($prospect['event_type'], ENT_QUOTES, 'UTF-8') ?></span>
                                                     <div class="small text-muted mt-1">
                                                         <i class="fa-solid fa-calendar me-1"></i>
                                                         <?= $prospect['event_date'] ? date('d/m/Y', strtotime($prospect['event_date'])) : 'Non définie' ?>
@@ -165,18 +175,19 @@ foreach ($prospects as $p) {
                                                 </td>
                                                 <td>
                                                     <?php
+                                                    // Sémantique visuelle dynamique des états (State Pattern UI)
                                                     $badgeColor = 'bg-warning text-dark';
                                                     if ($prospect['status'] === 'accepté') $badgeColor = 'bg-success';
                                                     if ($prospect['status'] === 'refusé') $badgeColor = 'bg-danger';
                                                     if ($prospect['status'] === 'devis envoyé') $badgeColor = 'bg-info text-dark';
                                                     ?>
-                                                    <span class="badge <?= $badgeColor ?> status-badge"><?= ucfirst(htmlspecialchars($prospect['status'])) ?></span>
+                                                    <span class="badge <?= $badgeColor ?> status-badge"><?= ucfirst(htmlspecialchars($prospect['status'], ENT_QUOTES, 'UTF-8')) ?></span>
                                                 </td>
                                                 <td class="text-center">
-                                                    <a href="index.php?action=view_prospect&id=<?= $prospect['id'] ?>" class="btn btn-sm btn-outline-primary me-1" title="Voir les détails">
+                                                    <a href="index.php?action=view_prospect&id=<?= (int)$prospect['id'] ?>" class="btn btn-sm btn-outline-primary me-1" title="Voir les détails">
                                                         <i class="fa-solid fa-eye"></i>
                                                     </a>
-                                                    <a href="index.php?action=view_prospect&id=<?= $prospect['id'] ?>" class="btn btn-sm btn-outline-success" title="Traiter">
+                                                    <a href="index.php?action=view_prospect&id=<?= (int)$prospect['id'] ?>" class="btn btn-sm btn-outline-success" title="Traiter">
                                                         <i class="fa-solid fa-pen-to-square"></i>
                                                     </a>
                                                 </td>
@@ -196,29 +207,55 @@ foreach ($prospects as $p) {
                             <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-bolt me-2 text-warning"></i> Pilotages & Flux</h5>
                         </div>
                         <div class="card-body">
+
                             <div class="timeline" style="border-left: 2px solid #e9ecef; padding-left: 20px; margin-left: 10px;">
+                                <?php if (empty($activityLogs)): ?>
+                                    <div class="text-muted small fst-italic">Aucune activité récente n'a été enregistrée dans le journal système.</div>
+                                <?php else: ?>
+                                    <?php foreach ($activityLogs as $log): ?>
+                                        <div class="mb-4 position-relative">
+                                            <?php
+                                            // Choix de la couleur selon le type d'action pour alerter visuellement l'admin
+                                            $color = 'primary';
+                                            $logAction = strtolower($log['action'] ?? '');
+                                            if (strpos($logAction, 'erreur') !== false) $color = 'danger'; // Alerte critique
+                                            if (strpos($logAction, 'succès') !== false) $color = 'success'; // Validation
+                                            ?>
+                                            <i class="fa-solid fa-circle text-<?= $color ?> position-absolute fs-6 bg-white" style="left: -26px; top: 4px;"></i>
 
-                                <div class="mb-4 position-relative">
-                                    <i class="fa-solid fa-circle text-primary position-absolute fs-6 bg-white" style="left: -26px; top: 4px;"></i>
-                                    <span class="small text-muted">Aujourd'hui, 11:15</span>
-                                    <p class="mb-0 text-dark"><strong>Chloé</strong> a validé la demande de <em>AeroSpace SA</em>.</p>
-                                </div>
+                                            <span class="small text-muted fw-bold">
+                                                <?php
+                                                // Gestion de la compatibilité : MongoDB stocke par défaut en objet BSON UTCDateTime
+                                                if (isset($log['created_at'])) {
+                                                    if (is_object($log['created_at']) && method_exists($log['created_at'], 'toDateTime')) {
+                                                        echo $log['created_at']->toDateTime()->setTimezone(new DateTimeZone('Europe/Paris'))->format('d/m/Y, H:i');
+                                                    } else {
+                                                        // Fallback si la date est un simple string
+                                                        echo date('d/m/Y, H:i', strtotime((string)$log['created_at']));
+                                                    }
+                                                } else {
+                                                    echo 'Date inconnue';
+                                                }
+                                                ?>
+                                            </span>
 
-                                <div class="mb-4 position-relative">
-                                    <i class="fa-solid fa-circle text-warning position-absolute fs-6 bg-white" style="left: -26px; top: 4px;"></i>
-                                    <span class="small text-muted">Hier, 16:40</span>
-                                    <p class="mb-0 text-dark"><strong>José</strong> a ajouté une note interne sur le prospect <em>Test NoSQL Corp</em>.</p>
-                                </div>
+                                            <p class="mb-0 text-dark">
+                                                <?= htmlspecialchars($log['message'] ?? $log['action'] ?? 'Action système enregistrée', ENT_QUOTES, 'UTF-8') ?>
+                                            </p>
 
-                                <div class="mb-0 position-relative">
-                                    <i class="fa-solid fa-circle text-success position-absolute fs-6 bg-white" style="left: -26px; top: 4px;"></i>
-                                    <span class="small text-muted">22 Mai, 09:12</span>
-                                    <p class="mb-0 text-dark">Nouvelle demande de devis reçue via le formulaire public.</p>
-                                </div>
-
+                                            <?php if (!empty($log['ip_address'])): ?>
+                                                <small class="text-muted" style="font-size: 0.7rem;">
+                                                    <i class="fa-solid fa-network-wired me-1"></i>IP: <?= htmlspecialchars($log['ip_address'], ENT_QUOTES, 'UTF-8') ?>
+                                                </small>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
                             </div>
                             <hr>
-                            <small class="text-muted d-block text-center"><i class="fa-solid fa-info-circle me-1"></i>Ce flux sera alimenté par MongoDB au Sprint 2.</small>
+                            <small class="text-success d-block text-center fw-bold">
+                                <i class="fa-solid fa-database me-1"></i>Flux d'audit sécurisé propulsé par MongoDB.
+                            </small>
                         </div>
                     </div>
                 </div>
