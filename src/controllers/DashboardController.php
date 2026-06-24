@@ -50,6 +50,11 @@ class DashboardController
         $prospectModel = new Prospect();
         $prospects = $prospectModel->findAll();
 
+        // Récupération des Logs (MongoDB) pour le widget
+        $logModel = new Log();
+        $activityLogs = $logModel->getLatestLogs(5); // On n'en affiche que 5 dans le widget
+
+
         // 4. Préparation du contexte d'affichage (Variables injectées dans les vues).
         $pageTitle = "Tableau de Bord - Innov'Events";
 
@@ -122,6 +127,8 @@ class DashboardController
             $success = $prospectModel->updateStatus($id, $status);
 
             if ($success) {
+                $logModel = new Log();
+                $logModel->addLog("Mise à jour statut", "Le prospect ID #$id a été passé en statut : $status");
                 // Redirection flash vers la fiche avec un paramètre de succès si tu veux (optionnel)
                 header("Location: index.php?action=view_prospect&id=" . $id);
                 exit;

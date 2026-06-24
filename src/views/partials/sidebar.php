@@ -43,7 +43,7 @@ $currentAction = $_GET['action'] ?? 'dashboard';
             </a>
         </li>
         <li class="nav-item">
-            <a class="nav-link <?= $currentAction === 'mongo_logs' ? 'active' : '' ?>" href="#">
+            <a class="nav-link <?= $currentAction === 'mongo_logs' ? 'active' : '' ?>" href="index.php?action=mongo_logs">
                 <i class="fa-solid fa-database me-2"></i> Logs de Sécurité (NoSQL)
             </a>
         </li>

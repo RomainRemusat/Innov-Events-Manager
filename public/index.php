@@ -18,6 +18,7 @@
 require_once __DIR__ . '/../src/controllers/QuoteController.php';
 require_once __DIR__ . '/../src/controllers/AuthController.php';
 require_once __DIR__ . '/../src/controllers/DashboardController.php';
+require_once __DIR__ . '/../src/controllers/LogController.php';
 
 // Initialisation sécurisée du contexte utilisateur (Session)
 // Permet de maintenir l'état d'authentification et les droits d'accès à travers l'application.
@@ -70,6 +71,14 @@ switch (true) {
     case ($action === 'dashboard'):
         $dashboardController = new DashboardController();
         $dashboardController->showDashboard();
+        break;
+
+    // -------------------------------------------------------------------
+    // ROUTE : JOURNAL D'AUDIT NOSQL (Logs MongoDB)
+    // -------------------------------------------------------------------
+    case ($action === 'mongo_logs'):
+        $dashboardController = new LogController();
+        $dashboardController->showMongoLogs();
         break;
 
     // -------------------------------------------------------------------
