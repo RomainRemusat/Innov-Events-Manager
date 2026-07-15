@@ -27,9 +27,14 @@ Pour exécuter cette application sur votre machine, suivez les étapes ci-dessou
    
    ```
 
-
+3. **Installer les dépendances Composer :**
+   Si vos conteneurs Docker ne lancent pas automatiquement `composer install`, exécutez la commande suivante à la racine pour installer DomPDF et les autres dépendances :
+   ```bash
+   docker-compose exec web composer install
+   ```
 *(Note : L'infrastructure gère automatiquement la persistance des données via des volumes Docker configurés pour MySQL et MongoDB).*
-3. **Importer la base de données (Initialisation du jeu d'essai) :**
+
+4. **Importer la base de données (Initialisation du jeu d'essai) :**
    L'accès à l'interface d'administration de la base de données se fait via **phpMyAdmin** :
    * **URL :** `http://localhost:8082`
    * **Serveur :** `db`
@@ -39,7 +44,7 @@ Pour exécuter cette application sur votre machine, suivez les étapes ci-dessou
 
    *(Veuillez exécuter le script SQL fourni : /script/test_data.sql dans l'onglet SQL de phpMyAdmin pour générer le schéma métier complet `innovevents_db` et le compte d'administration par défaut).*
 
-4. **Accès aux services :**
+5. **Accès aux services :**
    * **Application Web Publique :** `http://localhost:8081`
    * **Accès Back-Office (Sécurisé) :** `http://localhost:8081/index.php?action=login`
    * **Interface phpMyAdmin :** `http://localhost:8082`
@@ -55,6 +60,7 @@ Pour exécuter cette application sur votre machine, suivez les étapes ci-dessou
 * **Base de données relationnelle :** MySQL 8.0 pour les données métier (Clients, Événements, Devis).
 * **Base de données NoSQL :** MongoDB pour la journalisation des actions sensibles (Logs de sécurité).
 * **Front-end :** HTML5, CSS3, Bootstrap 5 (Approche Mobile-First et respect RGAA).
+* **Génération PDF :** DomPDF (via Composer) pour la transformation dynamique de templates HTML/CSS en documents PDF officiels.
 
 ---
 
@@ -90,4 +96,3 @@ Pour garantir la qualité du code, les suites de tests suivantes sont intégrée
 * **Couverture de code :** Un rapport de couverture sera disponible dans la documentation technique finale.
 
 
-Note pour le jury : L'architecture a été optimisée sur la branche dev (Sprint 2). Pour tester cette branche, merci de lancer docker-compose up -d --build après le checkout.
