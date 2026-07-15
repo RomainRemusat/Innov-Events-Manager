@@ -14,9 +14,11 @@
  */
 
 // Chargement des dépendances métiers (Contrôleurs)
-require_once __DIR__ . '/controllers/QuoteController.php';
-require_once __DIR__ . '/controllers/AuthController.php';
-require_once __DIR__ . '/controllers/DashboardController.php';
+// Mise à jour des chemins : on remonte du dossier public/ vers le dossier src/
+require_once __DIR__ . '/../src/controllers/QuoteController.php';
+require_once __DIR__ . '/../src/controllers/AuthController.php';
+require_once __DIR__ . '/../src/controllers/DashboardController.php';
+require_once __DIR__ . '/../src/controllers/LogController.php';
 
 // Initialisation sécurisée du contexte utilisateur (Session)
 // Permet de maintenir l'état d'authentification et les droits d'accès à travers l'application.
@@ -72,6 +74,40 @@ switch (true) {
         break;
 
     // -------------------------------------------------------------------
+    // ROUTE : LISTE DES PROSPECTS (Espace Admin Sécurisé)
+    // -------------------------------------------------------------------
+    case ($action === 'prospects'):
+        $dashboardController = new DashboardController();
+        $dashboardController->showProspectsList();
+        break;
+
+    // -------------------------------------------------------------------
+    // ROUTE : JOURNAL D'AUDIT NOSQL (Logs MongoDB)
+    // -------------------------------------------------------------------
+    case ($action === 'mongo_logs'):
+        $dashboardController = new LogController();
+        $dashboardController->showMongoLogs();
+        break;
+
+    // -------------------------------------------------------------------
+    // ROUTE : DÉTAILS D'UN PROSPECT (Espace Admin Sécurisé)
+    // -------------------------------------------------------------------
+    case ($action === 'view_prospect'):
+        $dashboardController = new DashboardController();
+        // On récupère l'ID depuis l'URL en le castant en int pour la sécurité
+        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        $dashboardController->showProspectDetails($id);
+        break;
+
+    // -------------------------------------------------------------------
+    // ROUTE : MISE À JOUR DU STATUT PROSPECT (Requête POST - Admin)
+    // -------------------------------------------------------------------
+    case ($action === 'update_prospect_status'):
+        $dashboardController = new DashboardController();
+        $dashboardController->updateProspectStatus();
+        break;
+
+    // -------------------------------------------------------------------
     // ROUTE PAR DÉFAUT : PAGE D'ACCUEIL (Espace Public)
     // -------------------------------------------------------------------
     default:
@@ -80,7 +116,7 @@ switch (true) {
         $userName = $_SESSION['user_name'] ?? '';
         $userRole = $_SESSION['user_role'] ?? '';
 
-        // Injection directe de la vue (Page d'accueil statique ne nécessitant pas de traitement métier complexe)
-        require_once __DIR__ . '/views/public/home.php';
+        // Injection directe de la vue (Chemin mis à jour vers src/)
+        require_once __DIR__ . '/../src/views/public/home.php';
         break;
 }

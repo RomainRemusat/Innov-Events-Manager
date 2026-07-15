@@ -30,11 +30,12 @@ if (session_status() === PHP_SESSION_NONE) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $pageTitle ?? "Innov'Events Manager" ?></title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="views/css/style.css">
+    <link rel="stylesheet" href="../../css/style.css">
 </head>
 <body>
 
@@ -50,12 +51,13 @@ if (session_status() === PHP_SESSION_NONE) {
                 <li class="nav-item"><a class="nav-link text-white-50 text-uppercase fw-semibold" style="font-size: 0.85rem;" href="index.php#partenaires">Partenaires</a></li>
 
                 <?php if (isset($_SESSION['user_id'])): ?>
+                    <li class="nav-item"><a class="btn btn-light  btn-sm me-2" href="index.php?action=dashboard"><i class="bi bi-speedometer2 me-2"></i> Tableau de bord</a></li>
                     <li class="nav-item"><a class="btn btn-danger btn-sm px-3" href="index.php?action=logout">Déconnexion</a></li>
                 <?php else: ?>
                     <li class="nav-item"><a class="btn btn-sm btn-outline-light px-3" href="index.php?action=login" style="font-size: 0.85rem;">Espace Pro</a></li>
                 <?php endif; ?>
 
-                <li class="nav-item"><a class="btn btn-primary-custom btn-sm px-4 fw-bold shadow-sm" href="index.php?action=devis"><i class="bi bi-chat-left-dots me-2"></i>Demander un Devis</a></li>
+                <li class="nav-item"><a class="btn btn-primary btn-sm fw-bold shadow-sm" href="index.php?action=devis"><i class="bi bi-chat-left-dots me-2"></i>Demander un Devis</a></li>
             </ul>
         </div>
     </div>

@@ -41,19 +41,23 @@ class Prospect
     {
         // Préparation de la requête SQL d'insertion.
         // Le statut est forcé par défaut selon la spécification fonctionnelle.
-        $sql = "INSERT INTO prospects (company_name, contact_name, email, phone, event_type, status) 
-                VALUES (:company_name, :contact_name, :email, :phone, :event_type, 'en attente')";
+        $sql = "INSERT INTO prospects (company_name, contact_name, email, phone, event_type, event_date, estimated_participants, budget, description) 
+            VALUES (:company_name, :contact_name, :email, :phone, :event_type, :event_date, :estimated_participants, :budget, :description)";
 
         // Sécurisation contre les injections SQL grâce à l'utilisation d'une requête préparée
         $stmt = $this->db->prepare($sql);
 
         // Exécution de la requête avec nettoyage et sanitisation des entrées (Protection failles XSS)
         return $stmt->execute([
-            ':company_name' => htmlspecialchars($data['company_name'], ENT_QUOTES, 'UTF-8'),
-            ':contact_name' => htmlspecialchars($data['contact_name'], ENT_QUOTES, 'UTF-8'),
-            ':email'        => filter_var($data['email'], FILTER_SANITIZE_EMAIL),
-            ':phone'        => htmlspecialchars($data['phone'], ENT_QUOTES, 'UTF-8'),
-            ':event_type'   => htmlspecialchars($data['event_type'], ENT_QUOTES, 'UTF-8')
+            ':company_name'           => $data['company_name'],
+            ':contact_name'           => $data['contact_name'],
+            ':email'                  => $data['email'],
+            ':phone'                  => $data['phone'],
+            ':event_type'             => $data['event_type'],
+            ':event_date'             => $data['event_date'] ?? null,
+            ':estimated_participants' => $data['estimated_participants'] ?? null,
+            ':budget'                 => $data['budget'] ?? null,
+            ':description'            => htmlspecialchars($data['description'] ?? '', ENT_QUOTES, 'UTF-8')
         ]);
     }
 
@@ -82,4 +86,48 @@ class Prospect
         }
     }
 
+    /**
+     * Recherche et récupère un prospect unique par son identifiant.
+     * Utilise une requête préparée pour faire barrage aux injections SQL.
+     *
+     * @param int $id L'identifiant unique du prospect.
+     * @return array|false Tableau associatif des données du prospect ou false si non trouvé.
+     */
+    public function find(int $id)
+    {
+        try {
+            $query = "SELECT * FROM prospects WHERE id = :id LIMIT 1";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':id' => $id]);
+
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            error_log("Erreur lors de la récupération du prospect $id : " . $e->getMessage());
+            return false;
+        }
+    }
+
+
+    /**
+     * Met à jour le statut d'un prospect spécifique.
+     *
+     * @param int    $id     L'identifiant unique du prospect.
+     * @param string $status Le nouveau statut à appliquer.
+     * @return bool True en cas de succès, false sinon.
+     */
+    public function updateStatus(int $id, string $status): bool
+    {
+        try {
+            $query = "UPDATE prospects SET status = :status WHERE id = :id";
+            $stmt = $this->db->prepare($query);
+
+            return $stmt->execute([
+                ':status' => $status,
+                ':id'     => $id
+            ]);
+        } catch (\PDOException $e) {
+            error_log("Erreur lors de la mise à jour du statut pour le prospect $id : " . $e->getMessage());
+            return false;
+        }
+    }
 }
