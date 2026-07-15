@@ -65,7 +65,8 @@ class AuthController
          * par comparaison brute. En production (Sprint V2), l'utilisation de password_verify()
          * sera obligatoire suite au hachage des mots de passe (via BCRYPT/ARGON2ID).
          */
-        if ($user && $password === $user['password']) {
+//        if ($user && $password === $user['password']) {
+        if ($user && password_verify($password, $user['password'])) {
 
             // Initialisation sécurisée de la session globale si non active
             if (session_status() === PHP_SESSION_NONE) {
@@ -118,5 +119,26 @@ class AuthController
         // Redirection de courtoisie vers la page d'accueil publique
         header('Location: index.php');
         exit();
+    }
+
+
+    /**
+     * Valide la complexité d'un mot de passe via une expression régulière.
+     * * Critères : 8+ caractères, 1 majuscule, 1 minuscule, 1 chiffre, 1 caractère spécial.
+     * * @param string $password
+     * @return bool
+     */
+    private function isValidPassword(string $password): bool
+    {
+        // ^ : Début de chaîne
+        // (?=.*[a-z]) : Au moins une minuscule
+        // (?=.*[A-Z]) : Au moins une majuscule
+        // (?=.*\d) : Au moins un chiffre
+        // (?=.*[\W_]) : Au moins un caractère spécial (non-alphanumérique)
+        // .{8,} : Minimum 8 caractères
+        // $ : Fin de chaîne
+        $regex = '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/';
+
+        return (bool)preg_match($regex, $password);
     }
 }
