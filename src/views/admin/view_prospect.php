@@ -36,6 +36,9 @@ if (!isset($_SESSION['user_id'])) {
 
             <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-4 border-bottom">
                 <h1 class="h2 fw-bold text-dark">Fiche Prospect : <?= htmlspecialchars($prospect['company_name'], ENT_QUOTES, 'UTF-8') ?></h1>
+                <a href="index.php?action=generate_pdf&id=<?= (int)$prospect['id'] ?>" class="btn btn-danger shadow-sm">
+                    <i class="fa-solid fa-file-pdf me-2"></i>Télécharger le Devis (PDF)
+                </a>
                 <a href="index.php?action=dashboard" class="btn btn-outline-secondary btn-sm shadow-sm">
                     <i class="fa-solid fa-arrow-left me-2"></i>Retour au tableau de bord
                 </a>

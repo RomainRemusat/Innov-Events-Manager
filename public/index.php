@@ -14,17 +14,22 @@
  */
 
 // Chargement des dépendances métiers (Contrôleurs)
+require_once __DIR__ . '/../vendor/autoload.php';
+
 // Mise à jour des chemins : on remonte du dossier public/ vers le dossier src/
 require_once __DIR__ . '/../src/controllers/QuoteController.php';
 require_once __DIR__ . '/../src/controllers/AuthController.php';
 require_once __DIR__ . '/../src/controllers/DashboardController.php';
 require_once __DIR__ . '/../src/controllers/LogController.php';
+require_once __DIR__ . '/../src/controllers/PdfController.php'; // <--- Oublié ?
+
 
 // Initialisation sécurisée du contexte utilisateur (Session)
 // Permet de maintenir l'état d'authentification et les droits d'accès à travers l'application.
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+
 
 // Récupération de la route demandée (Fallback sur 'home' si non spécifiée)
 $action = $_GET['action'] ?? 'home';
@@ -98,6 +103,17 @@ switch (true) {
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         $dashboardController->showProspectDetails($id);
         break;
+
+    // -------------------------------------------------------------------
+    // ROUTE : Génération du PDF (Espace Admin Sécurisé)
+    // -------------------------------------------------------------------
+    case ($action === 'generate_pdf'):
+        $dashboardController = new PdfController();
+        // On récupère l'ID depuis l'URL en le castant en int pour la sécurité
+        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        $dashboardController->generatePdf($id);
+        break;
+
 
     // -------------------------------------------------------------------
     // ROUTE : MISE À JOUR DU STATUT PROSPECT (Requête POST - Admin)
