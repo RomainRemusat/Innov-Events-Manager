@@ -20,13 +20,13 @@
  * @version    2.0.0
  */
 ?>
-<footer class="bg-dark text-white-50 py-5 border-top border-4 border-primary">
+<footer class="bg-dark text-white-50 py-5">
     <div class="container py-3">
         <div class="row g-4">
 
             <div class="col-md-4">
                 <h5 class="text-white fw-bold mb-3"><i class="bi bi-layers-half text-primary me-2"></i>INNOV'EVENTS</h5>
-                <p class="small">L'excellence événementielle au service de votre culture d'entreprise. Nous concevons vos plus beaux souvenirs professionnels.</p>
+                <p class="">L'art de créer des moments d'exception pour vos ambitions professionnelles et privées</p>
             </div>
 
             <div class="col-md-2 offset-md-1">

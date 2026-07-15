@@ -34,7 +34,7 @@ if (session_status() === PHP_SESSION_NONE) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="../../css/style.css">
 </head>
 <body>
 
@@ -56,7 +56,7 @@ if (session_status() === PHP_SESSION_NONE) {
                     <li class="nav-item"><a class="btn btn-sm btn-outline-light px-3" href="index.php?action=login" style="font-size: 0.85rem;">Espace Pro</a></li>
                 <?php endif; ?>
 
-                <li class="nav-item"><a class="btn btn-primary-custom btn-sm px-4 fw-bold shadow-sm" href="index.php?action=devis"><i class="bi bi-chat-left-dots me-2"></i>Demander un Devis</a></li>
+                <li class="nav-item"><a class="btn btn-primary btn-sm fw-bold shadow-sm" href="index.php?action=devis"><i class="bi bi-chat-left-dots me-2"></i>Demander un Devis</a></li>
             </ul>
         </div>
     </div>

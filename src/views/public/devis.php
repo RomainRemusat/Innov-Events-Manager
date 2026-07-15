@@ -49,7 +49,7 @@ require __DIR__ . '/../partials/header.php';
             <div class="hero-gallery-content-wrapper">
                 <div class="container">
                     <div class="row">
-                        <div class="col-md-8 col-lg-6 px-4 px-md-0">
+                        <div class="col-md-6 col-lg-5 px-4 px-md-0">
                             <span class="text-primary fw-semibold text-uppercase tracking-wider small d-block mb-2" style="font-size: 0.75rem; letter-spacing: 0.15em;">Votre projet commence ici</span>
                             <h1 class="fw-bold mb-3 text-white" style="font-size: 2.6rem; letter-spacing: -0.02em;">Prêt à créer l'inoubliable ?</h1>
                             <p class="text-white-50 small mb-0" style="font-size: 0.95rem; max-width: 95%; line-height: 1.6;">

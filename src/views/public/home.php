@@ -20,11 +20,11 @@ $pageTitle = "Innov'Events Manager - Accueil";
 require __DIR__ . '/../partials/header.php';
 ?>
 
-    <header class="text-white text-center py-5" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
-        <div class="container py-5">
-            <h1 class="display-3 fw-bolder text-uppercase tracking-tight mb-3 text-white">Donnez vie à vos<br>événements d'entreprise.</h1>
-            <p class="lead text-white-50 mb-5 mx-auto fs-4" style="max-width: 700px;">Séminaires, galas ou lancements de produits : nous créons des expériences marquantes et sur-mesure pour vos collaborateurs.</p>
-            <div class="d-flex justify-content-center">
+    <header class="text-white py-5" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
+        <div class="container py-5 text-lg-start text-center">
+            <h1 class="display-4 fw-bolder tracking-tight mb-3 text-white">Donnez vie à vos<br>événements les plus fous.</h1>
+            <p class="lead text-white-50 mb-5 fs-4" style="max-width: 700px;">Séminaires, galas ou lancements de produits : nous créons des expériences marquantes et sur-mesure pour vos collaborateurs.</p>
+            <div class="d-flex justify-content-center justify-content-lg-start">
                 <a href="index.php?action=devis" class="btn btn-primary-custom btn-lg px-5 py-3 shadow"><i class="bi bi-rocket-takeoff me-2"></i>Lancer mon projet</a>
             </div>
         </div>
@@ -98,9 +98,9 @@ require __DIR__ . '/../partials/header.php';
         </div>
     </main>
 
-    <section class="bg-light py-5 border-top border-bottom" id="partenaires">
+    <section class="bg-light py-5" id="partenaires">
         <div class="container">
-            <h4 class="fw-bold h2 mb-5">Ils nous font confiance.</h4>
+            <h4 class="fw-bold h2 mb-5 text-black">Ils nous font confiance.</h4>
             <div class="row g-4 text-center">
                 <div class="col-md-3 col-sm-6">
                     <div class="bg-white border rounded p-4 h-100 d-flex flex-column justify-content-between">
