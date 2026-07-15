@@ -20,6 +20,7 @@ Thumbs.db
 .idea/
 .vscode/
 .ai/
+.junie/
 
 # --- Sécurité : Uploads ---
 # Les fichiers générés par l'application (PDFs, uploads) ne vont pas sur Git
