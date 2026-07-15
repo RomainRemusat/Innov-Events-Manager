@@ -21,7 +21,8 @@ require_once __DIR__ . '/../src/controllers/QuoteController.php';
 require_once __DIR__ . '/../src/controllers/AuthController.php';
 require_once __DIR__ . '/../src/controllers/DashboardController.php';
 require_once __DIR__ . '/../src/controllers/LogController.php';
-require_once __DIR__ . '/../src/controllers/PdfController.php'; // <--- Oublié ?
+require_once __DIR__ . '/../src/controllers/PdfController.php';
+require_once __DIR__ . '/../src/controllers/ClientController.php';
 
 
 // Initialisation sécurisée du contexte utilisateur (Session)
@@ -61,6 +62,27 @@ switch (true) {
             $authController->showLoginForm();
         }
         break;
+
+    // -------------------------------------------------------------------
+    // ROUTE : Formulaire création compte (Espace Public)
+    // -------------------------------------------------------------------
+    case ($action === 'show_register'):
+        $authController = new AuthController();
+        $authController->showRegisterForm();
+        break;
+
+    // -------------------------------------------------------------------
+    // ROUTE : Enregistrement compte (Espace Public)
+    // -------------------------------------------------------------------
+    case ($action === 'register'):
+        $authController = new AuthController();
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $authController->register($_POST);
+        } else {
+            $authController->showRegisterForm();
+        }
+        break;
+
 
     // -------------------------------------------------------------------
     // ROUTE : DÉCONNEXION (Espace Admin)
@@ -121,6 +143,43 @@ switch (true) {
     case ($action === 'update_prospect_status'):
         $dashboardController = new DashboardController();
         $dashboardController->updateProspectStatus();
+        break;
+
+    // -------------------------------------------------------------------
+    // ROUTE : Espace client
+    // -------------------------------------------------------------------
+    case ($action === 'client_dashboard'):
+        $clientController = new ClientController();
+        $clientController->showDashboard();
+        break;
+
+    // -------------------------------------------------------------------
+    // ROUTE : Traitement de la réponse au devis par le client
+    // -------------------------------------------------------------------
+    case ($action === 'respond_to_quote'):
+        $clientController = new ClientController();
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $clientController->handleQuoteResponse($_POST);
+        } else {
+            header('Location: index.php?action=client_dashboard');
+        }
+        break;
+
+
+    // -------------------------------------------------------------------
+    // ROUTE : Affichage du profil client (RGPD)
+    // -------------------------------------------------------------------
+    case ($action === 'client_profile'):
+        $clientController = new ClientController();
+        $clientController->showProfile();
+        break;
+
+    // -------------------------------------------------------------------
+    // ROUTE : Traitement de la suppression de compte (RGPD)
+    // -------------------------------------------------------------------
+    case ($action === 'delete_account'):
+        $clientController = new ClientController();
+        $clientController->deleteAccount();
         break;
 
     // -------------------------------------------------------------------

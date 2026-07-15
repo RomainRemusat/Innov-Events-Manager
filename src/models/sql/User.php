@@ -56,4 +56,57 @@ class User
         // Récupération et retour du résultat formaté en tableau associatif pur
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
+
+    /**
+     * Insère un nouvel utilisateur (généralement un client) dans la base de données.
+     *
+     * @param array $data Tableau associatif contenant les clés : email, password, firstname, lastname, role.
+     * @return int|null L'identifiant (ID) généré en base de données, ou null en cas d'échec d'insertion.
+     */
+    public function create(array $data): ?int
+    {
+        try {
+            // Préparation de la requête d'insertion sécurisée (Anti-Injection SQL)
+            $stmt = $this->db->prepare("
+                INSERT INTO users (email, password, firstname, lastname, role) 
+                VALUES (:email, :password, :firstname, :lastname, :role)
+            ");
+
+            // Exécution avec liaison dynamique des paramètres assainis
+            $success = $stmt->execute([
+                'email'     => $data['email'],
+                'password'  => $data['password'], // Doit être déjà haché en amont (Bcrypt)
+                'firstname' => $data['firstname'],
+                'lastname'  => $data['lastname'],
+                'role'      => $data['role'] ?? 'CLIENT'
+            ]);
+
+            // Retourne l'ID auto-incrémenté généré par MySQL si l'insertion a fonctionné
+            return $success ? (int)$this->db->lastInsertId() : null;
+
+        } catch (PDOException $e) {
+            // Journalisation de l'erreur dans les logs système sans la divulguer à l'écran
+            error_log("Erreur SQL lors de la création de l'utilisateur : " . $e->getMessage());
+            return null;
+        }
+    }
+    /**
+     * Supprime définitivement un compte utilisateur (Conformité RGPD - Droit à l'oubli).
+     * Grâce à la contrainte ON DELETE CASCADE, les prospects et devis associés
+     * seront automatiquement purgés par le moteur MySQL.
+     *
+     * @param int $userId Identifiant de l'utilisateur à supprimer.
+     * @return bool Vrai en cas de succès de la suppression.
+     */
+    public function deleteAccount(int $userId): bool
+    {
+        try {
+            $sql = "DELETE FROM users WHERE id = :id";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([':id' => $userId]);
+        } catch (PDOException $e) {
+            error_log("Erreur critique (RGPD) lors de la suppression du compte $userId : " . $e->getMessage());
+            return false;
+        }
+    }
 }

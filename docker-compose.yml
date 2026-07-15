@@ -1,18 +1,30 @@
+version: '3.8'
+
 services:
-  # Serveur Web (ton application PHP)
+  # Serveur Web (Application PHP-Apache / Front Controller)
   app:
     build: .
     ports:
       - "8081:80"
     volumes:
-    - ./:/var/www/html
+      - ./:/var/www/html
     depends_on:
       - db
       - mongodb
     networks:
       - innovevents-net
 
-  # Base de données Relationnelle (MySQL) - Pour les Prospects, Clients et Événements
+  # Serveur SMTP de Test / Intercepteur de mails (MailHog)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: innovevents_mailhog
+    ports:
+      - "1025:1025" # Port SMTP (pour l'envoi de mails depuis PHPMailer)
+      - "8025:8025" # Port HTTP (Interface Web pour consulter les mails reçus)
+    networks:
+      - innovevents-net # <--- LE CORRECTIF EST ICI : Permet à 'app' de communiquer avec MailHog
+
+  # Base de données Relationnelle (MySQL 8.0) - Prospects, Users, Clients et Événements
   db:
     image: mysql:8.0
     restart: always
@@ -26,18 +38,18 @@ services:
     networks:
       - innovevents-net
 
-  # Base NoSQL (MongoDB) - Exigence ECF pour la journalisation des actions
+  # Base NoSQL (MongoDB) - Dédiée à la journalisation d'audit de sécurité et compliance
   mongodb:
     image: mongo:latest
     restart: always
     ports:
       - "27017:27017"
     volumes:
-      - mongo_data:/data/db # <-- SAUVEGARDE DE LA BASE MONGODB
+      - mongo_data:/data/db
     networks:
       - innovevents-net
 
-  # Outil de gestion graphique pour MySQL
+  # Outil d'administration graphique pour la base MySQL
   phpmyadmin:
     image: phpmyadmin:latest
     restart: always
@@ -50,11 +62,12 @@ services:
     networks:
       - innovevents-net
 
+# Déclaration du réseau privé virtuel isolé
 networks:
   innovevents-net:
     driver: bridge
 
-# Déclaration globale des volumes persistants
+# Déclaration des volumes persistants nommés (Évite la perte de données au redémarrage)
 volumes:
   db_data:
   mongo_data:

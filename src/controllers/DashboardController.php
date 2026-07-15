@@ -15,6 +15,13 @@
  */
 
 require_once __DIR__ . '/../models/sql/Prospect.php';
+//
+//// Clause de garde (Guard Clause) : Redirection si non authentifié ou non ADMIN
+//if (empty($_SESSION['user_id']) || $_SESSION['user_role'] !== 'ADMIN') {
+//    $_SESSION['access_error'] = "Accès refusé. Réservé à l'administration.";
+//    header('Location: index.php');
+//    exit;
+//}
 
 class DashboardController
 {
@@ -36,10 +43,11 @@ class DashboardController
             session_start();
         }
 
-        // Clause de garde (Guard Clause) : Redirection si l'utilisateur n'est pas authentifié
-        if (empty($_SESSION['user_id'])) {
-            header('Location: index.php?action=login');
-            exit; // Arrêt immédiat du script pour prévenir toute fuite de données
+        // Clause de garde (Guard Clause) : Redirection si non authentifié OU si ce n'est pas Chloé (ADMIN)
+        if (empty($_SESSION['user_id']) || !in_array($_SESSION['user_role'], ['ADMIN', 'EMPLOYEE'])) {
+            $_SESSION['access_error'] = "Accès refusé. Cette zone est strictement réservée à l'administration.";
+            header('Location: index.php');
+            exit;
         }
 
         // ---------------------------------------------------------------------

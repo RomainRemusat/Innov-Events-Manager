@@ -19,12 +19,6 @@
  * * @var array  $prospect  Données du modèle relationnel injectées par le DashboardController.
  * @var string $pageTitle Titre dynamique injecté pour le référencement interne.
  */
-
-// Clause de garde (Guard Clause) : Blocage absolu des accès directs sans session valide
-if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php?action=login');
-    exit();
-}
 ?>
 
 <div class="container-fluid">

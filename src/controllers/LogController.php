@@ -37,8 +37,9 @@ class LogController
             session_start();
         }
 
-        if (empty($_SESSION['user_id'])) {
-            header('Location: index.php?action=login');
+        if (empty($_SESSION['user_id']) || $_SESSION['user_role'] !== 'ADMIN') {
+            // José ou un client sera bloqué ici
+            header('Location: index.php?action=dashboard');
             exit;
         }
 

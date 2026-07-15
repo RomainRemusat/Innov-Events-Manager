@@ -130,4 +130,48 @@ class Prospect
             return false;
         }
     }
+
+
+    /**
+     * Met à jour le statut d'un devis/prospect côté client.
+     * Intègre une vérification stricte de propriété (user_id) pour prévenir
+     * les failles de type IDOR (Insecure Direct Object Reference).
+     *
+     * @param int $prospectId L'identifiant de la demande.
+     * @param int $userId L'identifiant du client connecté (propriétaire exigé).
+     * @param string $newStatus Le nouveau statut ('accepté' ou 'refusé').
+     * @return bool Vrai si la mise à jour a réussi.
+     */
+    public function updateStatusByClient(int $prospectId, int $userId, string $newStatus): bool
+    {
+        try {
+            $sql = "UPDATE prospects SET status = :status WHERE id = :id AND user_id = :user_id";
+            $stmt = $this->db->prepare($sql);
+
+            return $stmt->execute([
+                ':status'  => $newStatus,
+                ':id'      => $prospectId,
+                ':user_id' => $userId
+            ]);
+        } catch (PDOException $e) {
+            error_log("Erreur SQL lors de la mise à jour du devis client : " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function findClientRequests(int $userId): array
+    {
+        $sql = "
+            SELECT 
+                p.id, p.event_type, p.company_name, p.status, p.created_at,
+                d.reference_pdf, d.montant_ht
+            FROM prospects p
+            LEFT JOIN devis d ON p.id = d.id_prospect
+            WHERE p.user_id = :user_id
+            ORDER BY p.created_at DESC
+        ";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':user_id' => $userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
