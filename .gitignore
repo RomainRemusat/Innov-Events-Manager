@@ -1,18 +1,35 @@
-# Dépendances
+# --- Dépendances ---
 vendor/
 node_modules/
 
-# Variables d'environnement (Sensible !)
+# --- Variables d'environnement (Sensible !) ---
+# Ne jamais pousser tes accès réels en production
 .env
 
-# Docker
+# --- Docker ---
 .docker/
+
+# --- Logs ---
 *.log
 
-# OS
+# --- OS (Fichiers système) ---
 .DS_Store
 Thumbs.db
 
-# IDE
+# --- IDE (Configuration locale) ---
 .idea/
+.vscode/
 .ai/
+
+# --- Sécurité : Uploads ---
+# Les fichiers générés par l'application (PDFs, uploads) ne vont pas sur Git
+/public/uploads/
+/public/pdfs/
+
+# --- Propreté ---
+/tests/report/
+
+# --- Bases de données locales temporaires ---
+# On exclut les formats SQLite mais on garde les .sql de test
+*.sqlite
+*.sqlite-journal
