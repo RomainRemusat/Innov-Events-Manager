@@ -64,21 +64,32 @@ class Log
      * * @param string $action Libellé de l'action (ex: 'Mise à jour statut')
      * @param string $message Description détaillée
      */
-    public function addLog(string $action, string $message): void
+    public function addLog(string $typeAction, string $message, ?int $idUtilisateur = null, array $details = []): void
     {
         try {
+            // Optionnel : Si l'ID utilisateur n'est pas fourni, on tente de le récupérer
+            // automatiquement depuis la session active s'il existe.
+            if ($idUtilisateur === null && session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['user_id'])) {
+                $idUtilisateur = (int)$_SESSION['user_id'];
+            }
+
             $bulk = new \MongoDB\Driver\BulkWrite;
+
+            // Structure stricte demandée par le cahier des charges de l'ECF
             $doc = [
-                'action'     => $action,
-                'message'    => $message,
-                'ip_address' => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
-                'created_at' => new \MongoDB\BSON\UTCDateTime()
+                'created_at'     => new \MongoDB\BSON\UTCDateTime(), // Horodatage ISODate
+                'type_action'    => $typeAction,                    // Chaîne standardisée (ex: CREATION_CLIENT)
+                'id_utilisateur' => $idUtilisateur,                 // ID de l'utilisateur
+                'message'        => $message,                       // Ton message descriptif pour le Dashboard
+                'ip_address'     => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
+                'details'        => $details                        // Objet flexible pour le contexte
             ];
+
             $bulk->insert($doc);
             $this->manager->executeBulkWrite($this->dbCollection, $bulk);
         } catch (\Exception $e) {
-            // En cas d'échec d'écriture, on ne bloque pas l'application
-            error_log("Erreur lors de l'écriture du log : " . $e->getMessage());
+            // En cas d'échec d'écriture, on ne bloque pas l'application (programmation défensive)
+            error_log("Erreur lors de l'écriture du log NoSQL : " . $e->getMessage());
         }
     }
 
