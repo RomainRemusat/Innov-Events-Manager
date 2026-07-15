@@ -26,23 +26,6 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 ?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $pageTitle ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .sidebar { background-color: #212529; min-height: 100vh; color: #fff; }
-        .sidebar .nav-link { color: #c2c7d0; transition: all 0.3s; }
-        .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background-color: rgba(255,255,255,0.1); border-radius: 4px; }
-        .sidebar-heading { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1rem; color: #6c757d; padding: 0.75rem 1rem 0.25rem; }
-    </style>
-</head>
-<body>
 
 <div class="container-fluid">
     <div class="row">
@@ -154,7 +137,3 @@ if (!isset($_SESSION['user_id'])) {
 
     </div>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>

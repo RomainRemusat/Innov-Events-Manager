@@ -74,6 +74,14 @@ switch (true) {
         break;
 
     // -------------------------------------------------------------------
+    // ROUTE : LISTE DES PROSPECTS (Espace Admin Sécurisé)
+    // -------------------------------------------------------------------
+    case ($action === 'prospects'):
+        $dashboardController = new DashboardController();
+        $dashboardController->showProspectsList();
+        break;
+
+    // -------------------------------------------------------------------
     // ROUTE : JOURNAL D'AUDIT NOSQL (Logs MongoDB)
     // -------------------------------------------------------------------
     case ($action === 'mongo_logs'):

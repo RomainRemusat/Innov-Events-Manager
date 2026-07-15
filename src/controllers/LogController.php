@@ -48,6 +48,9 @@ class LogController
 
         // 3. Préparation et rendu de la vue
         $pageTitle = "Journal d'Audit (NoSQL) - Innov'Events";
+        require __DIR__ . '/../views/partials/header.php';
         require __DIR__ . '/../views/admin/logs.php';
+        require __DIR__ . '/../views/partials/footer.php';
+
     }
 }

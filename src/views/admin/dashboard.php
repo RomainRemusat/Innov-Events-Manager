@@ -48,26 +48,12 @@ foreach ($prospects as $p) {
     }
 }
 ?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Innov'Events Manager</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .sidebar { background-color: #212529; min-height: 100vh; color: #fff; }
-        .sidebar .nav-link { color: #c2c7d0; transition: all 0.3s; }
-        .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background-color: rgba(255,255,255,0.1); border-radius: 4px; }
-        .sidebar-heading { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1rem; color: #6c757d; padding: 0.75rem 1rem 0.25rem; }
-        .kpi-card { border: none; border-radius: 10px; transition: transform 0.2s; }
-        .kpi-card:hover { transform: translateY(-5px); } /* Effet de survol UX */
-        .status-badge { font-size: 0.85rem; padding: 0.4em 0.6em; }
-    </style>
-</head>
-<body>
+
+<style>
+    .kpi-card { border: none; border-radius: 10px; transition: transform 0.2s; }
+    .kpi-card:hover { transform: translateY(-5px); } /* Effet de survol UX */
+    .status-badge { font-size: 0.85rem; padding: 0.4em 0.6em; }
+</style>
 
 <div class="container-fluid">
     <div class="row">
@@ -76,16 +62,20 @@ foreach ($prospects as $p) {
 
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
 
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-4 border-bottom">
-                <h1 class="h2 fw-bold text-dark">Tableau de bord</h1>
-                <div class="btn-toolbar mb-2 mb-md-0">
-                    <span class="badge bg-dark p-2 fs-6 shadow-sm">
-                        <i class="fa-solid fa-user-shield me-2"></i> Session : <?= htmlspecialchars($_SESSION['user_name'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($_SESSION['user_role'], ENT_QUOTES, 'UTF-8') ?>)
-                    </span>
+            <div class="d-flex flex-wrap flex-md-nowrap align-items-center pt-3 pb-3 mb-5">
+                <div class="fs-1 me-2 text-black"><i class="bi bi-person-bounding-box"></i></div>
+                <div>
+                    <div class="small">Bonjour,</div>
+                    <h1 class="h4 text-dark fst-italic m-0"><span class="fw-bold"> <?= htmlspecialchars($_SESSION['user_name'] ?? 'John doe', ENT_QUOTES, 'UTF-8') ?></span>,bienvenue dans l'espace administrateur</h1>
+                </div>
+                <div class=" m-auto me-0 position-relative me-3 text-center">
+                    <i class="fs-2 text-black bi bi-bell"></i>
+                    <span class="badge rounded-pill text-bg-info position-absolute top-0 start-100 translate-middle">3</span>
                 </div>
             </div>
 
-            <div class="row g-3 mb-4">
+            <div id="indicateur" class="row g-3 mb-5">
+                <h2 class="text-black fw-bold h3 mb-3">Indicateur clés</h2>
                 <div class="col-12 col-sm-6 col-xl-3">
                     <div class="card kpi-card bg-white text-dark shadow-sm h-100 p-3 border-start border-primary border-4">
                         <div class="d-flex justify-content-between align-items-center">
@@ -132,7 +122,8 @@ foreach ($prospects as $p) {
                 </div>
             </div>
 
-            <div class="row g-4">
+            <div id="pilotage" class="row g-4">
+                <h2 class="text-black fw-bold h3 mb-3">Pilotages</h2>
 
                 <div class="col-lg-8">
                     <div class="card border-0 shadow-sm rounded-3">
