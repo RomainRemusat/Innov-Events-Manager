@@ -151,6 +151,7 @@ class MailService
      * @param string $tempPassword Chaîne de caractères alphanumérique aléatoire générée par le contrôleur.
      * @return bool Vrai en cas de distribution réussie.
      */
+
     public function sendTemporaryPassword(string $email, string $tempPassword): bool
     {
         try {
@@ -159,6 +160,10 @@ class MailService
             $mail->isHTML(true);
             $mail->Subject = "Procédure de récupération : Votre mot de passe temporaire - Innov'Events";
 
+            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+            $host = $_SERVER['HTTP_HOST'] ?? 'localhost:8081';
+            $loginUrl = $protocol . $host . dirname($_SERVER['PHP_SELF']) . '/index.php?action=login';
+
             $mail->Body = "
                 <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;'>
                     <h2 style='color: #0F172A; font-size: 20px; margin-top: 0;'>Réinitialisation de vos accès de sécurité</h2>
@@ -166,7 +171,13 @@ class MailService
                     <p style='line-height: 1.6;'>Voici vos identifiants temporaires générés automatiquement par le système :</p>
                     
                     <div style='text-align: center; margin: 25px 0; background-color: #f8fafc; padding: 15px; border-radius: 6px; border: 1px dashed #cbd5e1;'>
-                        <span style='font-family: monospace; font-size: 22px; font-weight: bold; color: #3B82F6; letter-spacing: 2px;'>{$tempPassword}</span>
+                        <a href=''><span style='font-family: monospace; font-size: 22px; font-weight: bold; color: #3B82F6; letter-spacing: 2px;'>{$tempPassword}</span></a>
+                    </div>
+                    
+                    <div style='text-align: center; margin: 30px 0;'>
+                        <a href='{$loginUrl}' style='background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>
+                            Se connecter à mon espace
+                        </a>
                     </div>
                     
                     <p style='line-height: 1.6; color: #b91c1c; font-weight: bold;'>🚨 Directive de Sécurité Obligatoire :</p>
@@ -183,4 +194,5 @@ class MailService
             return false;
         }
     }
+
 }

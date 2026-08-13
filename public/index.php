@@ -183,6 +183,36 @@ switch (true) {
         break;
 
     // -------------------------------------------------------------------
+    // --- WORKFLOW MOT DE PASSE OUBLIÉ ---
+    // -------------------------------------------------------------------
+
+    case ($action === 'forgot_password'):
+        $authController = new AuthController();
+        $authController->showForgotPasswordForm();
+        break;
+
+    case ($action === 'reset_password_request'):
+        $authController = new AuthController();
+        $authController->resetPasswordRequest($_POST);
+        break;
+
+    case ($action === 'force_password_change'):
+        // S'il n'y a pas de session temporaire en cours, on rejette l'accès
+        if (session_status() === PHP_SESSION_NONE) session_start();
+        if (empty($_SESSION['temp_user_id'])) {
+            header('Location: index.php?action=login');
+            exit();
+        }
+        require __DIR__ . '/../src/views/public/force_password_change.php';
+        break;
+
+    case ($action === 'update_forced_password'):
+        $authController = new AuthController();
+        $authController->updateForcedPassword($_POST);
+        break;
+
+
+    // -------------------------------------------------------------------
     // ROUTE PAR DÉFAUT : PAGE D'ACCUEIL (Espace Public)
     // -------------------------------------------------------------------
     default:
@@ -194,4 +224,5 @@ switch (true) {
         // Injection directe de la vue (Chemin mis à jour vers src/)
         require_once __DIR__ . '/../src/views/public/home.php';
         break;
+
 }

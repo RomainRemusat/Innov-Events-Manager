@@ -8,6 +8,8 @@ DROP TABLE IF EXISTS devis;
 DROP TABLE IF EXISTS events;
 DROP TABLE IF EXISTS prospects;
 DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS prestations;
+DROP TABLE IF EXISTS notes;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ---------------------------------------------------------------------
@@ -17,6 +19,7 @@ CREATE TABLE users (
                        id INT AUTO_INCREMENT PRIMARY KEY,
                        email VARCHAR(255) NOT NULL UNIQUE,
                        password VARCHAR(255) NOT NULL,
+                       must_change_password TINYINT(1) DEFAULT 0,
                        firstname VARCHAR(100) NOT NULL,
                        lastname VARCHAR(100) NOT NULL,
                        role VARCHAR(50) DEFAULT 'CLIENT',
@@ -150,3 +153,43 @@ INSERT INTO devis (id_prospect, reference_pdf, montant_ht, tva)
 VALUES
     (2, 'Devis_Luxury_Hotel_Group_DEC2026.pdf', 45000.00, 9000.00),
     (3, 'Devis_NextGen_Software_OCT2026.pdf', 8500.00, 1700.00);
+
+
+-- ---------------------------------------------------------------------
+-- 5. TABLE : PRESTATIONS (Détail commercial des devis)
+-- ---------------------------------------------------------------------
+CREATE TABLE prestations (
+                             id INT AUTO_INCREMENT PRIMARY KEY,
+                             devis_id INT NOT NULL,
+                             libelle VARCHAR(255) NOT NULL,
+                             montant_ht DECIMAL(10, 2) NOT NULL,
+                             FOREIGN KEY (devis_id) REFERENCES devis(id_devis) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Injection d'un jeu d'essai pour les prestations
+INSERT INTO prestations (devis_id, libelle, montant_ht)
+VALUES
+    (1, 'Scénographie lumineuse LED complète', 15000.00),
+    (1, 'Menu gastronomique 5 services (200 pax)', 25000.00),
+    (1, 'Location de mobilier de réception', 5000.00),
+    (2, 'Espace moderne style loft industriel', 3500.00),
+    (2, 'Cocktail dinatoire debout', 5000.00);
+
+-- ---------------------------------------------------------------------
+-- 6. TABLE : NOTES (Système collaboratif pour les événements)
+-- ---------------------------------------------------------------------
+CREATE TABLE notes (
+                       id INT AUTO_INCREMENT PRIMARY KEY,
+                       event_id INT NOT NULL,
+                       user_id INT NOT NULL, -- L'employé ou l'admin qui a rédigé la note
+                       content TEXT NOT NULL,
+                       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                       FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+                       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Injection d'un jeu d'essai pour les notes collaboratives
+INSERT INTO notes (event_id, user_id, content)
+VALUES
+    (1, 2, 'Attention, le client a demandé des options végétariennes supplémentaires pour le traiteur.'),
+    (2, 1, 'Le prestataire technique pour le streaming doit arriver à 10h pour les tests.');

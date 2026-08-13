@@ -64,13 +64,15 @@ require __DIR__ . '/../partials/header.php';
                                 Mot de passe <span class="text-danger" aria-hidden="true">*</span>
                             </label>
                             <input type="password"
-                                   class="form-control-minimal"
+                                   class="form-control-minimal mb-1"
                                    id="password"
                                    name="password"
                                    required
                                    aria-required="true"
                                    placeholder="••••••••"
                                    autocomplete="current-password">
+                            <a href="index.php?action=forgot_password" class="small mt-4 text-decoration-none fw-semibold" style="color: #3b82f6;">Mot de passe oublié ?</a>
+
                         </div>
 
                         <div class="mt-2">
@@ -78,6 +80,8 @@ require __DIR__ . '/../partials/header.php';
                                 Se connecter
                             </button>
                         </div>
+
+
                     </form>
 
                     <div class="text-center mt-4 d-flex flex-column gap-2">

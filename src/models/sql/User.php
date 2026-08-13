@@ -109,4 +109,36 @@ class User
             return false;
         }
     }
-}
+
+
+    /**
+     * Met à jour le mot de passe d'un utilisateur.
+     *
+     * Utilisé notamment lors de la procédure de mot de passe oublié pour
+     * imposer un changement de mot de passe à la prochaine connexion.
+     *
+     * @param int $userId L'identifiant de l'utilisateur.
+     * @param string $hashedPassword Le nouveau mot de passe haché (Bcrypt).
+     * @param bool $mustChange Vrai si l'utilisateur doit changer son mot de passe, Faux sinon.
+     * @return bool Retourne true en cas de succès, false en cas d'échec.
+     */
+    public function updatePassword(int $userId, string $hashedPassword, bool $mustChange): bool
+    {
+        try {
+            // Préparation de la requête pour éviter les injections SQL
+            $sql = "UPDATE users SET password = :password, must_change_password = :must_change WHERE id = :id";
+            $stmt = $this->db->prepare($sql);
+
+            // Exécution avec liaison dynamique des paramètres
+            return $stmt->execute([
+                ':password'    => $hashedPassword,
+                ':must_change' => $mustChange ? 1 : 0, // Conversion du booléen en entier pour MySQL
+                ':id'          => $userId
+            ]);
+
+        } catch (PDOException $e) {
+            // Journalisation silencieuse de l'erreur
+            error_log("Erreur SQL lors de la mise à jour du mot de passe (User ID $userId) : " . $e->getMessage());
+            return false;
+        }
+    }}
