@@ -22,17 +22,17 @@ services:
       - "1025:1025" # Port SMTP (pour l'envoi de mails depuis PHPMailer)
       - "8025:8025" # Port HTTP (Interface Web pour consulter les mails reçus)
     networks:
-      - innovevents-net # <--- LE CORRECTIF EST ICI : Permet à 'app' de communiquer avec MailHog
+      - innovevents-net
 
   # Base de données Relationnelle (MySQL 8.0) - Prospects, Users, Clients et Événements
   db:
     image: mysql:8.0
     restart: always
     environment:
-      MYSQL_DATABASE: innovevents_db
-      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_ROOT_PASSWORD: ${DB_PASS}
     ports:
-      - "3306:3306"
+      - "${DB_PORT}:3306"
     volumes:
       - db_data:/var/lib/mysql
     networks:
@@ -56,9 +56,9 @@ services:
     ports:
       - "8082:80"
     environment:
-      PMA_HOST: db
-      PMA_USER: root
-      PMA_PASSWORD: root_password
+      PMA_HOST: ${DB_HOST}
+      PMA_USER: ${DB_USER}
+      PMA_PASSWORD: ${DB_PASS}
     networks:
       - innovevents-net
 

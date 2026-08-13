@@ -16,25 +16,30 @@ Pour exécuter cette application sur votre machine, suivez les étapes ci-dessou
 
 1. **Cloner le dépôt :**
    ```bash
-   git clone [https://github.com/RomainRemusat/Innov-Events-Manager.git](https://github.com/RomainRemusat/Innov-Events-Manager.git)
+   git clone https://github.com/RomainRemusat/Innov-Events-Manager.git
    cd Innov-Events-Manager
-
    ```
 
-2. **Lancer les conteneurs (Infrastructure persistante) :**
+2. **Configurer l'environnement : **
+   Dupliquez le fichier d'exemple pour créer votre configuration locale (étape indispensable avant de lancer Docker)
+
+   ```bash
+   cp .env.example .env
+   ```
+
+3. **Lancer les conteneurs (Infrastructure persistante) :**
    ```bash
    docker-compose up -d --build
-   
    ```
 
-3. **Installer les dépendances Composer :**
+4. **Installer les dépendances Composer :**
    Si vos conteneurs Docker ne lancent pas automatiquement `composer install`, exécutez la commande suivante à la racine pour installer DomPDF et les autres dépendances :
    ```bash
    docker-compose exec web composer install
    ```
 *(Note : L'infrastructure gère automatiquement la persistance des données via des volumes Docker configurés pour MySQL et MongoDB).*
 
-4. **Importer la base de données (Initialisation du jeu d'essai) :**
+5. **Importer la base de données (Initialisation du jeu d'essai) :**
    L'accès à l'interface d'administration de la base de données se fait via **phpMyAdmin** :
    * **URL :** `http://localhost:8082`
    * **Serveur :** `db`
@@ -42,14 +47,15 @@ Pour exécuter cette application sur votre machine, suivez les étapes ci-dessou
    * **Mot de passe :** `root_password`
 
 
-   *(Veuillez exécuter le script SQL fourni : /script/test_data.sql dans l'onglet SQL de phpMyAdmin pour générer le schéma métier complet `innovevents_db` et le compte d'administration par défaut).*
+*(Veuillez exécuter le script SQL fourni : /script/test_data.sql dans l'onglet SQL de phpMyAdmin pour générer le schéma métier complet `innovevents_db` et le compte d'administration par défaut).*
 
-5. **Accès aux services :**
-   * **Application Web Publique :** `http://localhost:8081`
-   * **Accès Back-Office (Sécurisé) :** `http://localhost:8081/index.php?action=login`
-   * **Interface phpMyAdmin :** `http://localhost:8082`
-   * **Base de données SQL (MySQL) :** `localhost:3306`
-   * **Base NoSQL (MongoDB - Logs) :** `localhost:27017`
+6.**Accès aux services :**
+* **Application Web Publique :** `http://localhost:8081`
+* **Accès Back-Office (Sécurisé) :** `http://localhost:8081/index.php?action=login`
+* **Interface phpMyAdmin :** `http://localhost:8082`
+* **Boîte Mail de Test (MailHog)** : `http://localhost:8025` (Pour consulter les e-mails de mot de passe oublié et les alertes)
+* **Base de données SQL (MySQL) :** `localhost:3306`
+* **Base NoSQL (MongoDB - Logs) :** `localhost:27017`
 
 ---
 
@@ -94,5 +100,3 @@ Pour garantir la qualité du code, les suites de tests suivantes sont intégrée
 * **Tests Unitaires :** Validation des composants métier.
 * **Tests Fonctionnels & E2E :** Vérification des parcours utilisateurs critiques.
 * **Couverture de code :** Un rapport de couverture sera disponible dans la documentation technique finale.
-
-
