@@ -29,16 +29,18 @@
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
 
             <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-4 border-bottom">
-                <h1 class="h2 fw-bold text-dark">Fiche Prospect : <?= htmlspecialchars($prospect['company_name'], ENT_QUOTES, 'UTF-8') ?></h1>
-
+                <div>
+                    <h1 class="h2 fw-bold text-dark mb-1">Gestion des Prospects</h1>
+                    <!-- L'explication que tu as suggérée pour aider les utilisateurs -->
+                    <p class="text-muted small mb-0">
+                        Retrouvez ici toutes les demandes de devis entrantes. Qualifiez-les avant de les convertir en projets clients.
+                    </p>
+                </div>
                 <div>
                     <a href="index.php?action=show_convert_form&id=<?= (int)$prospect['id'] ?>" class="btn btn-primary shadow-sm me-2" style="background-color: #3B82F6; border: none;">
                         <i class="fa-solid fa-magic me-2"></i>Convertir en Client
                     </a>
 
-                    <a href="index.php?action=generate_pdf&id=<?= (int)$prospect['id'] ?>" class="btn btn-danger shadow-sm me-2">
-                        <i class="fa-solid fa-file-pdf me-2"></i>Devis provisoire (PDF)
-                    </a>
                     <a href="index.php?action=dashboard" class="btn btn-outline-secondary btn-sm shadow-sm">
                         <i class="fa-solid fa-arrow-left me-2"></i>Retour
                     </a>

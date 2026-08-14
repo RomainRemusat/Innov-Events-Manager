@@ -71,8 +71,7 @@ class Prospect
     {
         try {
             // Préparation de la requête SQL (Tri par ID décroissant pour avoir les plus récents)
-            $query = "SELECT * FROM prospects ORDER BY id DESC";
-
+            $query = "SELECT * FROM prospects WHERE status NOT IN ('accepté', 'refusé') ORDER BY created_at DESC";
             $stmt = $this->db->prepare($query);
             $stmt->execute();
 
