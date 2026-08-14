@@ -1,16 +1,35 @@
 <?php
 /**
- * Template HTML/CSS pour la génération du Devis au format PDF (Dompdf)
+ * Vue / Template : Génération du Devis au format PDF (Moteur Dompdf)
  *
- * @var array $devis Données du devis et du client
- * @var array $prestations Liste des lignes commerciales
+ * Ce fichier agit comme un "View Template" injecté dans le moteur Dompdf.
+ *
+ * CHOIX ARCHITECTURAL :
+ * Le moteur de rendu de Dompdf est basé sur les standards CSS 2.1. Il ne supporte
+ * ni Flexbox ni CSS Grid. Pour garantir une mise en page stricte et incassable lors
+ * de l'export PDF (notamment pour l'alignement des montants financiers), l'utilisation
+ * de tableaux HTML (<table>) est la solution technique la plus robuste et recommandée.
+ *
+ * @package    InnovEventsManager
+ * @subpackage Views/Admin/PDF
+ * @author     Romain Remusat
+ * @version    1.2.0
+ *
+ * @var array $devis       Données relationnelles du devis et du client (MySQL)
+ * @var array $prestations Liste itérative des lignes commerciales (MySQL)
  */
 
-// Calculs financiers dynamiques
-$totalHT = 0;
+// -----------------------------------------------------------------------------
+// MOTEUR DE CALCUL FINANCIER (Règles Métier)
+// -----------------------------------------------------------------------------
+$totalHT = 0.0;
+
+// Agrégation du Total Hors Taxes à partir du tableau des prestations
 foreach ($prestations as $p) {
     $totalHT += (float)$p['montant_ht'];
 }
+
+// Application du taux de TVA standard français (20%)
 $tvaRate = 0.20;
 $totalTVA = $totalHT * $tvaRate;
 $totalTTC = $totalHT + $totalTVA;
@@ -21,6 +40,10 @@ $totalTTC = $totalHT + $totalTVA;
     <meta charset="UTF-8">
     <title>Devis - Innov'Events</title>
     <style>
+        /*
+         * INTEGRATION DE LA CHARTE GRAPHIQUE INNOV'EVENTS
+         * Couleurs dominantes : Slate Dark (#0F172A) et Bleu Electrique (#3B82F6)
+         */
         body {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             color: #334155;
@@ -37,12 +60,12 @@ $totalTTC = $totalHT + $totalTVA;
         .brand-logo {
             font-size: 22px;
             font-weight: bold;
-            color: #0F172A;
+            color: #0F172A; /* Slate Dark - Charte Graphique */
             text-transform: uppercase;
             letter-spacing: 1px;
         }
         .brand-sub {
-            color: #3B82F6;
+            color: #3B82F6; /* Bleu Electrique - Charte Graphique */
             font-size: 12px;
             font-weight: normal;
         }
@@ -76,7 +99,7 @@ $totalTTC = $totalHT + $totalTVA;
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            border-bottom: 2px solid #3B82F6;
+            border-bottom: 2px solid #3B82F6; /* Séparateur Bleu Electrique */
             padding-bottom: 4px;
         }
         .prestations-table {
@@ -85,7 +108,7 @@ $totalTTC = $totalHT + $totalTVA;
             margin-bottom: 25px;
         }
         .prestations-table th {
-            background-color: #0F172A;
+            background-color: #0F172A; /* En-tête Slate Dark */
             color: #FFFFFF;
             font-size: 11px;
             text-transform: uppercase;
@@ -128,7 +151,9 @@ $totalTTC = $totalHT + $totalTVA;
 </head>
 <body>
 
-<!-- EN-TÊTE DU DOCUMENT -->
+<!-- =================================================================== -->
+<!-- EN-TÊTE DU DOCUMENT (Header)                                        -->
+<!-- =================================================================== -->
 <table class="header-table">
     <tr>
         <td style="width: 50%;">
@@ -146,7 +171,9 @@ $totalTTC = $totalHT + $totalTVA;
     </tr>
 </table>
 
-<!-- COORDONNÉES ÉMETTEUR ET CLIENT -->
+<!-- =================================================================== -->
+<!-- COORDONNÉES CROISÉES (Émetteur / Destinataire)                      -->
+<!-- =================================================================== -->
 <table class="info-box">
     <tr>
         <td class="info-card">
@@ -156,7 +183,7 @@ $totalTTC = $totalHT + $totalTVA;
             Tél : 01 23 45 67 89<br>
             Email : chloe@innovevents.fr
         </td>
-        <td style="width: 4%;"></td>
+        <td style="width: 4%;"></td> <!-- Espaceur structurel pour Dompdf -->
         <td class="info-card">
             <h4>Destinataire (Client)</h4>
             <strong><?= htmlspecialchars($devis['company_name'], ENT_QUOTES, 'UTF-8') ?></strong><br>
@@ -167,15 +194,19 @@ $totalTTC = $totalHT + $totalTVA;
     </tr>
 </table>
 
-<!-- RECAPITULATIF DU PROJET -->
+<!-- =================================================================== -->
+<!-- SYNTHÈSE DU CAHIER DES CHARGES (Data issue de la conversion)        -->
+<!-- =================================================================== -->
 <div style="background-color: #EFF6FF; border-left: 4px solid #3B82F6; padding: 10px; margin-bottom: 20px; font-size: 12px;">
     <strong>Événement prévu :</strong> <?= htmlspecialchars($devis['event_type'], ENT_QUOTES, 'UTF-8') ?>
     <?php if (!empty($devis['event_date'])): ?>
-        — <strong>Date :</strong> <?= date('d/m/Y', strtotime($devis['event_date'])) ?>
+        — <strong>Date souhaitée :</strong> <?= date('d/m/Y', strtotime($devis['event_date'])) ?>
     <?php endif; ?>
 </div>
 
-<!-- TABLEAU DES PRESTATIONS -->
+<!-- =================================================================== -->
+<!-- DÉTAIL COMMERCIAL (Itération sur la table Prestations)              -->
+<!-- =================================================================== -->
 <table class="prestations-table">
     <thead>
     <tr>
@@ -187,13 +218,15 @@ $totalTTC = $totalHT + $totalTVA;
     <?php if (empty($prestations)): ?>
         <tr>
             <td colspan="2" style="text-align: center; color: #94A3B8; padding: 20px;">
-                Aucune prestation détaillée enregistrée pour ce devis.
+                Aucune prestation détaillée n'a été enregistrée pour ce devis.
             </td>
         </tr>
     <?php else: ?>
         <?php foreach ($prestations as $p): ?>
             <tr>
+                <!-- Protection XSS stricte lors de l'injection dans le PDF -->
                 <td><?= htmlspecialchars($p['libelle'], ENT_QUOTES, 'UTF-8') ?></td>
+                <!-- Formatage comptable français exigé (Espaces pour milliers, Virgule pour décimales) -->
                 <td class="text-right"><?= number_format($p['montant_ht'], 2, ',', ' ') ?> €</td>
             </tr>
         <?php endforeach; ?>
@@ -201,7 +234,9 @@ $totalTTC = $totalHT + $totalTVA;
     </tbody>
 </table>
 
-<!-- TABLEAU DES TOTAUX -->
+<!-- =================================================================== -->
+<!-- ENCART FINANCIER (Totaux et TVA)                                    -->
+<!-- =================================================================== -->
 <table class="totals-table">
     <tr>
         <td class="text-right"><strong>Total HT :</strong></td>
@@ -217,11 +252,13 @@ $totalTTC = $totalHT + $totalTVA;
     </tr>
 </table>
 
-<!-- PIED DE PAGE ET MENTIONS LÉGALES -->
+<!-- =================================================================== -->
+<!-- PIED DE PAGE (Mentions Légales & Conformité RGPD - AT1)             -->
+<!-- =================================================================== -->
 <div class="footer">
     Innov'Events Manager — SARL au capital de 50 000 € — N° TVA Intracommunautaire : FR 12 890123456<br>
     Conditions de paiement : Acompte de 30% à la commande, solde à la livraison de l'événement.<br>
-    Conformément au RGPD, vous disposez d'un droit d'accès et de rectification de vos données personnelles.
+    Conformément au <strong>RGPD</strong>, vous disposez d'un droit d'accès, de rectification et d'effacement de vos données personnelles.
 </div>
 
 </body>
