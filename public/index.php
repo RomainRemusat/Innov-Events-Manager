@@ -210,6 +210,14 @@ switch (true) {
         break;
 
     // -------------------------------------------------------------------
+    // ROUTE : LISTE GLOBALE DES DEVIS (Espace Admin - AT2)
+    // -------------------------------------------------------------------
+    case ($action === 'admin_devis'):
+        $dashboardController = new DashboardController();
+        $dashboardController->showDevisList();
+        break;
+
+    // -------------------------------------------------------------------
     // ROUTE : Espace client
     // -------------------------------------------------------------------
     case ($action === 'client_dashboard'):

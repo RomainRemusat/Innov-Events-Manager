@@ -42,7 +42,7 @@ $currentAction = $_GET['action'] ?? 'dashboard';
             </a>
         </li>
         <li class="nav-item mb-1">
-            <a class="nav-link px-0 py-1 small <?= $currentAction === 'devis_factures' ? 'text-dark fw-bold' : 'text-secondary' ?>" href="#">
+            <a class="nav-link px-0 py-1 small <?= $currentAction === 'devis_factures' ? 'text-dark fw-bold' : 'text-secondary' ?>" href="index.php?action=admin_devis">
                 <?= $currentAction === 'devis_factures' ? '<i class="fa-solid fa-caret-right me-1"></i>' : '' ?>Devis & Facturation
             </a>
         </li>
