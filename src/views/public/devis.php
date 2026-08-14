@@ -129,6 +129,8 @@ require __DIR__ . '/../partials/header.php';
                     </label>
                 </div>
 
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?? '' ?>">
+
                 <button type="submit" class="btn btn-primary px-4 py-2 fw-bold" style="background-color: #4b6bfb; border: none;">
                     ENVOYER LA DEMANDE
                 </button>

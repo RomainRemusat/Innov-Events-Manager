@@ -147,6 +147,8 @@ unset($_SESSION['old_inputs']);
                             </div>
                         </div>
 
+                        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?? '' ?>">
+
                         <div class="mt-2">
                             <button type="submit" class="btn btn-primary-custom w-100 py-2 fw-bold text-white" style="background-color: #3b82f6; border: none;">
                                 S'INSCRIRE

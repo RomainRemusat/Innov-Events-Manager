@@ -39,6 +39,10 @@ class QuoteController
     public function submitQuote(array $data): void
     {
         // 1. Validation stricte des champs obligatoires côté serveur
+        if (empty($data['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $data['csrf_token'])) {
+            die("Erreur de sécurité : Jeton CSRF invalide ou expiré.");
+        }
+
         if (empty($data['company_name']) || empty($data['email']) || empty($data['contact_name']) || empty($data['phone']) || empty($data['event_type'])) {
             die("Erreur de validation : L'ensemble des champs obligatoires (*) doivent être renseignés.");
         }
