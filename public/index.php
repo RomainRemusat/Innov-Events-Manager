@@ -165,6 +165,18 @@ switch (true) {
         break;
 
     // -------------------------------------------------------------------
+    // ROUTE : SUPPRESSION D'UNE PRESTATION DU DEVIS (Espace Admin Sécurisé)
+    // -------------------------------------------------------------------
+    case ($action === 'delete_prestation'):
+        $dashboardController = new DashboardController();
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $dashboardController->deletePrestation($_POST);
+        } else {
+            header('Location: index.php?action=dashboard');
+        }
+        break;
+
+    // -------------------------------------------------------------------
     // ROUTE : ÉDITION DU DEVIS (Ajout des prestations)
     // -------------------------------------------------------------------
     case ($action === 'edit_devis'):

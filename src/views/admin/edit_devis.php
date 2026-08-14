@@ -134,6 +134,7 @@ $totalTTC = $totalHT + $totalTVA;
                         </tr>
                         </thead>
                         <tbody>
+                        <tbody>
                         <?php if (empty($prestations)): ?>
                             <tr>
                                 <td colspan="3" class="text-center text-muted py-4">Aucune prestation n'a encore été ajoutée à ce devis.</td>
@@ -144,12 +145,23 @@ $totalTTC = $totalHT + $totalTVA;
                                     <td class="px-4 align-middle"><?= htmlspecialchars($prest['libelle'], ENT_QUOTES, 'UTF-8') ?></td>
                                     <td class="px-4 text-end align-middle fw-semibold"><?= number_format($prest['montant_ht'], 2, ',', ' ') ?> €</td>
                                     <td class="px-4 text-center align-middle">
-                                        <!-- Action de suppression (à implémenter plus tard) -->
-                                        <button class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i></button>
+
+                                        <!-- FORMULAIRE DE SUPPRESSION SÉCURISÉ (POST + CSRF) -->
+                                        <form action="index.php?action=delete_prestation" method="POST" class="d-inline" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer la prestation &quot;<?= htmlspecialchars($prest['libelle'], ENT_QUOTES, 'UTF-8') ?>&quot; ?');">
+                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="prestation_id" value="<?= (int)$prest['id'] ?>">
+                                            <input type="hidden" name="devis_id" value="<?= (int)$devis['id_devis'] ?>">
+
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer la prestation">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </form>
+
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
+                        </tbody>
                         </tbody>
                     </table>
                 </div>

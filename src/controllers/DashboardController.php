@@ -375,6 +375,56 @@ class DashboardController
     }
 
     /**
+     * Supprime une prestation d'un devis en base de données (AT2).
+     *
+     * Incorpore des contrôles de sécurité stricts (Habilitation ADMIN, CSRF)
+     * et applique le pattern PRG (Post-Redirect-Get) pour rafraîchir l'interface.
+     *
+     * @param array $postData Données transmises via $_POST (prestation_id, devis_id, csrf_token)
+     * @return void
+     */
+    public function deletePrestation(array $postData): void
+    {
+        // 1. Contrôle de session et d'habilitation (Sécurité AT1)
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        if (empty($_SESSION['user_id']) || !in_array($_SESSION['user_role'] ?? '', ['ADMIN', 'EMPLOYEE'])) {
+            header('Location: index.php?action=login');
+            exit();
+        }
+
+        // 2. Protection contre les attaques CSRF (Sécurité AT1)
+        if (empty($postData['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $postData['csrf_token'])) {
+            die("Erreur de sécurité : Jeton CSRF invalide ou expiré.");
+        }
+
+        // 3. Assainissement des identifiants (Cast explicite en entiers)
+        $prestationId = (int)($postData['prestation_id'] ?? 0);
+        $devisId      = (int)($postData['devis_id'] ?? 0);
+
+        // 4. Traitement SQL de suppression
+        if ($prestationId > 0 && $devisId > 0) {
+            try {
+                require_once __DIR__ . '/../config/Database.php';
+                $db = Database::getInstance();
+
+                // Requête préparée pour éviter toute injection SQL
+                $stmt = $db->prepare("DELETE FROM prestations WHERE id = ? AND devis_id = ?");
+                $stmt->execute([$prestationId, $devisId]);
+
+            } catch (\PDOException $e) {
+                error_log("Erreur lors de la suppression de la prestation : " . $e->getMessage());
+            }
+        }
+
+        // 5. Pattern PRG : Redirection vers la page du devis pour recalculer automatiquement les totaux
+        header("Location: index.php?action=edit_devis&id=" . $devisId);
+        exit();
+    }
+
+    /**
      * Traite la soumission du formulaire de changement de statut (Processus métier).
      *
      * Cette méthode illustre le concept de "Persistance Polyglotte" :
