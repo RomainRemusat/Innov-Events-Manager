@@ -1,42 +1,103 @@
 <?php
+/**
+ * Contrôleur : PdfController (Génération de documents commerciaux)
+ *
+ * Ce contrôleur gère la compilation des données financières (devis, prestations)
+ * et le rendu sous forme de document PDF téléchargeable grâce à la librairie Dompdf.
+ * Il assure également la traçabilité de l'action dans la base NoSQL (MongoDB).
+ *
+ * @package    InnovEventsManager
+ * @subpackage Controllers
+ * @author     Romain Remusat
+ * @version    2.0.0
+ */
 
 use Dompdf\Dompdf;
+use Dompdf\Options;
+
+require_once __DIR__ . '/../config/Database.php';
 
 class PdfController
 {
+    /**
+     * Génère et télécharge le PDF d'un devis (AT1 / AT2).
+     *
+     * @param int $id Identifiant (ID Prospect ou ID Devis)
+     * @return void
+     */
     public function generatePdf(int $id): void
     {
-
-        // 1. Récupérer les données du prospect (Modèle)
-        $prospectModel = new Prospect();
-        $prospect = $prospectModel->find($id);
-
-
-        // --- ENREGISTREMENT DU LOG D'AUDIT (NoSQL) ---
-        try {
-            $logModel = new Log(); // Utilisation de ton modèle MongoDB
-            $logModel->addLog(
-                "GENERATION_PDF", // type_action
-                "Génération du devis PDF pour le prospect " . $prospect['company_name'],
-                $_SESSION['user_id'] ?? null, // id_utilisateur
-                ['id_evenement' => $id] // Le détail avec l'ID requis par l'énoncé !
-            );
-        } catch (\Exception $e) {
-            error_log("Erreur Log NoSQL : " . $e->getMessage());
+        // 1. CONTRÔLE D'ACCÈS ET SÉCURITÉ (AT1)
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
         }
 
-        // 2. Préparer le HTML du devis (tu peux créer un fichier dédié : views/admin/pdf_template.php)
+        if (empty($_SESSION['user_id'])) {
+            header('Location: index.php?action=login');
+            exit();
+        }
+
+        if ($id <= 0) {
+            header('Location: index.php?action=dashboard');
+            exit();
+        }
+
+        // 2. EXTRACTION DES DONNÉES DEPUIS MYSQL (AT2)
+        $db = Database::getInstance();
+
+        // Récupération du devis et des informations du prospect
+        $stmt = $db->prepare("
+            SELECT d.*, p.company_name, p.contact_name, p.email, p.phone, p.event_type, p.event_date, p.description, p.budget
+            FROM devis d
+            JOIN prospects p ON d.id_prospect = p.id
+            WHERE d.id_prospect = ? OR d.id_devis = ?
+            ORDER BY d.id_devis DESC LIMIT 1
+        ");
+        $stmt->execute([$id, $id]);
+        $devis = $stmt->fetch();
+
+        if (!$devis) {
+            header('Location: index.php?action=dashboard');
+            exit();
+        }
+
+        // Récupération des prestations rattachées à ce devis
+        $stmtPrest = $db->prepare("SELECT * FROM prestations WHERE devis_id = ? ORDER BY id ASC");
+        $stmtPrest->execute([$devis['id_devis']]);
+        $prestations = $stmtPrest->fetchAll();
+
+        // 3. TRACABILITÉ NOSQL / MONGODB (Exigence AT2)
+        try {
+            require_once __DIR__ . '/../models/nosql/Log.php';
+            $logModel = new Log();
+            $logModel->addLog(
+                "GENERATION_PDF",
+                "Génération du devis PDF #" . $devis['id_devis'] . " pour la société " . $devis['company_name'],
+                $_SESSION['user_id'] ?? null,
+                ['devis_id' => $devis['id_devis'], 'prospect_id' => $devis['id_prospect']]
+            );
+        } catch (\Exception $e) {
+            error_log("Erreur de journalisation MongoDB PDF : " . $e->getMessage());
+        }
+
+        // 4. PRÉPARATION DU TEMPLATE HTML
         ob_start();
         require __DIR__ . '/../views/admin/pdf_template.php';
         $html = ob_get_clean();
 
-        // 3. Initialiser Dompdf
-        $dompdf = new Dompdf();
+        // 5. CONFIGURATION ET EXECUTION DE DOMPDF
+        $options = new Options();
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isRemoteEnabled', true); // Permet le chargement des images distantes/CSS
+
+        $dompdf = new Dompdf($options);
         $dompdf->loadHtml($html);
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
 
-        // 4. Forcer le téléchargement
-        $dompdf->stream("Devis_" . $prospect['company_name'] . ".pdf");
+        // 6. TÉLÉCHARGEMENT DU FICHIER PDF
+        $fileName = "Devis_InnovEvents_" . preg_replace('/[^a-zA-Z0-9]/', '_', $devis['company_name']) . ".pdf";
+        $dompdf->stream($fileName, ["Attachment" => true]);
+        exit();
     }
 }
