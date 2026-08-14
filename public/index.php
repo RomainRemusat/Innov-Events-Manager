@@ -127,6 +127,58 @@ switch (true) {
         break;
 
     // -------------------------------------------------------------------
+    // ROUTE : TRAITEMENT DE LA CONVERSION (Espace Admin Sécurisé)
+    // -------------------------------------------------------------------
+    case ($action === 'process_conversion'):
+        $dashboardController = new DashboardController();
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $dashboardController->processConversion($_POST);
+        } else {
+            header('Location: index.php?action=dashboard');
+        }
+        break;
+
+    // -------------------------------------------------------------------
+    // ROUTE : CONVERSION D'UN PROSPECT (Espace Admin Sécurisé)
+    // -------------------------------------------------------------------
+
+    case ($action === 'show_convert_form'):
+        if (isset($_GET['id']) && is_numeric($_GET['id'])) {
+            $dashboardController = new DashboardController();
+            $dashboardController->showConvertForm((int)$_GET['id']);
+        } else {
+            header('Location: index.php?action=dashboard');
+        }
+        break;
+
+
+    // -------------------------------------------------------------------
+    // ROUTE : AJOUT D'UNE PRESTATION AU DEVIS (Espace Admin)
+    // -------------------------------------------------------------------
+    case ($action === 'add_prestation'):
+        $dashboardController = new DashboardController();
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $dashboardController->addPrestation($_POST);
+        } else {
+            header('Location: index.php?action=dashboard');
+        }
+        break;
+
+    // -------------------------------------------------------------------
+    // ROUTE : ÉDITION DU DEVIS (Ajout des prestations)
+    // -------------------------------------------------------------------
+    case ($action === 'edit_devis'):
+        $dashboardController = new DashboardController();
+        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+        if ($id > 0) {
+            $dashboardController->editDevis($id);
+        } else {
+            header('Location: index.php?action=dashboard');
+        }
+        break;
+
+    // -------------------------------------------------------------------
     // ROUTE : Génération du PDF (Espace Admin Sécurisé)
     // -------------------------------------------------------------------
     case ($action === 'generate_pdf'):

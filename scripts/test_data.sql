@@ -192,4 +192,4 @@ CREATE TABLE notes (
 INSERT INTO notes (event_id, user_id, content)
 VALUES
     (1, 2, 'Attention, le client a demandé des options végétariennes supplémentaires pour le traiteur.'),
-    (2, 1, 'Le prestataire technique pour le streaming doit arriver à 10h pour les tests.');
+    (2, 1, 'Le prestataire technique pour le streaming doit arriver à 10h pour les tests.');git
