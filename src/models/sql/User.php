@@ -141,4 +141,97 @@ class User
             error_log("Erreur SQL lors de la mise à jour du mot de passe (User ID $userId) : " . $e->getMessage());
             return false;
         }
-    }}
+    }
+
+    /**
+     * Récupère la liste de tous les clients finaux.
+     *
+     * Exclut les administrateurs et employés grâce à la clause WHERE role = 'CLIENT'.
+     *
+     * @return array Tableau associatif des clients
+     */
+    public function findAllClients(): array
+    {
+        try {
+            $stmt = $this->db->prepare("SELECT * FROM users WHERE role = 'CLIENT' ORDER BY created_at DESC");
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            error_log("Erreur lors de la récupération des clients : " . $e->getMessage());
+            return [];
+        }
+    }
+
+
+    /**
+     * Effectue une suppression logique (Soft Delete) du client.
+     * Conserve l'intégrité référentielle des devis et événements liés.
+     *
+     * @param int $id L'identifiant du client à supprimer
+     * @return bool
+     */
+    public function softDeleteClient(int $id): bool
+    {
+        try {
+            // On part du principe que tu as ajouté une colonne 'is_deleted' (TINYINT par défaut à 0)
+            // ou que tu gères un statut de compte.
+            $sql = "UPDATE users SET is_deleted = 1 WHERE id = :id AND role = 'CLIENT'";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([':id' => $id]);
+        } catch (\PDOException $e) {
+            error_log("Erreur lors de la suppression logique du client $id : " . $e->getMessage());
+            return false;
+        }
+    }
+
+
+    /**
+     * Met à jour les informations d'un utilisateur (Client).
+     *
+     * @param int $id Identifiant du client
+     * @param string $firstname Prénom
+     * @param string $lastname Nom de famille
+     * @param string $email Adresse email
+     * @return bool True en cas de succès, False sinon
+     */
+    public function updateClient(int $id, string $firstname, string $lastname, string $email): bool
+    {
+        try {
+            $sql = "UPDATE users SET firstname = :firstname, lastname = :lastname, email = :email WHERE id = :id AND role = 'CLIENT'";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([
+                ':firstname' => $firstname,
+                ':lastname'  => $lastname,
+                ':email'     => $email,
+                ':id'        => $id
+            ]);
+        } catch (\PDOException $e) {
+            error_log("Erreur lors de la mise à jour du client $id : " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Recherche et récupère un utilisateur unique par son identifiant.
+     * Utilise une requête préparée pour prévenir les injections SQL.
+     *
+     * @param int $id L'identifiant unique de l'utilisateur.
+     * @return array|false Tableau associatif des données ou false si non trouvé.
+     */
+    public function findById(int $id)
+    {
+        try {
+            $query = "SELECT * FROM users WHERE id = :id LIMIT 1";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':id' => $id]);
+
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            error_log("Erreur lors de la récupération de l'utilisateur $id : " . $e->getMessage());
+            return false;
+        }
+    }
+
+}
+
+

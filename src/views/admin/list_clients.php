@@ -87,6 +87,12 @@
                                             <?= date('d/m/Y', strtotime($client['created_at'] ?? 'now')) ?>
                                         </td>
                                         <td class="px-4 py-3 text-center">
+
+                                            <!-- Bouton Consulter le dossier client (Devis & Événements) -->
+                                            <a href="index.php?action=view_client&id=<?= (int)$client['id'] ?>" class="btn btn-sm btn-outline-info me-1" title="Voir le dossier" aria-label="Consulter le dossier">
+                                                <i class="fa-solid fa-folder-open" aria-hidden="true"></i>
+                                            </a>
+
                                             <!--
                                               Bouton d'édition (Exigence AT2 : modification d'un client).
                                               RGAA : aria-label est obligatoire car le bouton ne contient pas de texte, juste une icône.

@@ -31,10 +31,19 @@ if (!isset($_SESSION['user_id'])) {
 
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
 
-            <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-4 border-bottom">
+            <div class="d-flex flex-wrap justify-content-between align-items-center pt-3 pb-2 mb-4 border-bottom">
                 <h1 class="h2 fw-bold text-dark">
                     <i class="fa-solid fa-users me-2 text-primary"></i> Gestion des Prospects
                 </h1>
+<!--                <a href="index.php?action=add_prospect" class="btn btn-primary btn-sm">-->
+<!--                    <i class="fa-solid fa-plus me-1"></i> Ajouter un Prospect-->
+<!--                </a>-->
+<!--                Plus tard ? -->
+
+
+                <p class="text-muted small mb-0 col-12">
+                    Cet espace centralise toutes les nouvelles demandes de devis entrantes. Analysez les besoins de vos prospects, qualifiez leur demande, et convertissez-les en clients pour initialiser leur projet événementiel.
+                </p>
             </div>
 
             <div class="card border-0 shadow-sm rounded-3">

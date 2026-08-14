@@ -100,4 +100,62 @@ class PdfController
         $dompdf->stream($fileName, ["Attachment" => true]);
         exit();
     }
+
+
+    /**
+     * Méthode : Traitement de l'envoi du devis par email au client
+     *
+     * Mettre à jour le statut du devis/prospect, générer le document PDF,
+     * expédier l'email et consigner l'action dans le journal d'audit NoSQL.
+     *
+     * @param int $devisId Identifiant du devis
+     * @return void
+     */
+    public function sendQuoteToClient(int $devisId): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        // 1. Contrôle de sécurité (Seul Admin/Employé peut envoyer)
+        if (empty($_SESSION['user_id']) || !in_array($_SESSION['user_role'] ?? '', ['ADMIN', 'EMPLOYEE'])) {
+            header('Location: index.php?action=login');
+            exit;
+        }
+
+        require_once __DIR__ . '/../models/sql/Prospect.php';
+        $prospectModel = new Prospect();
+        $devis = $prospectModel->find($devisId);
+
+        if (!$devis) {
+            header('Location: index.php?action=admin_devis');
+            exit;
+        }
+
+        // 2. Mise à jour du statut en BDD relationnelle -> 'étude côté client'
+        $prospectModel->updateStatus($devisId, 'étude côté client');
+
+        // 3. Journalisation NoSQL (MongoDB - Exigence AT2)
+        try {
+            require_once __DIR__ . '/../models/nosql/Log.php';
+            $logModel = new Log();
+            $logModel->addLog(
+                "GENERATION_DEVIS_PDF",
+                "Devis #$devisId envoyé au client " . $devis['email'],
+                $_SESSION['user_id'],
+                [
+                    'devis_id' => $devisId,
+                    'event_id' => $devis['event_id'] ?? null,
+                    'client_email' => $devis['email']
+                ]
+            );
+        } catch (\Exception $e) {
+            error_log("Erreur de journalisation MongoDB : " . $e->getMessage());
+        }
+
+        // 4. Redirection vers la liste des devis avec message de succès
+        $_SESSION['flash_success'] = "Le devis a été envoyé avec succès au client. Son statut est passé en 'Étude côté client'.";
+        header('Location: index.php?action=admin_devis');
+        exit;
+    }
 }

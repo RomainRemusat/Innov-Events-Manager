@@ -492,4 +492,198 @@ class DashboardController
         require __DIR__ . '/../views/admin/list_prospects.php';
         require __DIR__ . '/../views/partials/footer.php';
     }
+
+
+    /**
+     * Affiche la liste globale des clients (Espace Admin).
+     *
+     * @return void
+     */
+    public function showClientsList(): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        if (empty($_SESSION['user_id']) || !in_array($_SESSION['user_role'] ?? '', ['ADMIN', 'EMPLOYEE'])) {
+            header('Location: index.php?action=login');
+            exit;
+        }
+
+        require_once __DIR__ . '/../models/sql/User.php';
+        $userModel = new User();
+        $clients = $userModel->findAllClients();
+
+        $pageTitle = "Gestion des Clients - Innov'Events";
+
+        require __DIR__ . '/../views/partials/header.php';
+        require __DIR__ . '/../views/admin/list_clients.php';
+        require __DIR__ . '/../views/partials/footer.php';
+    }
+
+
+    /**
+     * Affiche le dossier complet d'un client (Informations, Devis, Événements).
+     *
+     * @param int $clientId Identifiant du client
+     * @return void
+     */
+    public function showClientDetails(int $clientId): void
+    {
+        if (session_status() === PHP_SESSION_NONE) { session_start(); }
+        if (empty($_SESSION['user_id']) || !in_array($_SESSION['user_role'] ?? '', ['ADMIN', 'EMPLOYEE'])) {
+            header('Location: index.php?action=login');
+            exit;
+        }
+
+        // 1. Récupérer les informations du client (Table Users)
+        require_once __DIR__ . '/../models/sql/User.php';
+        $userModel = new User();
+        $client = $userModel->findById($clientId);
+
+        if (!$client || $client['role'] !== 'CLIENT') {
+            header('Location: index.php?action=admin_clients');
+            exit;
+        }
+
+        // 2. Récupérer l'historique de ses devis/demandes (Table Prospects/Devis)
+        require_once __DIR__ . '/../models/sql/Prospect.php';
+        $prospectModel = new Prospect();
+        $clientQuotes = $prospectModel->findClientRequests($clientId);
+
+        // 3. Rendu de la vue
+        $pageTitle = "Dossier Client - " . htmlspecialchars($client['firstname'] . ' ' . $client['lastname']);
+        require __DIR__ . '/../views/partials/header.php';
+        require __DIR__ . '/../views/admin/view_client.php';
+        require __DIR__ . '/../views/partials/footer.php';
+    }
+
+    /**
+     * Traite la demande de suppression d'un client (Soft Delete) et journalise l'action.
+     *
+     * @param array $postData Les données soumises par le formulaire POST
+     * @return void
+     */
+    public function deleteClient(array $postData): void
+    {
+        if (session_status() === PHP_SESSION_NONE) { session_start(); }
+
+        // Habilitation stricte (Sécurité AT1)
+        if (empty($_SESSION['user_id']) || !in_array($_SESSION['user_role'] ?? '', ['ADMIN', 'EMPLOYEE'])) {
+            header('Location: index.php?action=login');
+            exit;
+        }
+
+        // Validation CSRF
+        if (empty($postData['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $postData['csrf_token'])) {
+            die("Erreur de sécurité : Jeton CSRF invalide.");
+        }
+
+        $clientId = (int)($postData['client_id'] ?? 0);
+
+        if ($clientId > 0) {
+            require_once __DIR__ . '/../models/sql/User.php';
+            $userModel = new User();
+
+            // On récupère les infos avant suppression pour le Log NoSQL
+            $clientData = $userModel->findById($clientId);
+
+            if ($clientData && $userModel->softDeleteClient($clientId)) {
+                // EXIGENCE AT2 : Journalisation NoSQL de la suppression
+                try {
+                    require_once __DIR__ . '/../models/nosql/Log.php';
+                    $logModel = new Log();
+                    $clientFullName = $clientData['firstname'] . ' ' . $clientData['lastname'];
+
+                    $logModel->addLog(
+                        "SUPPRESSION_CLIENT",
+                        "Suppression logique du client #$clientId ($clientFullName)",
+                        $_SESSION['user_id'],
+                        ['client_id' => $clientId, 'client_name' => $clientFullName] // Détails exigés par le CC
+                    );
+                } catch (\Exception $e) {
+                    error_log("Erreur Log MongoDB (Suppression Client) : " . $e->getMessage());
+                }
+            }
+        }
+
+        // PRG Pattern : Redirection vers la liste des clients
+        header('Location: index.php?action=admin_clients');
+        exit;
+    }
+
+    /**
+     * Affiche le formulaire d'édition des informations d'un client.
+     *
+     * @param int $clientId Identifiant unique du client à modifier
+     * @return void
+     */
+    public function showEditClientForm(int $clientId): void
+    {
+        if (session_status() === PHP_SESSION_NONE) { session_start(); }
+
+        // Habilitation stricte (Sécurité AT1)
+        if (empty($_SESSION['user_id']) || !in_array($_SESSION['user_role'] ?? '', ['ADMIN', 'EMPLOYEE'])) {
+            header('Location: index.php?action=login');
+            exit;
+        }
+
+        require_once __DIR__ . '/../models/sql/User.php';
+        $userModel = new User();
+        $client = $userModel->findById($clientId);
+
+        // Clause de garde : si l'ID n'existe pas ou que ce n'est pas un client
+        if (!$client || $client['role'] !== 'CLIENT') {
+            header('Location: index.php?action=admin_clients');
+            exit;
+        }
+
+        $pageTitle = "Modifier le client - " . htmlspecialchars($client['firstname'] . ' ' . $client['lastname'], ENT_QUOTES, 'UTF-8');
+
+        require __DIR__ . '/../views/partials/header.php';
+        require __DIR__ . '/../views/admin/edit_client.php';
+        require __DIR__ . '/../views/partials/footer.php';
+    }
+
+    /**
+     * Traite la mise à jour des informations d'un client.
+     *
+     * @param array $postData Les données issues du formulaire POST
+     * @return void
+     */
+    public function updateClient(array $postData): void
+    {
+        if (session_status() === PHP_SESSION_NONE) { session_start(); }
+
+        // 1. Habilitation (RBAC)
+        if (empty($_SESSION['user_id']) || !in_array($_SESSION['user_role'] ?? '', ['ADMIN', 'EMPLOYEE'])) {
+            die("Accès refusé.");
+        }
+
+        // 2. Sécurité Anti-CSRF
+        if (empty($postData['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $postData['csrf_token'])) {
+            die("Erreur de sécurité : Jeton CSRF invalide ou expiré.");
+        }
+
+        // 3. Assainissement des données (Sanitization)
+        $clientId  = (int)($postData['client_id'] ?? 0);
+        $firstname = htmlspecialchars(trim($postData['firstname'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $lastname  = htmlspecialchars(trim($postData['lastname'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $email     = filter_var(trim($postData['email'] ?? ''), FILTER_VALIDATE_EMAIL);
+
+        // 4. Traitement Métier
+        if ($clientId > 0 && !empty($firstname) && !empty($lastname) && $email) {
+            require_once __DIR__ . '/../models/sql/User.php';
+            $userModel = new User();
+            $success = $userModel->updateClient($clientId, $firstname, $lastname, $email);
+
+            if ($success) {
+                // (Optionnel) Ajouter un log NoSQL ici si le cahier des charges l'exige pour les modifications
+            }
+        }
+
+        // 5. Pattern PRG : Redirection vers le dossier du client mis à jour
+        header('Location: index.php?action=view_client&id=' . $clientId);
+        exit;
+    }
 }

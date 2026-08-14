@@ -57,7 +57,7 @@ class QuoteController
                 'event_date'             => $data['event_date'] ?? null,
                 'estimated_participants' => isset($data['estimated_participants']) ? (int)$data['estimated_participants'] : null,
                 'budget'                 => isset($data['budget']) ? (float)$data['budget'] : null,
-                'description'            => htmlspecialchars(trim($data['description'] ?? ''), ENT_QUOTES, 'UTF-8')
+                'description'  => trim($data['description'] ?? '')
         ];
 
         // Validation stricte du format email

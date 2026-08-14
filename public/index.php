@@ -217,6 +217,37 @@ switch (true) {
         $dashboardController->showDevisList();
         break;
 
+
+    // -------------------------------------------------------------------
+    // ROUTE : GESTION DES CLIENTS (Espace Admin)
+    // -------------------------------------------------------------------
+    case ($action === 'admin_clients'):
+        $dashboardController = new DashboardController();
+        $dashboardController->showClientsList();
+        break;
+
+
+    case ($action === 'view_client' && isset($_GET['id'])):
+        $dashboardController = new DashboardController();
+        $dashboardController->showClientDetails((int)$_GET['id']);
+        break;
+
+    case ($action === 'edit_client' && isset($_GET['id'])):
+        $dashboardController = new DashboardController();
+        $dashboardController->showEditClientForm((int)$_GET['id']);
+        break;
+
+    case ($action === 'delete_client' && $_SERVER['REQUEST_METHOD'] === 'POST'):
+        $dashboardController = new DashboardController();
+        $dashboardController->deleteClient($_POST);
+        break;
+
+    case ($action === 'update_client' && $_SERVER['REQUEST_METHOD'] === 'POST'):
+        require_once __DIR__ . '/../src/controllers/DashboardController.php';
+        $dashboardController = new DashboardController();
+        $dashboardController->updateClient($_POST);
+        break;
+
     // -------------------------------------------------------------------
     // ROUTE : Espace client
     // -------------------------------------------------------------------
