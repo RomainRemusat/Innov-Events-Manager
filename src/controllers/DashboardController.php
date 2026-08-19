@@ -43,7 +43,7 @@ class DashboardController
 
         // 1. Data Access Layer : Récupération des entités relationnelles (MySQL)
         $prospectModel = new Prospect();
-        $prospects = $prospectModel->findAll();
+        $prospects = $prospectModel->findAllActive();
 
         // 2. Data Access Layer : Récupération du flux d'audit (MongoDB - AT2)
         $logModel = new Log();
@@ -484,7 +484,7 @@ class DashboardController
         }
 
         $prospectModel = new Prospect();
-        $prospects = $prospectModel->findAll();
+        $prospects = $prospectModel->findAllActive();
 
         $pageTitle = "Gestion des Prospects - Innov'Events";
 

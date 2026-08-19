@@ -71,12 +71,50 @@ class Prospect
     {
         try {
             // Préparation de la requête SQL (Tri par ID décroissant pour avoir les plus récents)
-            $query = "SELECT * FROM prospects WHERE status NOT IN ('accepté', 'refusé') ORDER BY created_at DESC";
+            $query = "SELECT * FROM prospects ORDER BY created_at DESC";
             $stmt = $this->db->prepare($query);
             $stmt->execute();
 
             // Récupération de tous les résultats sous forme de tableau associatif
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (\PDOException $e) {
+            // Enregistrement de l'erreur dans les logs du serveur sans bloquer l'application
+            error_log("Erreur lors de la récupération des prospects : " . $e->getMessage());
+            return []; // Retourne un tableau vide en cas d'échec pour éviter un crash de la vue
+        }
+    }
+
+    public function findAllActive(): array
+    {
+        try {
+            // Préparation de la requête SQL (Tri par ID décroissant pour avoir les plus récents)
+            $query = "SELECT * FROM prospects WHERE status NOT IN ('accepté', 'refusé')  ORDER BY created_at DESC";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute();
+
+            // Récupération de tous les résultats sous forme de tableau associatif
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (\PDOException $e) {
+            // Enregistrement de l'erreur dans les logs du serveur sans bloquer l'application
+            error_log("Erreur lors de la récupération des prospects : " . $e->getMessage());
+            return []; // Retourne un tableau vide en cas d'échec pour éviter un crash de la vue
+        }
+    }
+
+
+    public function NbActive(): int
+    {
+        try {
+
+            // Préparation de la requête SQL (Tri par ID décroissant pour avoir les plus récents)
+            $query = "SELECT count(id) FROM prospects WHERE status NOT IN ('accepté', 'refusé')  ORDER BY created_at DESC";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute();
+
+            // fetchColumn() renvoie directement la valeur scalaire (le chiffre)
+            return (int) $stmt->fetchColumn();
 
         } catch (\PDOException $e) {
             // Enregistrement de l'erreur dans les logs du serveur sans bloquer l'application

@@ -180,7 +180,7 @@ class PdfController
                 mkdir($secureDirectory, 0777, true);
             }
 
-            $fullPath = $secureDirectory . $data['reference_pdf'] . '.pdf';
+            $fullPath = $secureDirectory . $data['reference_pdf'];
             file_put_contents($fullPath, $pdfOutput);
 
             // 2. Bascule du statut d'engagement commercial (MySQL)
