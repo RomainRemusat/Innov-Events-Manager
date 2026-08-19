@@ -195,4 +195,29 @@ class MailService
         }
     }
 
+
+    public function sendQuoteEmail(string $email, string $clientName, string $filePath): bool
+    {
+        try {
+            $mail = $this->createMailer();
+            $mail->addAddress($email, $clientName);
+            $mail->Subject = "Votre proposition commerciale - Innov'Events";
+
+            $mail->isHTML(true);
+            $mail->Body = "<p>Bonjour {$clientName},</p><p>Veuillez trouver ci-joint votre devis. Il est également consultable depuis votre espace client.</p>";
+
+            // Attachement du document PDF physique
+            if (file_exists($filePath)) {
+                $mail->addAttachment($filePath);
+            } else {
+                error_log("Fichier introuvable pour l'attachement : " . $filePath);
+            }
+
+            return $mail->send();
+        } catch (Exception $e) {
+            error_log("Erreur MailService (Envoi Devis) : " . $e->getMessage());
+            return false;
+        }
+    }
+
 }

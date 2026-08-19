@@ -37,7 +37,9 @@ $totalTTC = $totalHT + $totalTVA;
                     <p class="text-muted small mb-0">Réf : <?= htmlspecialchars($devis['reference_pdf'], ENT_QUOTES, 'UTF-8') ?></p>
                 </div>
                 <div>
-                    <!-- Bouton pour générer le PDF final -->
+                    <a href="index.php?action=send_quote_to_client&id=<?= (int)$devis['id_devis'] ?>" class="btn btn-success shadow-sm me-2">
+                        <i class="fa-solid fa-paper-plane me-2"></i>Envoyer au client
+                    </a>
                     <a href="index.php?action=generate_pdf&id=<?= (int)$devis['id_prospect'] ?>" class="btn btn-danger shadow-sm me-2">
                         <i class="fa-solid fa-file-pdf me-2"></i>Aperçu PDF
                     </a>

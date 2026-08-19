@@ -1,15 +1,19 @@
 <?php
 /**
- * Contrôleur : PdfController (Génération de documents commerciaux)
+ * Contrôleur : PdfController (Génération et distribution de documents commerciaux)
  *
- * Ce contrôleur gère la compilation des données financières (devis, prestations)
- * et le rendu sous forme de document PDF téléchargeable grâce à la librairie Dompdf.
- * Il assure également la traçabilité de l'action dans la base NoSQL (MongoDB).
+ * Ce composant orchestre le cycle de vie des devis au format PDF.
+ * Il assure la génération du document via Dompdf, son téléchargement direct
+ * pour l'administrateur, et son expédition sécurisée au client.
+ *
+ * Exigences ECF respectées :
+ * - AT1 : Sécurisation des accès (Sessions) et architecture POO (DRY, SRP).
+ * - AT2 : Extraction relationnelle (MySQL) et traçabilité de l'audit (MongoDB).
  *
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    2.0.0
+ * @version    3.0.0
  */
 
 use Dompdf\Dompdf;
@@ -20,141 +24,193 @@ require_once __DIR__ . '/../config/Database.php';
 class PdfController
 {
     /**
-     * Génère et télécharge le PDF d'un devis (AT1 / AT2).
+     * Génère le flux binaire (string) du document PDF.
      *
-     * @param int $id Identifiant (ID Prospect ou ID Devis)
-     * @return void
+     * Méthode utilitaire privée appliquant le principe DRY (Don't Repeat Yourself).
+     * Elle compile les données métiers (MySQL) et le template HTML pour produire le rendu PDF.
+     *
+     * @param int $devisId L'identifiant unique du devis cible.
+     * @return string Le contenu du fichier PDF généré.
+     * @throws \Exception Si le devis n'est pas trouvé en base de données.
      */
-    public function generatePdf(int $id): void
+    private function buildPdfContent(int $devisId): string
     {
-        // 1. CONTRÔLE D'ACCÈS ET SÉCURITÉ (AT1)
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (empty($_SESSION['user_id'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-
-        if ($id <= 0) {
-            header('Location: index.php?action=dashboard');
-            exit();
-        }
-
-        // 2. EXTRACTION DES DONNÉES DEPUIS MYSQL (AT2)
         $db = Database::getInstance();
 
-        // Récupération du devis et des informations du prospect
+        // 1. Récupération des données du devis et du prospect associé
         $stmt = $db->prepare("
             SELECT d.*, p.company_name, p.contact_name, p.email, p.phone, p.event_type, p.event_date, p.description, p.budget
             FROM devis d
             JOIN prospects p ON d.id_prospect = p.id
-            WHERE d.id_prospect = ? OR d.id_devis = ?
-            ORDER BY d.id_devis DESC LIMIT 1
+            WHERE d.id_devis = ?
+            LIMIT 1
         ");
-        $stmt->execute([$id, $id]);
+        $stmt->execute([$devisId]);
         $devis = $stmt->fetch();
 
         if (!$devis) {
-            header('Location: index.php?action=dashboard');
-            exit();
+            throw new \Exception("Anomalie métier : Devis introuvable.");
         }
 
-        // Récupération des prestations rattachées à ce devis
+        // 2. Récupération des lignes de facturation (Prestations)
         $stmtPrest = $db->prepare("SELECT * FROM prestations WHERE devis_id = ? ORDER BY id ASC");
-        $stmtPrest->execute([$devis['id_devis']]);
+        $stmtPrest->execute([$devisId]);
         $prestations = $stmtPrest->fetchAll();
 
-        // 3. TRACABILITÉ NOSQL / MONGODB (Exigence AT2)
-        try {
-            require_once __DIR__ . '/../models/nosql/Log.php';
-            $logModel = new Log();
-            $logModel->addLog(
-                "GENERATION_PDF",
-                "Génération du devis PDF #" . $devis['id_devis'] . " pour la société " . $devis['company_name'],
-                $_SESSION['user_id'] ?? null,
-                ['devis_id' => $devis['id_devis'], 'prospect_id' => $devis['id_prospect']]
-            );
-        } catch (\Exception $e) {
-            error_log("Erreur de journalisation MongoDB PDF : " . $e->getMessage());
-        }
-
-        // 4. PRÉPARATION DU TEMPLATE HTML
+        // 3. Mise en mémoire tampon (Output Buffering) pour capturer la vue HTML
         ob_start();
         require __DIR__ . '/../views/admin/pdf_template.php';
         $html = ob_get_clean();
 
-        // 5. CONFIGURATION ET EXECUTION DE DOMPDF
+        // 4. Configuration et exécution du moteur de rendu Dompdf
         $options = new Options();
         $options->set('isHtml5ParserEnabled', true);
-        $options->set('isRemoteEnabled', true); // Permet le chargement des images distantes/CSS
+        $options->set('isRemoteEnabled', true); // Autorise le chargement d'assets externes (CSS/Images)
 
         $dompdf = new Dompdf($options);
         $dompdf->loadHtml($html);
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
 
-        // 6. TÉLÉCHARGEMENT DU FICHIER PDF
-        $fileName = "Devis_InnovEvents_" . preg_replace('/[^a-zA-Z0-9]/', '_', $devis['company_name']) . ".pdf";
-        $dompdf->stream($fileName, ["Attachment" => true]);
-        exit();
+        return $dompdf->output();
     }
 
+    /**
+     * Déclenche le téléchargement immédiat du PDF dans le navigateur (Aperçu Admin).
+     *
+     * Contrôle l'habilitation de l'utilisateur avant d'autoriser l'accès au document.
+     *
+     * @param int $devisId Identifiant du devis à télécharger.
+     * @return void
+     */
+    public function generatePdf(int $devisId): void
+    {
+        // Contrôle strict de l'état de session et des habilitations (AT1 - Sécurité)
+        if (session_status() === PHP_SESSION_NONE) session_start();
+        if (empty($_SESSION['user_id'])) {
+            header('Location: index.php?action=login');
+            exit();
+        }
+
+        if ($devisId <= 0) {
+            header('Location: index.php?action=dashboard');
+            exit();
+        }
+
+        try {
+            // Génération centralisée du document
+            $pdfOutput = $this->buildPdfContent($devisId);
+
+            // Récupération dynamique du nom de l'entreprise pour nommer le fichier proprement
+            $db = Database::getInstance();
+            $stmt = $db->prepare("
+                SELECT p.company_name 
+                FROM devis d 
+                JOIN prospects p ON d.id_prospect = p.id 
+                WHERE d.id_devis = ?
+            ");
+            $stmt->execute([$devisId]);
+            $client = $stmt->fetch();
+
+            $safeCompanyName = preg_replace('/[^a-zA-Z0-9]/', '_', $client['company_name'] ?? 'Client');
+            $fileName = "Devis_InnovEvents_{$safeCompanyName}.pdf";
+
+            // Altération des en-têtes HTTP pour forcer le téléchargement sécurisé
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: attachment; filename="' . $fileName . '"');
+            header('Cache-Control: private, max-age=0, must-revalidate');
+            header('Pragma: public');
+
+            echo $pdfOutput;
+            exit();
+
+        } catch (\Exception $e) {
+            error_log("Erreur lors de l'aperçu PDF : " . $e->getMessage());
+            header('Location: index.php?action=dashboard');
+            exit();
+        }
+    }
 
     /**
-     * Méthode : Traitement de l'envoi du devis par email au client
+     * Traite l'expédition de la proposition commerciale au client.
      *
-     * Mettre à jour le statut du devis/prospect, générer le document PDF,
-     * expédier l'email et consigner l'action dans le journal d'audit NoSQL.
+     * Cette méthode transactionnelle orchestre plusieurs actions :
+     * 1. Génération et sauvegarde physique du PDF dans un dossier protégé (Storage).
+     * 2. Mise à jour du statut relationnel du projet ("étude côté client").
+     * 3. Délégation de l'envoi courriel au service dédié.
+     * 4. Enregistrement d'une trace d'audit inaltérable dans MongoDB.
      *
-     * @param int $devisId Identifiant du devis
+     * @param int $devisId Identifiant du devis à expédier.
      * @return void
      */
     public function sendQuoteToClient(int $devisId): void
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+        if (session_status() === PHP_SESSION_NONE) session_start();
 
-        // 1. Contrôle de sécurité (Seul Admin/Employé peut envoyer)
+        // Vérification stricte des rôles autorisés à émettre un devis (RBAC)
         if (empty($_SESSION['user_id']) || !in_array($_SESSION['user_role'] ?? '', ['ADMIN', 'EMPLOYEE'])) {
             header('Location: index.php?action=login');
             exit;
         }
 
-        require_once __DIR__ . '/../models/sql/Prospect.php';
-        $prospectModel = new Prospect();
-        $devis = $prospectModel->find($devisId);
-
-        if (!$devis) {
-            header('Location: index.php?action=admin_devis');
-            exit;
-        }
-
-        // 2. Mise à jour du statut en BDD relationnelle -> 'étude côté client'
-        $prospectModel->updateStatus($devisId, 'étude côté client');
-
-        // 3. Journalisation NoSQL (MongoDB - Exigence AT2)
         try {
+            $db = Database::getInstance();
+            $stmt = $db->prepare("
+                SELECT d.id_prospect, d.reference_pdf, p.email, p.contact_name 
+                FROM devis d 
+                JOIN prospects p ON d.id_prospect = p.id 
+                WHERE d.id_devis = ?
+            ");
+            $stmt->execute([$devisId]);
+            $data = $stmt->fetch();
+
+            if (!$data) {
+                header('Location: index.php?action=admin_devis');
+                exit;
+            }
+
+            $prospectId = (int)$data['id_prospect'];
+
+            // 1. Production et Sauvegarde Physique du document
+            $pdfOutput = $this->buildPdfContent($devisId);
+
+            // Le dossier "storage" est strictement isolé du dossier "public" accessible via le Web
+            $secureDirectory = __DIR__ . '/../../storage/devis/';
+            if (!is_dir($secureDirectory)) {
+                mkdir($secureDirectory, 0777, true);
+            }
+
+            $fullPath = $secureDirectory . $data['reference_pdf'] . '.pdf';
+            file_put_contents($fullPath, $pdfOutput);
+
+            // 2. Bascule du statut d'engagement commercial (MySQL)
+            require_once __DIR__ . '/../models/sql/Prospect.php';
+            $prospectModel = new Prospect();
+            $prospectModel->updateStatus($prospectId, 'étude côté client');
+
+            // 3. Expédition du courrier électronique avec pièce jointe
+            require_once __DIR__ . '/../services/MailService.php';
+            $mailService = new MailService();
+            $mailService->sendQuoteEmail($data['email'], $data['contact_name'], $fullPath);
+
+            // 4. Audit & Traçabilité (MongoDB - Exigence Cahier des Charges AT2)
             require_once __DIR__ . '/../models/nosql/Log.php';
             $logModel = new Log();
             $logModel->addLog(
-                "GENERATION_DEVIS_PDF",
-                "Devis #$devisId envoyé au client " . $devis['email'],
+                "ENVOI_DEVIS",
+                "Devis #{$devisId} envoyé au client " . $data['email'],
                 $_SESSION['user_id'],
-                [
-                    'devis_id' => $devisId,
-                    'event_id' => $devis['event_id'] ?? null,
-                    'client_email' => $devis['email']
-                ]
+                ['devis_id' => $devisId, 'prospect_id' => $prospectId]
             );
+
+            // Retour visuel (Feedback UX) à l'administrateur
+            $_SESSION['flash_success'] = "Le devis a bien été généré, sauvegardé et envoyé au client.";
+
         } catch (\Exception $e) {
-            error_log("Erreur de journalisation MongoDB : " . $e->getMessage());
+            error_log("Erreur critique lors de l'envoi du devis : " . $e->getMessage());
+            $_SESSION['flash_error'] = "Une erreur technique a empêché l'envoi du devis.";
         }
 
-        // 4. Redirection vers la liste des devis avec message de succès
-        $_SESSION['flash_success'] = "Le devis a été envoyé avec succès au client. Son statut est passé en 'Étude côté client'.";
         header('Location: index.php?action=admin_devis');
         exit;
     }

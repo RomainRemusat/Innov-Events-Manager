@@ -202,6 +202,21 @@ switch (true) {
 
 
     // -------------------------------------------------------------------
+    // ROUTE : Envoie du PDF au client
+    // -------------------------------------------------------------------
+    case ($action === 'send_quote_to_client'):
+        $pdfController = new PdfController();
+        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        if ($id > 0) {
+            $pdfController->sendQuoteToClient($id);
+        } else {
+            header('Location: index.php?action=admin_devis');
+        }
+        break;
+
+
+
+    // -------------------------------------------------------------------
     // ROUTE : MISE À JOUR DU STATUT PROSPECT (Requête POST - Admin)
     // -------------------------------------------------------------------
     case ($action === 'update_prospect_status'):
