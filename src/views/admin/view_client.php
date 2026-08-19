@@ -91,9 +91,13 @@
                                                 <span class="badge <?= $badge ?> px-2 py-1"><?= ucfirst(htmlspecialchars($status, ENT_QUOTES, 'UTF-8')) ?></span>
                                             </td>
                                             <td class="px-4 py-3 text-center">
-                                                <a href="index.php?action=edit_devis&id=<?= (int)$quote['id'] ?>" class="btn btn-sm btn-outline-primary" title="Ouvrir le devis">
-                                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                                                </a>
+                                                <?php if (!empty($quote['id_devis'])): ?>
+                                                    <a href="index.php?action=edit_devis&id=<?= (int)$quote['id_devis'] ?>" class="btn btn-sm btn-outline-primary" title="Ouvrir le devis">
+                                                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                                    </a>
+                                                <?php else: ?>
+                                                    <span class="text-muted small">Pas de devis</span>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

@@ -107,7 +107,7 @@
                                                 </span>
                                         </td>
                                         <td class="px-4 py-3 text-center">
-                                            <!-- Norme RGAA : Ajout de aria-label car les boutons ne contiennent que des icônes -->
+                                            <!-- Bouton Éditer (qui était déjà bon) -->
                                             <a href="index.php?action=edit_devis&id=<?= (int)$devis['id_devis'] ?>"
                                                class="btn btn-sm btn-outline-primary me-1"
                                                title="Éditer les prestations"
@@ -115,10 +115,12 @@
                                                 <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
                                             </a>
 
-                                            <a href="index.php?action=generate_pdf&id=<?= (int)$devis['id_prospect'] ?>"
+                                            <!-- Bouton PDF corrigé avec id_devis et ajout de target="_blank" -->
+                                            <a href="index.php?action=generate_pdf&id=<?= (int)$devis['id_devis'] ?>"
+                                               target="_blank"
                                                class="btn btn-sm btn-outline-danger"
-                                               title="Télécharger le PDF"
-                                               aria-label="Télécharger le PDF du devis <?= htmlspecialchars($devis['reference_pdf'], ENT_QUOTES, 'UTF-8') ?>">
+                                               title="Aperçu du PDF"
+                                               aria-label="Aperçu du PDF du devis <?= htmlspecialchars($devis['reference_pdf'], ENT_QUOTES, 'UTF-8') ?>">
                                                 <i class="fa-solid fa-file-pdf" aria-hidden="true"></i>
                                             </a>
                                         </td>

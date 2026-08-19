@@ -196,19 +196,17 @@ class Prospect
         }
     }
 
-    public function findClientRequests(int $userId): array
+    public function findClientRequests(int $clientId): array
     {
-        $sql = "
-            SELECT 
-                p.id, p.event_type, p.company_name, p.status, p.created_at,
-                d.reference_pdf, d.montant_ht
+        // On s'assure d'ajouter d.id_devis dans le SELECT
+        $stmt = $this->db->prepare("
+            SELECT p.*, d.id_devis, d.reference_pdf, d.montant_ht 
             FROM prospects p
             LEFT JOIN devis d ON p.id = d.id_prospect
-            WHERE p.user_id = :user_id
+            WHERE p.user_id = ?
             ORDER BY p.created_at DESC
-        ";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([':user_id' => $userId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        ");
+        $stmt->execute([$clientId]);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 }

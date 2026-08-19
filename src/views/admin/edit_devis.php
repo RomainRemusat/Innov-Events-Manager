@@ -40,11 +40,12 @@ $totalTTC = $totalHT + $totalTVA;
                     <a href="index.php?action=send_quote_to_client&id=<?= (int)$devis['id_devis'] ?>" class="btn btn-success shadow-sm me-2">
                         <i class="fa-solid fa-paper-plane me-2"></i>Envoyer au client
                     </a>
-                    <a href="index.php?action=generate_pdf&id=<?= (int)$devis['id_prospect'] ?>" class="btn btn-danger shadow-sm me-2">
+                    <a href="index.php?action=generate_pdf&id=<?= (int)$devis['id_devis'] ?>" target="_blank" class="btn btn-danger shadow-sm me-2">
                         <i class="fa-solid fa-file-pdf me-2"></i>Aperçu PDF
                     </a>
                     <a href="index.php?action=view_prospect&id=<?= (int)$devis['id_prospect'] ?>" class="btn btn-outline-secondary btn-sm shadow-sm">
                         <i class="fa-solid fa-arrow-left me-2"></i>Retour
+                    </a>
                     </a>
                 </div>
             </div>

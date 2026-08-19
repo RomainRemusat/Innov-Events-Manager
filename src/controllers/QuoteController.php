@@ -1,25 +1,32 @@
 <?php
 /**
- * Contrôleur : QuoteController (Gestion des demandes de devis)
+ * Contrôleur : QuoteController (Gestion des demandes de devis & Pilotage financier)
  *
- * Ce contrôleur orchestre les flux d'exécution liés aux demandes de devis.
- * Il assure le rôle de médiateur dans le pattern architectural MVC : il intercepte
- * les requêtes HTTP, applique les validations de sécurité de premier niveau,
- * délègue la persistance des données au modèle SQL 'Prospect', déclenche les notifications
- * et l'audit NoSQL, puis délègue le rendu visuel à la vue dédiée.
+ * Ce contrôleur hybride gère à la fois l'Espace Public (Formulaire de demande)
+ * et l'Espace Administration (Création, édition et suppression des prestations AT2).
  *
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    2.2.0
+ * @version    2.3.0
  */
 
+// 1. Héritage du contrôleur de base (Sécurité centralisée)
+require_once __DIR__ . '/BaseController.php';
+
+// 2. Modèles et Services nécessaires
 require_once __DIR__ . '/../models/sql/Prospect.php';
+require_once __DIR__ . '/../models/sql/Devis.php';
+require_once __DIR__ . '/../models/sql/Prestation.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
 
-class QuoteController
+class QuoteController extends BaseController
 {
+    // =========================================================================
+    // 1. ESPACE PUBLIC : DEMANDE DE DEVIS (Ton code d'origine intact)
+    // =========================================================================
+
     /**
      * Point d'entrée pour l'affichage du formulaire de devis.
      *
@@ -38,6 +45,9 @@ class QuoteController
      */
     public function submitQuote(array $data): void
     {
+        // On s'assure que la session est bien démarrée pour le token CSRF
+        $this->startSession();
+
         // 1. Validation stricte des champs obligatoires côté serveur
         if (empty($data['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $data['csrf_token'])) {
             die("Erreur de sécurité : Jeton CSRF invalide ou expiré.");
@@ -49,15 +59,15 @@ class QuoteController
 
         // 2. Sanitisation et captation de TOUS les champs transmis par devis.php
         $sanitizedData = [
-                'company_name'           => htmlspecialchars(trim($data['company_name']), ENT_QUOTES, 'UTF-8'),
-                'contact_name'           => htmlspecialchars(trim($data['contact_name']), ENT_QUOTES, 'UTF-8'),
-                'email'                  => filter_var(trim($data['email']), FILTER_SANITIZE_EMAIL),
-                'phone'                  => htmlspecialchars(trim($data['phone']), ENT_QUOTES, 'UTF-8'),
-                'event_type'             => htmlspecialchars(trim($data['event_type']), ENT_QUOTES, 'UTF-8'),
-                'event_date'             => $data['event_date'] ?? null,
-                'estimated_participants' => isset($data['estimated_participants']) ? (int)$data['estimated_participants'] : null,
-                'budget'                 => isset($data['budget']) ? (float)$data['budget'] : null,
-                'description'  => trim($data['description'] ?? '')
+            'company_name'           => htmlspecialchars(trim($data['company_name']), ENT_QUOTES, 'UTF-8'),
+            'contact_name'           => htmlspecialchars(trim($data['contact_name']), ENT_QUOTES, 'UTF-8'),
+            'email'                  => filter_var(trim($data['email']), FILTER_SANITIZE_EMAIL),
+            'phone'                  => htmlspecialchars(trim($data['phone']), ENT_QUOTES, 'UTF-8'),
+            'event_type'             => htmlspecialchars(trim($data['event_type']), ENT_QUOTES, 'UTF-8'),
+            'event_date'             => $data['event_date'] ?? null,
+            'estimated_participants' => isset($data['estimated_participants']) ? (int)$data['estimated_participants'] : null,
+            'budget'                 => isset($data['budget']) ? (float)$data['budget'] : null,
+            'description'            => trim($data['description'] ?? '')
         ];
 
         // Validation stricte du format email
@@ -74,16 +84,16 @@ class QuoteController
             try {
                 $logModel = new Log();
                 $logModel->addLog(
-                        'NOUVELLE_DEMANDE_DEVIS',
-                        "Nouvelle demande de devis déposée par " . $sanitizedData['company_name'],
-                        null,
-                        $sanitizedData
+                    'NOUVELLE_DEMANDE_DEVIS',
+                    "Nouvelle demande de devis déposée par " . $sanitizedData['company_name'],
+                    null,
+                    $sanitizedData
                 );
             } catch (\Exception $e) {
                 error_log("Erreur de persistance MongoDB : " . $e->getMessage());
             }
 
-            // 5. NOTIFICATION PAR EMAIL À L'ADMINISTRATION (Exigence du Cahier des Charges - Chloé)
+            // 5. NOTIFICATION PAR EMAIL À L'ADMINISTRATION
             try {
                 $mailService = new MailService();
                 $mailService->sendNewQuoteNotificationToAdmin($sanitizedData);
@@ -92,12 +102,88 @@ class QuoteController
             }
         }
 
-        // 6. PRÉPARATION DU CONTEXTE ET DÉLÉGATION À LA VUE (Respect strict MVC)
+        // 6. PRÉPARATION DU CONTEXTE ET DÉLÉGATION À LA VUE
         $isSuccess = (bool)$result;
         $pageTitle = "Statut de votre demande - Innov'Events";
 
         require __DIR__ . '/../views/partials/header.php';
         require __DIR__ . '/../views/public/devis_confirmation.php';
         require __DIR__ . '/../views/partials/footer.php';
+    }
+
+
+    // =========================================================================
+    // 2. ESPACE ADMINISTRATION : GESTION DES DEVIS (Nouvelles méthodes)
+    // =========================================================================
+
+    public function showDevisList(): void
+    {
+        $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+
+        $devisModel = new Devis();
+        $devisList = $devisModel->findAllWithTotals();
+
+        $pageTitle = "Devis & Facturation - Innov'Events";
+
+        require __DIR__ . '/../views/partials/header.php';
+        require __DIR__ . '/../views/admin/list_devis.php';
+        require __DIR__ . '/../views/partials/footer.php';
+    }
+
+    public function editDevis(int $devisId): void
+    {
+        $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+
+        $devisModel = new Devis();
+        $devis = $devisModel->findWithProspect($devisId);
+
+        if (!$devis) {
+            header('Location: index.php?action=dashboard');
+            exit();
+        }
+
+        $prestationModel = new Prestation();
+        $prestations = $prestationModel->findByDevisId($devisId);
+
+        $pageTitle = "Édition Devis - " . htmlspecialchars($devis['company_name'], ENT_QUOTES, 'UTF-8');
+
+        require __DIR__ . '/../views/partials/header.php';
+        require __DIR__ . '/../views/admin/edit_devis.php';
+        require __DIR__ . '/../views/partials/footer.php';
+    }
+
+    public function addPrestation(array $postData): void
+    {
+        $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+        $this->validateCsrf($postData);
+
+        $devisId   = (int)($postData['devis_id'] ?? 0);
+        $libelle   = htmlspecialchars(trim($postData['libelle'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $montantHt = (float)($postData['montant_ht'] ?? 0);
+
+        if ($devisId > 0 && !empty($libelle) && $montantHt >= 0) {
+            $prestationModel = new Prestation();
+            $prestationModel->create($devisId, $libelle, $montantHt);
+        }
+
+        header("Location: index.php?action=edit_devis&id=" . $devisId);
+        exit;
+    }
+
+    public function deletePrestation(array $postData): void
+    {
+        $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+        $this->validateCsrf($postData);
+
+        $prestationId = (int)($postData['prestation_id'] ?? 0);
+        $devisId      = (int)($postData['devis_id'] ?? 0);
+
+        if ($prestationId > 0 && $devisId > 0) {
+            $prestationModel = new Prestation();
+            $prestationModel->delete($prestationId, $devisId);
+        }
+
+        header("Location: index.php?action=edit_devis&id=" . $devisId);
+        exit();
     }
 }
