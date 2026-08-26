@@ -26,7 +26,7 @@ class DashboardController extends BaseController
 {
     public function showDashboard(): void
     {
-        $this->checkAuth(); // Vérifie que l'utilisateur est connecté
+        $this->checkAuth(['ADMIN', 'EMPLOYEE']); // Vérifie que l'utilisateur est connecté
 
         $prospectModel = new Prospect();
         $prospects = $prospectModel->findAllActive();

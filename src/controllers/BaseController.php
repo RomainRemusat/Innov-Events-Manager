@@ -39,7 +39,7 @@ abstract class BaseController
         }
 
         if (!empty($allowedRoles) && !in_array($_SESSION['user_role'] ?? '', $allowedRoles, true)) {
-            header('Location: index.php?action=dashboard');
+            header('Location: index.php?action=client_dashboard');
             exit();
         }
     }
