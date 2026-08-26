@@ -107,7 +107,7 @@
                                                 </span>
                                         </td>
                                         <td class="px-4 py-3 text-center">
-                                            <!-- Bouton Éditer (qui était déjà bon) -->
+                                            <!-- Bouton Éditer -->
                                             <a href="index.php?action=edit_devis&id=<?= (int)$devis['id_devis'] ?>"
                                                class="btn btn-sm btn-outline-primary me-1"
                                                title="Éditer les prestations"
@@ -115,7 +115,7 @@
                                                 <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
                                             </a>
 
-                                            <!-- Bouton PDF corrigé avec id_devis et ajout de target="_blank" -->
+                                            <!-- Bouton PDF -->
                                             <a href="index.php?action=generate_pdf&id=<?= (int)$devis['id_devis'] ?>"
                                                target="_blank"
                                                class="btn btn-sm btn-outline-danger"
