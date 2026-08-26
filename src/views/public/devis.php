@@ -105,11 +105,18 @@ require __DIR__ . '/../partials/header.php';
                         <label for="event_date" class="form-label text-muted small fw-bold">DATE SOUHAITÉE *</label>
                         <input type="date" class="form-control" id="event_date" name="event_date" required>
                     </div>
-                    <div class="col-md-6">
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <label for="location" class="form-label text-muted small fw-bold">LIEU / VILLE SOUHAITÉ *</label>
+                        <input type="text" class="form-control" id="location" name="location" placeholder="Ex: Paris, Lyon, Sur site entreprise..." required>
+                    </div>
+                    <div class="col-md-3 mb-3 mb-md-0">
                         <label for="estimated_participants" class="form-label text-muted small fw-bold">PARTICIPANTS *</label>
                         <input type="number" class="form-control" id="estimated_participants" name="estimated_participants" placeholder="Ex: 50" min="1" required>
                     </div>
-                    <div class="col-md-6 mb-3 mb-md-3">
+                    <div class="col-md-3">
                         <label for="budget" class="form-label text-muted small fw-bold">BUDGET ESTIMÉ (€) *</label>
                         <input type="number" class="form-control" id="budget" name="budget" placeholder="Ex: 5000" min="0" step="100" required>
                     </div>

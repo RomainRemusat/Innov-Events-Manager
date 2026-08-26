@@ -72,8 +72,8 @@ class AdminClientController extends BaseController
         $this->validateCsrf($postData);
 
         $clientId  = (int)($postData['client_id'] ?? 0);
-        $firstname = htmlspecialchars(trim($postData['firstname'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $lastname  = htmlspecialchars(trim($postData['lastname'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $firstname = trim($postData['firstname'] ?? '');
+        $lastname  = trim($postData['lastname'] ?? '');
         $email     = filter_var(trim($postData['email'] ?? ''), FILTER_VALIDATE_EMAIL);
 
         if ($clientId > 0 && !empty($firstname) && !empty($lastname) && $email) {

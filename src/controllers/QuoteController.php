@@ -45,64 +45,73 @@ class QuoteController extends BaseController
      */
     public function submitQuote(array $data): void
     {
-        // On s'assure que la session est bien démarrée pour le token CSRF
         $this->startSession();
 
-        // 1. Validation stricte des champs obligatoires côté serveur
+        // 1. Validation de sécurité CSRF (AT1)
         if (empty($data['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $data['csrf_token'])) {
             die("Erreur de sécurité : Jeton CSRF invalide ou expiré.");
         }
 
-        if (empty($data['company_name']) || empty($data['email']) || empty($data['contact_name']) || empty($data['phone']) || empty($data['event_type'])) {
+        // 2. Validation des champs obligatoires du cahier des charges
+        if (
+            empty($data['company_name']) ||
+            empty($data['email']) ||
+            empty($data['contact_name']) ||
+            empty($data['phone']) ||
+            empty($data['event_type']) ||
+            empty($data['location'])
+        ) {
             die("Erreur de validation : L'ensemble des champs obligatoires (*) doivent être renseignés.");
         }
 
-        // 2. Sanitisation et captation de TOUS les champs transmis par devis.php
+        // 3. Sanitisation des entrées
         $sanitizedData = [
-            'company_name'           => htmlspecialchars(trim($data['company_name']), ENT_QUOTES, 'UTF-8'),
-            'contact_name'           => htmlspecialchars(trim($data['contact_name']), ENT_QUOTES, 'UTF-8'),
+            'company_name'           => trim($data['company_name']),
+            'contact_name'           => trim($data['contact_name']),
             'email'                  => filter_var(trim($data['email']), FILTER_SANITIZE_EMAIL),
-            'phone'                  => htmlspecialchars(trim($data['phone']), ENT_QUOTES, 'UTF-8'),
-            'event_type'             => htmlspecialchars(trim($data['event_type']), ENT_QUOTES, 'UTF-8'),
-            'event_date'             => $data['event_date'] ?? null,
+            'phone'                  => trim($data['phone']),
+            'location'               => trim($data['location']),
+            'event_type'             => trim($data['event_type']),
+            'event_date'             => !empty($data['event_date']) ? $data['event_date'] : null,
             'estimated_participants' => isset($data['estimated_participants']) ? (int)$data['estimated_participants'] : null,
             'budget'                 => isset($data['budget']) ? (float)$data['budget'] : null,
-            'description'            => trim($data['description'] ?? '')
+            'description'            => trim($data['description'] ?? ''),
+            'user_id'                => (!empty($_SESSION['user_id']) && ($_SESSION['user_role'] ?? '') === 'CLIENT') ? (int)$_SESSION['user_id'] : null
         ];
 
         // Validation stricte du format email
         if (!filter_var($sanitizedData['email'], FILTER_VALIDATE_EMAIL)) {
-            die("Erreur de validation : Le format de l'adresse email professionnelle fourni est incorrect.");
+            die("Erreur de validation : Le format de l'adresse email professionnelle est incorrect.");
         }
 
-        // 3. PERSISTANCE RELATIONNELLE (MySQL)
+        // 4. Persistance relationnelle MySQL (AT2)
         $prospectModel = new Prospect();
         $result = $prospectModel->create($sanitizedData);
 
         if ($result) {
-            // 4. DOUBLE PERSISTANCE NOSQL (Utilisation du modèle Log dédié)
+            // 5. Double persistance NoSQL MongoDB (AT2)
             try {
                 $logModel = new Log();
                 $logModel->addLog(
                     'NOUVELLE_DEMANDE_DEVIS',
-                    "Nouvelle demande de devis déposée par " . $sanitizedData['company_name'],
-                    null,
+                    "Nouvelle demande de devis déposée par " . $sanitizedData['company_name'] . " pour un événement à " . $sanitizedData['location'],
+                    $sanitizedData['user_id'],
                     $sanitizedData
                 );
             } catch (\Exception $e) {
-                error_log("Erreur de persistance MongoDB : " . $e->getMessage());
+                error_log("Erreur MongoDB : " . $e->getMessage());
             }
 
-            // 5. NOTIFICATION PAR EMAIL À L'ADMINISTRATION
+            // 6. Notification e-mail à l'administration
             try {
                 $mailService = new MailService();
                 $mailService->sendNewQuoteNotificationToAdmin($sanitizedData);
             } catch (\Exception $e) {
-                error_log("Erreur d'envoi d'email admin : " . $e->getMessage());
+                error_log("Erreur MailService : " . $e->getMessage());
             }
         }
 
-        // 6. PRÉPARATION DU CONTEXTE ET DÉLÉGATION À LA VUE
+        // 7. Délégation à la vue de confirmation
         $isSuccess = (bool)$result;
         $pageTitle = "Statut de votre demande - Innov'Events";
 
@@ -158,7 +167,7 @@ class QuoteController extends BaseController
         $this->validateCsrf($postData);
 
         $devisId   = (int)($postData['devis_id'] ?? 0);
-        $libelle   = htmlspecialchars(trim($postData['libelle'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $libelle   = trim($postData['libelle'] ?? '');
         $montantHt = (float)($postData['montant_ht'] ?? 0);
 
         if ($devisId > 0 && !empty($libelle) && $montantHt >= 0) {

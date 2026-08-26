@@ -93,8 +93,8 @@ Les comptes suivants sont pré-initialisés via le script `scripts/test_data.sql
 | Rôle | Adresse Email | Mot de Passe Local |
 | :--- | :--- |:-------------------|
 | **Administratrice (Chloé)** | `chloe@innovevents.fr` | `password`         |
-| **Employé (José)** | `jose@innovevents.fr` | `password`    |
-| **Client Test** | `client@luxe.com` | `Client@1234!`     |
+| **Employé (José)** | `jose@innovevents.fr` | `password`         |
+| **Client Test** | `client@luxe.com` | `password`                 |
 
 ---
 

@@ -39,19 +39,16 @@ class Devis
     public function findWithProspect(int $devisId): ?array
     {
         try {
-            // On utilise la requête exacte de ton ancien code pour cibler les bonnes colonnes
             $stmt = $this->db->prepare("
-                SELECT d.*, 
-                       p.company_name, p.contact_name, p.email, p.phone, 
-                       p.event_type, p.event_date, p.description, p.budget
-                FROM devis d
-                JOIN prospects p ON d.id_prospect = p.id
-                WHERE d.id_devis = ?
-                LIMIT 1
-            ");
+            SELECT d.*, 
+                   p.*
+            FROM devis d
+            JOIN prospects p ON d.id_prospect = p.id
+            WHERE d.id_devis = ?
+            LIMIT 1
+        ");
             $stmt->execute([$devisId]);
 
-            // FETCH_ASSOC garantit qu'on a un tableau propre sans doublons
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             return $result ?: null;

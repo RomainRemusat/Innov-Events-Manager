@@ -75,6 +75,7 @@
                                         <td class="px-4 py-3 fw-bold text-dark">
                                             <!-- Sécurisation XSS stricte lors de l'affichage des identités -->
                                             <?= htmlspecialchars($client['firstname'] . ' ' . $client['lastname'], ENT_QUOTES, 'UTF-8') ?>
+                                            <?= htmlspecialchars($client['firstname'] . ' ' . $client['lastname'], ENT_QUOTES, 'UTF-8') ?>
                                         </td>
                                         <td class="px-4 py-3 text-muted">
                                             <!-- Lien mailto sécurisé -->

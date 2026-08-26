@@ -153,7 +153,15 @@ class User
     public function findAllClients(): array
     {
         try {
-            $stmt = $this->db->prepare("SELECT * FROM users WHERE role = 'CLIENT' ORDER BY created_at DESC");
+
+            $req = "
+                    SELECT * 
+                    FROM users as u
+                    LEFT JOIN prospects as p ON u.id = p.user_id
+                    WHERE role = 'CLIENT' 
+                        ORDER BY created_at DESC
+                   ";
+            $stmt = $this->db->prepare($req);
             $stmt->execute();
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (\PDOException $e) {

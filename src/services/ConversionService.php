@@ -1,129 +1,193 @@
 <?php
 
+require_once __DIR__ . '/../config/Database.php';
+require_once __DIR__ . '/../models/sql/Company.php';
+require_once __DIR__ . '/../models/sql/User.php';
+require_once __DIR__ . '/../models/nosql/Log.php';
+require_once __DIR__ . '/../services/MailService.php';
 
 /**
- * Service métier dédié à la conversion des prospects en clients.
+ * Service métier : ConversionService
  *
- * Encapsule la logique d'affaires complexe de l'Activité Type 2 (AT2) :
- * - Validation et assainissement des entrées.
- * - Garantie de l'intégrité transactionnelle (ACID) en base relationnelle (MySQL).
- * - Persistance polyglotte avec journalisation d'audit immuable (MongoDB).
+ * Orchestre le workflow transactionnel de conversion d'un prospect en client B2B (AT2).
+ * Applique le principe ACID et la persistance polyglotte (MySQL / MongoDB).
  *
  * @package    InnovEventsManager
  * @subpackage Services
  * @author     Romain Remusat
- * @version    1.3.0
+ * @version    2.1.0
  */
 class ConversionService
 {
-    /**
-     * Instance de connexion à la base de données (PDO).
-     *
-     * @var PDO
-     */
     private PDO $db;
 
-    /**
-     * Initialise le service avec le singleton de connexion BDD.
-     */
     public function __construct()
     {
         $this->db = Database::getInstance();
     }
 
     /**
-     * Orchestre le workflow complet de conversion d'un prospect.
+     * Exécute le processus transactionnel complet de conversion.
      *
-     * Opérations exécutées :
-     * 1. Nettoyage et validation des données d'entrée.
-     * 2. Création ou association du compte utilisateur (Role: CLIENT).
-     * 3. Bascule du statut du prospect en 'accepté'.
-     * 4. Création du projet événementiel associé.
-     * 5. Génération du devis de référence à zéro euro (coquille financière).
-     * 6. Écriture de la trace d'audit dans la BDD NoSQL.
-     *
-     * @param  array    $data        Données brutes issues du formulaire POST.
-     * @param  int|null $actorUserId Identifiant de l'agent exécutant l'action (pour audit).
-     *
+     * @param  array      $data        Payload assaini issu du formulaire POST.
+     * @param  array|null $file        Fichier uploadé ($_FILES['event_image'] ou null).
+     * @param  int|null   $actorUserId Identifiant de l'agent exécutant l'action (audit).
      * @return int Identifiant unique du devis généré (`id_devis`).
      *
-     * @throws InvalidArgumentException Si une contrainte de validation métier échoue.
-     * @throws Exception                 En cas de défaillance SQL (rollback automatique).
+     * @throws InvalidArgumentException Si un invariant fonctionnel obligatoire est absent.
+     * @throws Exception                En cas de défaillance SQL (rollback automatique).
      */
-    public function convertProspectToClient(array $data, ?int $actorUserId): int
+    public function convertProspectToClient(array $data, ?array $file = null, ?int $actorUserId = null): int
     {
-        // --- 1. ASSAINISSEMENT & VALIDATION MÉTIER ---
+        // ---------------------------------------------------------------------
+        // 1. VALIDATION ET NETTOYAGE MÉTIER (Données brutes pour la BDD)
+        // ---------------------------------------------------------------------
         $prospectId  = (int)($data['prospect_id'] ?? 0);
-        $companyName = htmlspecialchars(trim($data['company_name'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $contactName = htmlspecialchars(trim($data['contact_name'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $companyName = trim($data['company_name'] ?? '');
+        $contactName = trim($data['contact_name'] ?? '');
         $email       = filter_var(trim($data['email'] ?? ''), FILTER_VALIDATE_EMAIL);
-        $eventTitle  = htmlspecialchars(trim($data['event_title'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $description = htmlspecialchars(trim($data['description'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $startDate   = $data['start_date'] ?? '';
-        $location    = htmlspecialchars(trim($data['location'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $eventStatus = htmlspecialchars(trim($data['event_status'] ?? 'brouillon'), ENT_QUOTES, 'UTF-8');
+        $phone       = trim($data['phone'] ?? '');
 
-        // Validation des champs obligatoires (Invariant métier)
-        if (!$prospectId || !$email || empty($eventTitle) || empty($startDate) || empty($location)) {
-            throw new InvalidArgumentException("Paramètres métier manquants ou invalides.");
+        // Données B2B complémentaires
+        $siren       = !empty($data['siren']) ? preg_replace('/[^0-9]/', '', $data['siren']) : null;
+        $address     = !empty($data['address']) ? trim($data['address']) : null;
+        $postalCode  = !empty($data['postal_code']) ? trim($data['postal_code']) : null;
+        $city        = !empty($data['city']) ? trim($data['city']) : null;
+
+        // Données de l'événement
+        $eventTitle   = trim($data['event_title'] ?? '');
+        $startDate    = $data['start_date'] ?? '';
+        $location     = trim($data['location'] ?? '');
+        $participants = !empty($data['estimated_participants']) ? (int)$data['estimated_participants'] : null;
+        $description  = trim($data['description'] ?? '');
+        $eventStatus  = trim($data['event_status'] ?? 'brouillon');
+
+        // Invariants fonctionnels
+        if (!$prospectId || empty($companyName) || !$email || empty($eventTitle) || empty($startDate) || empty($location)) {
+            throw new InvalidArgumentException("Paramètres métier obligatoires manquants ou invalides.");
         }
 
-        // --- 2. EXÉCUTION TRANSACTIONNELLE (GARANTIE ACID) ---
+        // ---------------------------------------------------------------------
+        // 2. EXÉCUTION TRANSACTIONNELLE (GARANTIE ACID)
+        // ---------------------------------------------------------------------
         $this->db->beginTransaction();
 
         try {
-            // A. Gestion du compte Client (Liaison si existant, création sinon)
-            $stmtCheck = $this->db->prepare("SELECT id FROM users WHERE email = ?");
-            $stmtCheck->execute([$email]);
-            $existingUser = $stmtCheck->fetch();
+            // A. Gestion de l'entité morale B2B (companies)
+            $companyModel = new Company();
+            $companyId = $companyModel->findOrCreateAndEnrich($companyName, $siren, $address, $postalCode, $city);
+
+            // B. Gestion du compte utilisateur Client (users)
+            $userModel = new User();
+            $existingUser = $userModel->findByEmail($email);
 
             if ($existingUser) {
                 $clientId = (int)$existingUser['id'];
+                $stmtLink = $this->db->prepare("UPDATE users SET company_id = ? WHERE id = ?");
+                $stmtLink->execute([$companyId, $clientId]);
             } else {
-                // Génération d'un mot de passe temporaire conforme aux règles OWASP
-                $tempPassword   = 'Temp_' . bin2hex(random_bytes(4)) . '!Z';
-                $hashedPassword = password_hash($tempPassword, PASSWORD_BCRYPT);
-
+                // Découpage sécurisé Prénom / Nom
                 $nameParts = explode(' ', $contactName, 2);
                 $firstname = $nameParts[0];
-                $lastname  = $nameParts[1] ?? 'Contact';
+                $lastname  = $nameParts[1] ?? 'Client';
+
+                // Génération mot de passe temporaire robuste (OWASP)
+                $tempPassword   = 'Temp_' . bin2hex(random_bytes(4)) . '!2026';
+                $hashedPassword = password_hash($tempPassword, PASSWORD_BCRYPT);
 
                 $stmtUser = $this->db->prepare("
-                    INSERT INTO users (email, password, firstname, lastname, role, must_change_password) 
-                    VALUES (?, ?, ?, ?, 'CLIENT', 1)
+                    INSERT INTO users (company_id, email, password, firstname, lastname, role, must_change_password) 
+                    VALUES (?, ?, ?, ?, ?, 'CLIENT', 1)
                 ");
-                $stmtUser->execute([$email, $hashedPassword, $firstname, $lastname]);
+                $stmtUser->execute([$companyId, $email, $hashedPassword, $firstname, $lastname]);
                 $clientId = (int)$this->db->lastInsertId();
+
+                // Envoi des identifiants temporaires par courriel
+                try {
+                    $mailService = new MailService();
+                    $mailService->sendTemporaryPasswordEmail($email, $firstname, $tempPassword);
+                } catch (Exception $e) {
+                    error_log("Avertissement MailService : " . $e->getMessage());
+                }
             }
 
-            // B. Mise à jour de l'état du prospect
-            $stmtProspect = $this->db->prepare("UPDATE prospects SET status = 'accepté', user_id = ? WHERE id = ?");
-            $stmtProspect->execute([$clientId, $prospectId]);
+            // C. Traitement du téléversement de l'image (AT2)
+            $imagePath = null;
+            if ($file && isset($file['error']) && $file['error'] === UPLOAD_ERR_OK) {
+                $allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $mimeType = $finfo->file($file['tmp_name']);
 
-            // C. Création de l'événement lié
+                if (in_array($mimeType, $allowedMimes, true)) {
+                    $uploadDir = __DIR__ . '/../../public/uploads/events/';
+                    if (!is_dir($uploadDir)) {
+                        mkdir($uploadDir, 0777, true);
+                    }
+                    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+                    $fileName  = 'event_' . uniqid('', true) . '.' . strtolower($extension);
+
+                    if (move_uploaded_file($file['tmp_name'], $uploadDir . $fileName)) {
+                        $imagePath = 'uploads/events/' . $fileName;
+                    }
+                }
+            }
+
+            // D. Création du projet événementiel (events) avec lieu, participants et image
             $mysqlDate = date('Y-m-d H:i:s', strtotime($startDate));
             $stmtEvent = $this->db->prepare("
-                INSERT INTO events (client_id, title, description, event_date, location, status) 
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO events (client_id, company_id, title, description, event_date, location, estimated_participants, image_path, status) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            $stmtEvent->execute([$clientId, $eventTitle, $description, $mysqlDate, $location, $eventStatus]);
+            $stmtEvent->execute([
+                $clientId,
+                $companyId,
+                $eventTitle,
+                $description,
+                $mysqlDate,
+                $location,
+                $participants,
+                $imagePath,
+                $eventStatus
+            ]);
+            $eventId = (int)$this->db->lastInsertId();
 
-            // D. Génération de la coquille financière (Devis initial)
-            $refPdf = "Devis_" . strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $companyName), 0, 5)) . "_" . date('Ymd_His') . ".pdf";
-            $stmtDevis = $this->db->prepare("INSERT INTO devis (id_prospect, reference_pdf, montant_ht, tva) VALUES (?, ?, 0, 0)");
+            // E. Mise à jour de l'état du prospect (prospects)
+            $stmtProspect = $this->db->prepare("
+                UPDATE prospects 
+                SET status = 'accepté', 
+                    user_id = ?, 
+                    company_id = ? 
+                WHERE id = ?
+            ");
+            $stmtProspect->execute([$clientId, $companyId, $prospectId]);
+
+            // F. Génération de la coquille financière initiale (devis à 0 €)
+            $safePrefix = strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $companyName), 0, 5));
+            $refPdf     = "Devis_" . $safePrefix . "_" . date('Ymd_His') . ".pdf";
+
+            $stmtDevis = $this->db->prepare("
+                INSERT INTO devis (id_prospect, reference_pdf, montant_ht, tva) 
+                VALUES (?, ?, 0.00, 0.00)
+            ");
             $stmtDevis->execute([$prospectId, $refPdf]);
             $devisId = (int)$this->db->lastInsertId();
 
-            // Validation définitive des écritures SQL
+            // Validation définitive des transactions
             $this->db->commit();
 
-            // --- 3. TRAÇABILITÉ NOSQL (NON BLOQUANTE) ---
-            $this->logActivity($prospectId, $devisId, $actorUserId);
+            // -----------------------------------------------------------------
+            // 3. PERSISTANCE POLYGLOTTE : AUDIT NOSQL MONGODB (AT2)
+            // -----------------------------------------------------------------
+            $this->logActivity($prospectId, $clientId, $companyId, $eventId, $devisId, $actorUserId, [
+                'company_name'           => $companyName,
+                'location'               => $location,
+                'estimated_participants' => $participants,
+                'image_path'             => $imagePath
+            ]);
 
             return $devisId;
 
         } catch (Exception $e) {
-            // Annulation stricte en cas d'erreur SQL pour éviter l'incohérence des données
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
@@ -132,25 +196,30 @@ class ConversionService
     }
 
     /**
-     * Enregistre la trace d'audit de la conversion dans MongoDB.
-     *
-     * Isolé dans un bloc try/catch pour éviter qu'une défaillance du serveur de logs
-     * ne stoppe un traitement métier déjà validé en BDD relationnelle.
-     *
-     * @param int      $prospectId  ID du prospect converti.
-     * @param int      $devisId     ID du devis généré.
-     * @param int|null $actorUserId ID de l'utilisateur ayant exécuté l'action.
-     *
-     * @return void
+     * Enregistre l'empreinte d'audit dans la collection MongoDB `logs`.
      */
-    private function logActivity(int $prospectId, int $devisId, ?int $actorUserId): void
-    {
+    private function logActivity(
+        int $prospectId,
+        int $clientId,
+        int $companyId,
+        int $eventId,
+        int $devisId,
+        ?int $actorUserId,
+        array $context = []
+    ): void {
         try {
             $logModel = new Log();
             $logModel->addLog(
                 "CONVERSION_PROSPECT",
-                "Prospect #$prospectId converti en client (Devis #$devisId généré).",
-                $actorUserId
+                "Prospect #$prospectId converti en Client #$clientId (Société #$companyId, Événement #$eventId, Devis #$devisId)",
+                $actorUserId,
+                array_merge([
+                    'prospect_id' => $prospectId,
+                    'client_id'   => $clientId,
+                    'company_id'  => $companyId,
+                    'event_id'    => $eventId,
+                    'devis_id'    => $devisId
+                ], $context)
             );
         } catch (Exception $e) {
             error_log("Erreur Log MongoDB (ConversionProspect) : " . $e->getMessage());
