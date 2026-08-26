@@ -91,10 +91,10 @@ Ce dépôt constitue le projet d'**Évaluation en Cours de Formation (ECF)** pou
 Les comptes suivants sont pré-initialisés via le script `scripts/test_data.sql` pour tester les différents niveaux d'habilitation :
 
 | Rôle | Adresse Email | Mot de Passe Local |
-| :--- | :--- | :--- |
-| **Administratrice (Chloé)** | `chloe@innovevents.fr` | `Admin@1234!` |
-| **Employé (José)** | `jose@innovevents.fr` | `Employe@1234!` |
-| **Client Test** | `client@luxe.com` | `Client@1234!` |
+| :--- | :--- |:-------------------|
+| **Administratrice (Chloé)** | `chloe@innovevents.fr` | `password`         |
+| **Employé (José)** | `jose@innovevents.fr` | `password`    |
+| **Client Test** | `client@luxe.com` | `Client@1234!`     |
 
 ---
 
