@@ -31,17 +31,36 @@ class Devis
     }
 
     /**
-     * Récupère un devis par son ID avec les informations du prospect associé.
+     * Récupère un devis par son identifiant avec les données du prospect associé.
      *
-     * @param  int $devisId Identifiant du devis (`id_devis`).
-     * @return array|null Données du devis ou null si inexistant.
+     * Emploie des alias SQL explicites pour prévenir l'écrasement de la colonne 'status'
+     * du devis par celle du prospect lors du fetch associatif PDO.
+     *
+     * @param  int $devisId Identifiant unique du devis (`id_devis`).
+     * @return array|null Données du devis ou null si le devis n'existe pas.
      */
     public function findWithProspect(int $devisId): ?array
     {
         try {
             $stmt = $this->db->prepare("
-            SELECT d.*, 
-                   p.*
+            SELECT d.id_devis,
+                   d.id_prospect,
+                   d.reference_pdf,
+                   d.montant_ht,
+                   d.tva,
+                   d.status AS status,
+                   d.date_creation,
+                   p.company_name,
+                   p.contact_name,
+                   p.email,
+                   p.phone,
+                   p.event_type,
+                   p.event_date,
+                   p.location,
+                   p.estimated_participants,
+                   p.budget,
+                   p.description,
+                   p.status AS prospect_status
             FROM devis d
             JOIN prospects p ON d.id_prospect = p.id
             WHERE d.id_devis = ?

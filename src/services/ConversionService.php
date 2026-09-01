@@ -12,27 +12,49 @@ require_once __DIR__ . '/../services/MailService.php';
  * Orchestre le workflow transactionnel de conversion d'un prospect en client B2B (AT2).
  * Applique le principe ACID et la persistance polyglotte (MySQL / MongoDB).
  *
+ * Exigences respectées (ECF) :
+ * - AT1 : Sécurisation de la création de compte client et hachage OWASP (Bcrypt).
+ * - AT2 : Gestion transactionnelle MySQL (ACID) et journalisation d'audit NoSQL MongoDB.
+ *
  * @package    InnovEventsManager
  * @subpackage Services
  * @author     Romain Remusat
- * @version    2.1.0
+ * @version    2.2.0
  */
 class ConversionService
 {
+    /**
+     * Instance de connexion PDO à la base de données MySQL.
+     *
+     * @var PDO
+     */
     private PDO $db;
 
+    /**
+     * Initialise le service via le singleton de connexion PDO.
+     */
     public function __construct()
     {
         $this->db = Database::getInstance();
     }
 
     /**
-     * Exécute le processus transactionnel complet de conversion.
+     * Exécute le processus transactionnel complet de conversion d'un prospect en client B2B.
+     *
+     * Workflow métier transactionnel (ACID) :
+     * 1. Nettoyage et validation des invariants fonctionnels.
+     * 2. Création ou enrichissement de l'entreprise morale B2B (`companies`).
+     * 3. Création du compte utilisateur client avec identifiants temporaires (`users`).
+     * 4. Téléversement et enregistrement de l'image d'illustration de l'événement.
+     * 5. Création du projet événementiel au statut initial (`events`).
+     * 6. Passage du prospect au statut 'converti' (`prospects`).
+     * 7. Génération de la coquille financière initiale au statut 'brouillon' (`devis`).
+     * 8. Journalisation d'audit dans la base orientée documents MongoDB (`logs`).
      *
      * @param  array      $data        Payload assaini issu du formulaire POST.
      * @param  array|null $file        Fichier uploadé ($_FILES['event_image'] ou null).
      * @param  int|null   $actorUserId Identifiant de l'agent exécutant l'action (audit).
-     * @return int Identifiant unique du devis généré (`id_devis`).
+     * @return int                     Identifiant unique du devis généré (`id_devis`).
      *
      * @throws InvalidArgumentException Si un invariant fonctionnel obligatoire est absent.
      * @throws Exception                En cas de défaillance SQL (rollback automatique).
@@ -40,7 +62,7 @@ class ConversionService
     public function convertProspectToClient(array $data, ?array $file = null, ?int $actorUserId = null): int
     {
         // ---------------------------------------------------------------------
-        // 1. VALIDATION ET NETTOYAGE MÉTIER (Données brutes pour la BDD)
+        // 1. VALIDATION ET NETTOYAGE MÉTIER (Invariants fonctionnels)
         // ---------------------------------------------------------------------
         $prospectId  = (int)($data['prospect_id'] ?? 0);
         $companyName = trim($data['company_name'] ?? '');
@@ -48,13 +70,13 @@ class ConversionService
         $email       = filter_var(trim($data['email'] ?? ''), FILTER_VALIDATE_EMAIL);
         $phone       = trim($data['phone'] ?? '');
 
-        // Données B2B complémentaires
+        // Données d'immatriculation B2B
         $siren       = !empty($data['siren']) ? preg_replace('/[^0-9]/', '', $data['siren']) : null;
         $address     = !empty($data['address']) ? trim($data['address']) : null;
         $postalCode  = !empty($data['postal_code']) ? trim($data['postal_code']) : null;
         $city        = !empty($data['city']) ? trim($data['city']) : null;
 
-        // Données de l'événement
+        // Données du projet événementiel
         $eventTitle   = trim($data['event_title'] ?? '');
         $startDate    = $data['start_date'] ?? '';
         $location     = trim($data['location'] ?? '');
@@ -62,7 +84,7 @@ class ConversionService
         $description  = trim($data['description'] ?? '');
         $eventStatus  = trim($data['event_status'] ?? 'brouillon');
 
-        // Invariants fonctionnels
+        // Validation stricte des champs obligatoires
         if (!$prospectId || empty($companyName) || !$email || empty($eventTitle) || empty($startDate) || empty($location)) {
             throw new InvalidArgumentException("Paramètres métier obligatoires manquants ou invalides.");
         }
@@ -91,7 +113,7 @@ class ConversionService
                 $firstname = $nameParts[0];
                 $lastname  = $nameParts[1] ?? 'Client';
 
-                // Génération mot de passe temporaire robuste (OWASP)
+                // Génération d'un mot de passe temporaire robuste (Normes OWASP)
                 $tempPassword   = 'Temp_' . bin2hex(random_bytes(4)) . '!2026';
                 $hashedPassword = password_hash($tempPassword, PASSWORD_BCRYPT);
 
@@ -111,7 +133,7 @@ class ConversionService
                 }
             }
 
-            // C. Traitement du téléversement de l'image (AT2)
+            // C. Traitement du téléversement de l'image d'illustration (AT2)
             $imagePath = null;
             if ($file && isset($file['error']) && $file['error'] === UPLOAD_ERR_OK) {
                 $allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
@@ -132,7 +154,7 @@ class ConversionService
                 }
             }
 
-            // D. Création du projet événementiel (events) avec lieu, participants et image
+            // D. Création du projet événementiel (events)
             $mysqlDate = date('Y-m-d H:i:s', strtotime($startDate));
             $stmtEvent = $this->db->prepare("
                 INSERT INTO events (client_id, company_id, title, description, event_date, location, estimated_participants, image_path, status) 
@@ -151,28 +173,28 @@ class ConversionService
             ]);
             $eventId = (int)$this->db->lastInsertId();
 
-            // E. Mise à jour de l'état du prospect (prospects)
+            // E. Passage du prospect au statut 'converti' (Table prospects)
             $stmtProspect = $this->db->prepare("
                 UPDATE prospects 
-                SET status = 'accepté', 
+                SET status = 'converti', 
                     user_id = ?, 
                     company_id = ? 
                 WHERE id = ?
             ");
             $stmtProspect->execute([$clientId, $companyId, $prospectId]);
 
-            // F. Génération de la coquille financière initiale (devis à 0 €)
+            // F. Génération de la coquille financière initiale au statut 'brouillon' (Table devis)
             $safePrefix = strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $companyName), 0, 5));
             $refPdf     = "Devis_" . $safePrefix . "_" . date('Ymd_His') . ".pdf";
 
             $stmtDevis = $this->db->prepare("
-                INSERT INTO devis (id_prospect, reference_pdf, montant_ht, tva) 
-                VALUES (?, ?, 0.00, 0.00)
+                INSERT INTO devis (id_prospect, reference_pdf, montant_ht, tva, status) 
+                VALUES (?, ?, 0.00, 0.00, 'brouillon')
             ");
             $stmtDevis->execute([$prospectId, $refPdf]);
             $devisId = (int)$this->db->lastInsertId();
 
-            // Validation définitive des transactions
+            // Commit final de la transaction MySQL
             $this->db->commit();
 
             // -----------------------------------------------------------------
@@ -197,6 +219,15 @@ class ConversionService
 
     /**
      * Enregistre l'empreinte d'audit dans la collection MongoDB `logs`.
+     *
+     * @param int      $prospectId  Identifiant du prospect converti.
+     * @param int      $clientId    Identifiant de l'utilisateur client lié.
+     * @param int      $companyId   Identifiant de la société B2B.
+     * @param int      $eventId     Identifiant du projet événementiel créé.
+     * @param int      $devisId     Identifiant du devis initialisé.
+     * @param int|null $actorUserId Identifiant de l'administrateur à l'origine de l'action.
+     * @param array    $context     Métadonnées contextuelles additionnelles.
+     * @return void
      */
     private function logActivity(
         int $prospectId,
