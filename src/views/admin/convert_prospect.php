@@ -163,7 +163,7 @@
                             <div class="col-md-6">
                                 <label for="estimated_participants" class="form-label small fw-bold text-muted">Participants prévus</label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-users"></i></span>
+                                    <span class="input-group-text bg-light text-muted"><i class="bi bi-people"></i></span>
                                     <input type="number" class="form-control" id="estimated_participants" name="estimated_participants"
                                            value="<?= (int)($prospect['estimated_participants'] ?? 0) ?>" min="1">
                                 </div>
