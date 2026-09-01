@@ -102,4 +102,31 @@ class Devis
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Recalcule et met à jour le montant HT et la TVA du devis en BDD.
+     */
+    public function recalculateTotals(int $devisId): bool
+    {
+        try {
+            $stmt = $this->db->prepare("
+                UPDATE devis d
+                SET d.montant_ht = (
+                    SELECT COALESCE(SUM(p.montant_ht), 0) 
+                    FROM prestations p 
+                    WHERE p.devis_id = d.id_devis
+                ),
+                d.tva = (
+                    SELECT COALESCE(SUM(p.montant_ht), 0) * 0.20 
+                    FROM prestations p 
+                    WHERE p.devis_id = d.id_devis
+                )
+                WHERE d.id_devis = ?
+            ");
+            return $stmt->execute([$devisId]);
+        } catch (\PDOException $e) {
+            error_log("Erreur recalcul totaux devis : " . $e->getMessage());
+            return false;
+        }
+    }
+
 }

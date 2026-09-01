@@ -173,6 +173,10 @@ class QuoteController extends BaseController
         if ($devisId > 0 && !empty($libelle) && $montantHt >= 0) {
             $prestationModel = new Prestation();
             $prestationModel->create($devisId, $libelle, $montantHt);
+
+            // Recalcul automatique des totaux en BDD
+            $devisModel = new Devis();
+            $devisModel->recalculateTotals($devisId);
         }
 
         header("Location: index.php?action=edit_devis&id=" . $devisId);
@@ -190,6 +194,10 @@ class QuoteController extends BaseController
         if ($prestationId > 0 && $devisId > 0) {
             $prestationModel = new Prestation();
             $prestationModel->delete($prestationId, $devisId);
+
+            // Recalcul automatique des totaux en BDD
+            $devisModel = new Devis();
+            $devisModel->recalculateTotals($devisId);
         }
 
         header("Location: index.php?action=edit_devis&id=" . $devisId);
