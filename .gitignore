@@ -29,6 +29,7 @@ Thumbs.db
 
 # --- Propreté ---
 /tests/report/
+storage/devis
 
 # --- Bases de données locales temporaires ---
 # On exclut les formats SQLite mais on garde les .sql de test
