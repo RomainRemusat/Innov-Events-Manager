@@ -12,7 +12,7 @@
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    1.2.0
+ * @version    1.3.0
  */
 
 require_once __DIR__ . '/BaseController.php';
@@ -20,22 +20,79 @@ require_once __DIR__ . '/../models/sql/Prospect.php';
 require_once __DIR__ . '/../models/nosql/Log.php'; // Nécessaire pour la journalisation MongoDB
 require_once __DIR__ . '/../services/ConversionService.php';
 require_once __DIR__ . '/../models/sql/Devis.php';
-require_once __DIR__ . '/BaseController.php';
+require_once __DIR__ . '/../models/sql/User.php';
+require_once __DIR__ . '/../models/sql/Event.php';
+require_once __DIR__ . '/../models/sql/Note.php';
+
 
 class DashboardController extends BaseController
 {
-    public function showDashboard(): void
+    public function showDashboard_old(): void
     {
         $this->checkAuth(['ADMIN', 'EMPLOYEE']); // Vérifie que l'utilisateur est connecté
 
         $prospectModel = new Prospect();
         $prospects = $prospectModel->findAllActive();
 
+        require_once __DIR__ . '/../models/sql/Event.php';
+        $eventModel = new Event();
+        $upcomingEvents = $eventModel->findUpcomingEvents(3);
+
         $logModel = new Log();
         $activityLogs = $logModel->getLatestLogs(5);
 
         $pageTitle = "Tableau de Bord - Innov'Events";
 
+        require __DIR__ . '/../views/partials/header.php';
+        require __DIR__ . '/../views/admin/dashboard.php';
+        require __DIR__ . '/../views/partials/footer.php';
+    }
+
+
+    public function showDashboard(): void
+    {
+        // Vérifie que l'utilisateur est connecté avec les bons droits
+        $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+
+        // 1. Instanciation des modèles
+        $devisModel = new Devis();
+        $prospectModel = new Prospect();
+        $userModel = new User();
+        $eventModel = new Event();
+        $noteModel = new Note();
+        $logModel = new Log();
+
+        // 2. Récupération des données pour les KPI standards (V3)
+        $devisAcceptes = $devisModel->findByStatus('accepté');
+        $prospectsEnAttente = $prospectModel->findByStatus('à contacter');
+        $clientsActifs = $userModel->countActiveClients();
+
+        // 3. --- NOUVEAUTÉ POUR RÉINTÉGRER LA V2 ---
+        // Récupération de tous les prospects actifs pour le tableau
+        $prospects = $prospectModel->findAllActive();
+
+        // Calcul des KPI manquants gérés désormais par le contrôleur (MVC)
+        $totalProspects = is_array($prospects) ? count($prospects) : 0;
+        $caPrevisionnel = 0;
+
+        if (is_array($prospects)) {
+            foreach ($prospects as $p) {
+                // On exclut les projets refusés du CA prévisionnel
+                if (isset($p['status']) && strtolower($p['status']) !== 'refusé') {
+                    $caPrevisionnel += (float) ($p['budget'] ?? 0);
+                }
+            }
+        }
+        // ------------------------------------------
+
+        // 4. Widgets de la colonne de droite (V3 + V2)
+        $upcomingEvents = $eventModel->findUpcomingEvents(3);
+        $recentNotes = $noteModel->findLatestNotes(5);
+        $activityLogs = $logModel->getLatestLogs(5); // Flux d'audit NoSQL
+
+        $pageTitle = "Tableau de Bord - Innov'Events";
+
+        // Rendu de la vue avec injection de toutes les variables nécessaires
         require __DIR__ . '/../views/partials/header.php';
         require __DIR__ . '/../views/admin/dashboard.php';
         require __DIR__ . '/../views/partials/footer.php';
@@ -135,8 +192,6 @@ class DashboardController extends BaseController
         require __DIR__ . '/../views/partials/footer.php';
     }
 
-
-
     /**
      * Met à jour l'état d'un prospect (ex: "en attente" -> "refusé").
      *
@@ -144,6 +199,9 @@ class DashboardController extends BaseController
      * structurée dans MySQL et trace l'événement immuable dans MongoDB.
      *
      * @return void
+     */
+    /**
+     * Met à jour l'état de qualification d'un prospect (ex: "à contacter" -> "échoué").
      */
     public function updateProspectStatus(): void
     {
@@ -160,11 +218,29 @@ class DashboardController extends BaseController
             $id = (int)$_POST['id'];
             $status = trim($_POST['status']);
 
+            // Contrôle des statuts autorisés en phase prospect
+            $allowedStatuses = ['à contacter', 'en attente', 'échoué'];
+            if (!in_array($status, $allowedStatuses, true)) {
+                $status = 'en attente';
+            }
+
             $prospectModel = new Prospect();
+            $prospect = $prospectModel->find($id);
             $success = $prospectModel->updateStatus($id, $status);
 
             if ($success) {
-                // Journalisation MongoDB (AT2)
+                // Si le devis n'est pas possible, envoi du courriel d'échec exigé par le CDC
+                if ($status === 'échoué' && $prospect && !empty($prospect['email'])) {
+                    try {
+                        require_once __DIR__ . '/../services/MailService.php';
+                        $mailService = new MailService();
+                        $mailService->sendRejectionEmail($prospect['email'], $prospect['contact_name']);
+                    } catch (\Exception $e) {
+                        error_log("Erreur envoi email échec prospect : " . $e->getMessage());
+                    }
+                }
+
+                // Journalisation Audit NoSQL
                 try {
                     $logModel = new Log();
                     $logModel->addLog("UPDATE_PROSPECT", "Statut du prospect #$id modifié en : $status", $_SESSION['user_id'] ?? null);
@@ -174,15 +250,11 @@ class DashboardController extends BaseController
 
                 header("Location: index.php?action=view_prospect&id=" . $id);
                 exit;
-            } else {
-                error_log("Échec de la mise à jour du statut (Prospect ID: $id).");
-                header("Location: index.php?action=view_prospect&id=" . $id);
-                exit;
             }
-        } else {
-            header('Location: index.php?action=dashboard');
-            exit;
         }
+
+        header('Location: index.php?action=dashboard');
+        exit;
     }
 
     /**
@@ -211,7 +283,5 @@ class DashboardController extends BaseController
         require __DIR__ . '/../views/admin/list_prospects.php';
         require __DIR__ . '/../views/partials/footer.php';
     }
-
-
 
 }
