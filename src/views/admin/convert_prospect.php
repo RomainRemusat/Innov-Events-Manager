@@ -19,8 +19,8 @@
  * @var array $prospect Données brutes du prospect récupérées depuis MySQL
  */
 ?>
-<div class="container-fluid bg-light min-vh-100 py-4">
-    <div class="container">
+<div class="container-fluid bg-light min-vh-100">
+    <div class="containerc">
 
         <!-- =============================================================== -->
         <!-- EN-TÊTE DE LA PAGE ET NAVIGATION                                -->
