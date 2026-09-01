@@ -2,97 +2,144 @@
 /**
  * Modèle : Log (Persistance Documentaire MongoDB)
  *
- * Gère les opérations de lecture sur la collection d'audit de sécurité
- * et de traçabilité des flux métiers stockés dans MongoDB.
+ * Gère les opérations de lecture et d'écriture sur la collection d'audit
+ * de sécurité et de traçabilité des flux métiers stockés dans MongoDB via le driver natif.
+ *
+ * Exigences respectées (ECF) :
+ * - AT2 : Traçabilité des actions et journalisation d'audit NoSQL.
  *
  * @package    InnovEventsManager
  * @subpackage Models/NoSQL
  * @author     Romain Remusat
- * @version    1.0.0
+ * @version    1.2.0
  */
 
 class Log
 {
-    /** @var \MongoDB\Driver\Manager */
-    private $manager;
-    private $dbCollection = "innovevents_db.logs"; // Base.Collection
+    /**
+     * Manager de connexion au driver natif MongoDB.
+     *
+     * @var \MongoDB\Driver\Manager
+     */
+    private \MongoDB\Driver\Manager $manager;
 
     /**
-     * Initialise la connexion au cluster ou conteneur MongoDB.
+     * Namespace de la collection MongoDB (Base.Collection).
+     *
+     * @var string
+     */
+    private string $dbCollection = "innovevents_db.logs";
+
+    /**
+     * Initialise la connexion au conteneur Docker "mongodb".
      */
     public function __construct()
     {
-        // Connexion au conteneur Docker "mongodb" sur le port standard 27017
         $this->manager = new \MongoDB\Driver\Manager("mongodb://mongodb:27017");
     }
 
     /**
      * Récupère les derniers logs d'activité enregistrés.
      *
-     * @param int $limit Nombre maximum de documents à retourner.
-     * @return array Liste des logs convertis en tableaux associatifs.
+     * @param  int $limit Nombre maximum de documents à retourner.
+     * @return array      Liste des logs convertis en tableaux associatifs.
      */
     public function getLatestLogs(int $limit = 5): array
     {
         try {
-            // Pas de filtre (on veut tout), mais on trie par date décroissante (les plus récents en premier)
             $filter = [];
             $options = [
-                'sort' => ['created_at' => -1],
+                'sort'  => ['created_at' => -1],
                 'limit' => $limit
             ];
 
             $query = new \MongoDB\Driver\Query($filter, $options);
             $cursor = $this->manager->executeQuery($this->dbCollection, $query);
 
-            // Conversion du curseur en tableau PHP standard
             $logs = [];
             foreach ($cursor as $document) {
-                // On transforme l'objet standard en tableau associatif pour le contrôleur
                 $logs[] = (array)$document;
             }
 
             return $logs;
         } catch (\Exception $e) {
             error_log("Erreur lors de la lecture des logs MongoDB : " . $e->getMessage());
-            return []; // Fail-safe : retourne un tableau vide pour ne pas faire crash la vue
+            return [];
         }
     }
 
     /**
-     * Enregistre une action dans la base MongoDB (Audit).
-     * * @param string $action Libellé de l'action (ex: 'Mise à jour statut')
-     * @param string $message Description détaillée
+     * Enregistre une action d'audit dans la base NoSQL MongoDB.
+     *
+     * @param  string   $typeAction    Libellé normalisé de l'action (ex: REPONSE_DEVIS_CLIENT).
+     * @param  string   $message       Description textuelle de l'événement.
+     * @param  int|null $idUtilisateur ID de l'utilisateur ou null (session active).
+     * @param  array    $details       Métadonnées et contexte de l'action.
+     * @return void
      */
     public function addLog(string $typeAction, string $message, ?int $idUtilisateur = null, array $details = []): void
     {
         try {
-            // Optionnel : Si l'ID utilisateur n'est pas fourni, on tente de le récupérer
-            // automatiquement depuis la session active s'il existe.
             if ($idUtilisateur === null && session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['user_id'])) {
                 $idUtilisateur = (int)$_SESSION['user_id'];
             }
 
             $bulk = new \MongoDB\Driver\BulkWrite;
 
-            // Structure stricte demandée par le cahier des charges de l'ECF
             $doc = [
-                'created_at'     => new \MongoDB\BSON\UTCDateTime(), // Horodatage ISODate
-                'type_action'    => $typeAction,                    // Chaîne standardisée (ex: CREATION_CLIENT)
-                'id_utilisateur' => $idUtilisateur,                 // ID de l'utilisateur
-                'message'        => $message,                       // Ton message descriptif pour le Dashboard
+                'created_at'     => new \MongoDB\BSON\UTCDateTime(),
+                'type_action'    => $typeAction,
+                'id_utilisateur' => $idUtilisateur,
+                'message'        => $message,
                 'ip_address'     => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
-                'details'        => $details                        // Objet flexible pour le contexte
+                'details'        => $details
             ];
 
             $bulk->insert($doc);
             $this->manager->executeBulkWrite($this->dbCollection, $bulk);
         } catch (\Exception $e) {
-            // En cas d'échec d'écriture, on ne bloque pas l'application (programmation défensive)
             error_log("Erreur lors de l'écriture du log NoSQL : " . $e->getMessage());
         }
     }
 
+    /**
+     * Récupère le dernier motif de modification soumis par le client pour un devis donné.
+     *
+     * Exploite le driver natif \MongoDB\Driver\Query pour effectuer un filtre
+     * sur les champs imbriqués du document d'audit `type_action` et `details`.
+     *
+     * @param  int $devisId Identifiant du devis cible.
+     * @return string|null  Le motif saisi par le client ou null si introuvable.
+     */
+    public function getLatestChangeReason(int $devisId): ?string
+    {
+        try {
+            $filter = [
+                'type_action'      => 'REPONSE_DEVIS_CLIENT',
+                'details.devis_id' => $devisId,
+                'details.action'   => 'request_change'
+            ];
+            $options = [
+                'sort'  => ['created_at' => -1],
+                'limit' => 1
+            ];
 
+            $query = new \MongoDB\Driver\Query($filter, $options);
+            $cursor = $this->manager->executeQuery($this->dbCollection, $query);
 
+            foreach ($cursor as $document) {
+                $docArray = (array)$document;
+                if (isset($docArray['details'])) {
+                    $details = (array)$docArray['details'];
+                    if (!empty($details['change_reason'])) {
+                        return (string)$details['change_reason'];
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            error_log("Erreur lors de la lecture du motif de modification NoSQL : " . $e->getMessage());
+        }
+
+        return null;
+    }
 }

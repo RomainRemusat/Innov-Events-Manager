@@ -54,6 +54,30 @@ $caPrev = $caPrevisionnel ?? 0;
                 </div>
             </div>
 
+
+            <!-- Alerte d'action requise : Demandes de modification en attente -->
+            <?php if (!empty($pendingModificationsCount) && $pendingModificationsCount > 0): ?>
+                <div class="alert alert-warning border-warning shadow-sm mb-4 p-3" role="alert">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-exclamation-triangle-fill fs-3 text-warning me-3" aria-hidden="true"></i>
+                            <div>
+                                <h2 class="h6 fw-bold mb-0 text-dark">
+                                    <?= $pendingModificationsCount; ?> demande<?= $pendingModificationsCount > 1 ? 's' : ''; ?> de modification de devis en attente
+                                </h2>
+                                <p class="mb-0 small text-muted">
+                                    Un ou plusieurs clients ont soumis des ajustements sur leurs propositions commerciales.
+                                </p>
+                            </div>
+                        </div>
+                        <a href="index.php?action=admin_devis" class="btn btn-warning btn-sm fw-bold px-3">
+                            <i class="bi bi-pencil-square me-1" aria-hidden="true"></i> Traiter les devis
+                        </a>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+
             <!-- Widget : Indicateurs Clés -->
             <div id="indicateurs" class="mb-5">
                 <h2 class="text-dark fw-bold h4 mb-3">Indicateurs clés</h2>

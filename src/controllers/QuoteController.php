@@ -154,6 +154,17 @@ class QuoteController extends BaseController
         $prestationModel = new Prestation();
         $prestations = $prestationModel->findByDevisId($devisId);
 
+        // Extraction de la remarque client depuis MongoDB si statut en modification
+        $lastChangeReason = null;
+        if (strtolower($devis['status'] ?? '') === 'modification') {
+            try {
+                $logModel = new Log();
+                $lastChangeReason = $logModel->getLatestChangeReason($devisId);
+            } catch (\Exception $e) {
+                error_log("Erreur lecture motif modification MongoDB : " . $e->getMessage());
+            }
+        }
+
         $pageTitle = "Édition Devis - " . htmlspecialchars($devis['company_name'], ENT_QUOTES, 'UTF-8');
 
         require __DIR__ . '/../views/partials/header.php';

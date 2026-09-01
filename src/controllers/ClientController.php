@@ -115,7 +115,23 @@ class ClientController extends BaseController
         $stmtUpdate = $db->prepare("UPDATE devis SET status = ? WHERE id_devis = ?");
         $stmtUpdate->execute([$newStatus, $devisId]);
 
-        // 5. Journalisation d'audit dans MongoDB (AT2)
+
+        // 5. Notification par courriel à l'équipe commerciale en cas de demande de modification
+        if ($action === 'request_change') {
+            try {
+                require_once __DIR__ . '/../services/MailService.php';
+                $mailService = new MailService();
+                $mailService->sendModificationRequestEmail(
+                    $devis['company_name'] ?? 'Client',
+                    $devisId,
+                    $reason
+                );
+            } catch (\Exception $e) {
+                error_log("Erreur d'envoi du courriel de modification : " . $e->getMessage());
+            }
+        }
+
+        // 6. Journalisation d'audit dans MongoDB (AT2)
         try {
             $logModel = new Log();
             $logMsg = match ($action) {

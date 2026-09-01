@@ -8,10 +8,14 @@ require_once __DIR__ . '/../../config/Database.php';
  * Encapsule les accès BDD liés à la table `devis`.
  * Centralise les requêtes de jointure et d'agrégation financière.
  *
+ * Exigences respectées (ECF) :
+ * - AT1 : Requêtes préparées contre les injections SQL.
+ * - AT2 : Extraction relationnelle propre avec alias stricts pour éviter les collisions PDO.
+ *
  * @package    InnovEventsManager
  * @subpackage Models\SQL
  * @author     Romain Remusat
- * @version    1.0.0
+ * @version    2.0.0
  */
 class Devis
 {
@@ -37,35 +41,35 @@ class Devis
      * du devis par celle du prospect lors du fetch associatif PDO.
      *
      * @param  int $devisId Identifiant unique du devis (`id_devis`).
-     * @return array|null Données du devis ou null si le devis n'existe pas.
+     * @return array|null   Données du devis ou null si le devis n'existe pas.
      */
     public function findWithProspect(int $devisId): ?array
     {
         try {
             $stmt = $this->db->prepare("
-            SELECT d.id_devis,
-                   d.id_prospect,
-                   d.reference_pdf,
-                   d.montant_ht,
-                   d.tva,
-                   d.status AS status,
-                   d.date_creation,
-                   p.company_name,
-                   p.contact_name,
-                   p.email,
-                   p.phone,
-                   p.event_type,
-                   p.event_date,
-                   p.location,
-                   p.estimated_participants,
-                   p.budget,
-                   p.description,
-                   p.status AS prospect_status
-            FROM devis d
-            JOIN prospects p ON d.id_prospect = p.id
-            WHERE d.id_devis = ?
-            LIMIT 1
-        ");
+                SELECT d.id_devis,
+                       d.id_prospect,
+                       d.reference_pdf,
+                       d.montant_ht,
+                       d.tva,
+                       d.status AS status,
+                       d.date_creation,
+                       p.company_name,
+                       p.contact_name,
+                       p.email,
+                       p.phone,
+                       p.event_type,
+                       p.event_date,
+                       p.location,
+                       p.estimated_participants,
+                       p.budget,
+                       p.description,
+                       p.status AS prospect_status
+                FROM devis d
+                JOIN prospects p ON d.id_prospect = p.id
+                WHERE d.id_devis = ?
+                LIMIT 1
+            ");
             $stmt->execute([$devisId]);
 
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -81,48 +85,82 @@ class Devis
     /**
      * Récupère l'ensemble des devis avec les totaux HT agrégés depuis les prestations.
      *
+     * Sélectionne explicitement chaque colonne pour garantir l'intégrité de `d.status`.
+     *
      * @return array Liste des devis ordonnés du plus récent au plus ancien.
      */
     public function findAllWithTotals(): array
     {
-        $stmt = $this->db->prepare("
-            SELECT d.*, 
-                   p.company_name, 
-                   p.contact_name, 
-                   p.email, 
-                   p.status AS prospect_status,
-                   COALESCE(SUM(pr.montant_ht), 0) AS total_ht
-            FROM devis d
-            JOIN prospects p ON d.id_prospect = p.id
-            LEFT JOIN prestations pr ON d.id_devis = pr.devis_id
-            GROUP BY d.id_devis
-            ORDER BY d.date_creation DESC
-        ");
-        $stmt->execute();
-
-        return $stmt->fetchAll();
-    }
-
-
-    public function findByStatus(string $status): array
-    {
-        $db = Database::getInstance();
-
-        $sql = "SELECT d.id_devis, d.reference_pdf, d.montant_ht, d.date_creation, p.company_name, p.contact_name
+        try {
+            $stmt = $this->db->prepare("
+                SELECT d.id_devis,
+                       d.id_prospect,
+                       d.reference_pdf,
+                       d.montant_ht,
+                       d.tva,
+                       d.status AS status,
+                       d.date_creation,
+                       p.company_name,
+                       p.contact_name,
+                       p.email,
+                       p.status AS prospect_status,
+                       COALESCE(SUM(pr.montant_ht), 0) AS total_ht
                 FROM devis d
                 JOIN prospects p ON d.id_prospect = p.id
-                WHERE d.status = :status
-                ORDER BY d.date_creation DESC";
+                LEFT JOIN prestations pr ON d.id_devis = pr.devis_id
+                GROUP BY d.id_devis, d.id_prospect, d.reference_pdf, d.montant_ht, d.tva, d.status, d.date_creation, p.company_name, p.contact_name, p.email, p.status
+                ORDER BY d.date_creation DESC
+            ");
+            $stmt->execute();
 
-        $stmt = $db->prepare($sql);
-        $stmt->bindValue(':status', $status, PDO::PARAM_STR);
-        $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            error_log("Erreur SQL (findAllWithTotals) : " . $e->getMessage());
+            return [];
+        }
     }
 
     /**
-     * Recalcule et met à jour le montant HT et la TVA du devis en BDD.
+     * Récupère les devis filtrés par statut commercial.
+     *
+     * @param  string $status Statut cible (ex: 'brouillon', 'étude côté client', 'modification').
+     * @return array          Liste des devis correspondants.
+     */
+    public function findByStatus(string $status): array
+    {
+        try {
+            $sql = "SELECT d.id_devis, 
+                           d.id_prospect, 
+                           d.reference_pdf, 
+                           d.montant_ht, 
+                           d.tva, 
+                           d.status AS status, 
+                           d.date_creation, 
+                           p.company_name, 
+                           p.contact_name
+                    FROM devis d
+                    JOIN prospects p ON d.id_prospect = p.id
+                    WHERE d.status = :status
+                    ORDER BY d.date_creation DESC";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindValue(':status', $status, PDO::PARAM_STR);
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (\PDOException $e) {
+            error_log("Erreur SQL (findByStatus) : " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Recalcule et met à jour le montant HT et la TVA du devis en BDD (20 %).
+     *
+     * @param  int  $devisId Identifiant du devis.
+     * @return bool True en cas de succès, false sinon.
      */
     public function recalculateTotals(int $devisId): bool
     {
@@ -142,10 +180,10 @@ class Devis
                 WHERE d.id_devis = ?
             ");
             return $stmt->execute([$devisId]);
+
         } catch (\PDOException $e) {
             error_log("Erreur recalcul totaux devis : " . $e->getMessage());
             return false;
         }
     }
-
 }

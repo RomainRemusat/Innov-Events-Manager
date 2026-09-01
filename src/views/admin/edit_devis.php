@@ -98,6 +98,31 @@ $totalTTC = $totalHT + $totalTVA;
                 </div>
             </div>
 
+            <!-- Alerte explicite si le devis est en demande de modification -->
+            <?php if (strtolower($devis['status'] ?? '') === 'modification'): ?>
+                <div class="alert alert-warning border-warning shadow-sm mb-4 p-3" role="alert">
+                    <div class="d-flex align-items-start gap-3">
+                        <i class="bi bi-exclamation-triangle-fill fs-3 text-warning flex-shrink-0 mt-1" aria-hidden="true"></i>
+                        <div>
+                            <h2 class="h6 fw-bold mb-1 text-dark">
+                                Demande de modification transmise par le client
+                            </h2>
+                            <p class="mb-2 text-dark small">
+                                <strong>Remarque du client :</strong>
+                                <span class="fst-italic bg-white px-2 py-1 rounded border d-inline-block mt-1">
+                                    « <?= htmlspecialchars($lastChangeReason ?? 'Aucun détail renseigné', ENT_QUOTES, 'UTF-8') ?> »
+                                </span>
+                            </p>
+                            <p class="mb-0 text-muted small">
+                                Ajustez les prestations ci-dessous, puis cliquez sur <strong>« Envoyer au client »</strong> pour lui retransmettre la proposition révisée.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+
+
             <!-- =============================================================== -->
             <!-- SYNTHÈSE DU CAHIER DES CHARGES (BESOINS EXPRIMÉS ET BUDGET)     -->
             <!-- =============================================================== -->

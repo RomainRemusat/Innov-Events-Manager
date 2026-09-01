@@ -284,4 +284,34 @@ class MailService
         return mail($toEmail, $subject, $message, $headers);
     }
 
+    /**
+     * Alerte l'administration lorsqu'un client demande un ajustement sur son devis.
+     *
+     * @param string $companyName Raison sociale du client.
+     * @param int    $devisId     Identifiant du devis concerné.
+     * @param string $reason      Motif de la modification saisi par le client.
+     * @return bool
+     */
+    public function sendModificationRequestEmail(string $companyName, int $devisId, string $reason): bool
+    {
+        $adminEmail = 'contact@innovevents.fr'; // Adresse interne de l'agence
+        $subject    = " Demande de modification — Devis #{$devisId} ({$companyName})";
+
+        $message = "
+        <h2>Nouvelle demande de modification de devis</h2>
+        <p>Le client <strong>" . htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8') . "</strong> souhaite modifier le devis <strong>#{$devisId}</strong>.</p>
+        <p><strong>Motif indiqué :</strong></p>
+        <blockquote style='background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 10px 0;'>
+            « " . nl2br(htmlspecialchars($reason, ENT_QUOTES, 'UTF-8')) . " »
+        </blockquote>
+        <p>Rendez-vous dans votre back-office pour ajuster les prestations et renvoyer le devis au client.</p>
+    ";
+
+        $headers  = "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $headers .= "From: Innov'Events <no-reply@innovevents.fr>\r\n";
+
+        return @mail($adminEmail, $subject, $message, $headers);
+    }
+
 }
