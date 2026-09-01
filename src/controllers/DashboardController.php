@@ -67,7 +67,6 @@ class DashboardController extends BaseController
         $prospectsEnAttente = $prospectModel->findByStatus('à contacter');
         $clientsActifs = $userModel->countActiveClients();
 
-        // 3. --- NOUVEAUTÉ POUR RÉINTÉGRER LA V2 ---
         // Récupération de tous les prospects actifs pour le tableau
         $prospects = $prospectModel->findAllActive();
 
@@ -89,6 +88,11 @@ class DashboardController extends BaseController
         $upcomingEvents = $eventModel->findUpcomingEvents(3);
         $recentNotes = $noteModel->findLatestNotes(5);
         $activityLogs = $logModel->getLatestLogs(5); // Flux d'audit NoSQL
+
+        // Récupération des devis en attente de modification
+        $devisModel = new Devis();
+        $pendingModifications = $devisModel->findByStatus('modification');
+        $pendingModificationsCount = count($pendingModifications);
 
         $pageTitle = "Tableau de Bord - Innov'Events";
 

@@ -21,7 +21,7 @@
  */
 ?>
 
-<div class="container-fluid bg-light min-vh-100 py-4">
+<div class="container-fluid bg-light min-vh-100">
     <div class="row">
 
         <?php require __DIR__ . '/../partials/sidebar.php'; ?>

@@ -14,7 +14,7 @@
  *
  * @package    InnovEventsManager
  * @subpackage Views\Admin
- * @author     Innov'Events
+ * @author     Romain Remusat
  * @version    2.1.0
  *
  * @var array $prospects Collection des prospects injectée depuis le DashboardController.
@@ -29,7 +29,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 ?>
 
-<div class="container-fluid bg-light min-vh-100 py-4">
+<div class="container-fluid bg-light min-vh-100">
     <div class="row">
 
         <!-- =============================================================== -->
@@ -115,14 +115,18 @@ if (!isset($_SESSION['user_id'])) {
                                         <!-- Badges de qualification dynamique du statut -->
                                         <td>
                                             <?php
-                                            $status = strtolower($prospect['status'] ?? 'à contacter');
-                                            $badgeClass = 'text-bg-warning';
-                                            if ($status === 'en attente') {
-                                                $badgeClass = 'text-bg-info';
-                                            } elseif ($status === 'échoué' || $status === 'refusé') {
-                                                $badgeClass = 'text-bg-danger';
-                                            } elseif ($status === 'converti' || $status === 'accepté') {
+                                            // Utiliser uniquement le statut propre au devis (d.status)
+                                            $status = strtolower($devis['status'] ?? 'brouillon');
+
+                                            $badgeClass = 'text-bg-secondary';
+                                            if ($status === 'accepté') {
                                                 $badgeClass = 'text-bg-success';
+                                            } elseif ($status === 'refusé') {
+                                                $badgeClass = 'text-bg-danger';
+                                            } elseif (in_array($status, ['devis envoyé', 'étude côté client'], true)) {
+                                                $badgeClass = 'text-bg-warning'; // Jaune / Orange pour les propositions en attente
+                                            } elseif ($status === 'modification') {
+                                                $badgeClass = 'text-bg-info';
                                             }
                                             ?>
                                             <span class="badge <?= $badgeClass ?> px-2 py-1">

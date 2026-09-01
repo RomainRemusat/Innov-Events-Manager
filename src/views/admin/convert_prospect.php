@@ -20,7 +20,7 @@
  */
 ?>
 <div class="container-fluid bg-light min-vh-100">
-    <div class="containerc">
+    <div class="container p-4">
 
         <!-- =============================================================== -->
         <!-- EN-TÊTE DE LA PAGE ET NAVIGATION                                -->
@@ -184,16 +184,15 @@
 
                         <div class="row mb-4">
                             <div class="col-md-6">
-                                <label for="event_status" class="form-label small fw-bold text-muted">Statut initial</label>
-                                <select class="form-select" id="event_status" name="event_status">
-                                    <option value="brouillon" selected>Brouillon (Devis en cours)</option>
-                                    <option value="accepté">Accepté (Validé par le client)</option>
-                                </select>
+                                <!-- Champ caché : l'événement débute obligatoirement en brouillon -->
+                                <input type="hidden" name="event_status" value="brouillon">
+                                <label class="form-label small fw-bold text-muted">Statut initial du projet</label>
+                                <input type="text" class="form-control bg-light" value="Brouillon (Édition des prestations)" readonly>
                             </div>
                             <div class="col-md-6 d-flex align-items-end">
                                 <div class="form-check form-switch mb-2">
                                     <input class="form-check-input" type="checkbox" role="switch" id="is_visible" name="is_visible" checked>
-                                    <label class="form-check-label small" for="is_visible">Visible sur la galerie publique (si validé)</label>
+                                    <label class="form-check-label small" for="is_visible">Visible sur la galerie publique (une fois validé)</label>
                                 </div>
                             </div>
                         </div>

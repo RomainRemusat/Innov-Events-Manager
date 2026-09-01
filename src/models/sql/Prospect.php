@@ -163,7 +163,6 @@ class Prospect
             $stmt = $this->db->prepare($query);
             $stmt->execute();
 
-            // fetchColumn() renvoie directement la valeur scalaire (le chiffre)
             return (int) $stmt->fetchColumn();
 
         } catch (\PDOException $e) {
@@ -249,25 +248,34 @@ class Prospect
     public function findClientRequests(int $clientId): array
     {
         try {
-
             $stmt = $this->db->prepare("
-                SELECT p.*, d.* 
-                FROM prospects p
-                LEFT JOIN devis d ON p.id = d.id_prospect
-                WHERE p.user_id = :user_id
-                ORDER BY p.created_at DESC
-            ");
+            SELECT 
+                d.id_devis,
+                p.id AS prospect_id,
+                p.company_name,
+                p.contact_name,
+                p.email,
+                p.event_type,
+                p.event_date,
+                d.reference_pdf,
+                COALESCE(d.montant_ht, 0.00) AS montant_ht,
+                COALESCE(d.tva, 0.00) AS tva,
+                COALESCE(d.status, p.status) AS status,
+                d.status AS devis_status,
+                p.status AS prospect_status,
+                COALESCE(d.date_creation, p.created_at) AS created_at
+            FROM prospects p
+            LEFT JOIN devis d ON p.id = d.id_prospect
+            WHERE p.user_id = :user_id
+            ORDER BY COALESCE(d.date_creation, p.created_at) DESC
+        ");
 
             $stmt->execute([':user_id' => $clientId]);
 
-            // FETCH_ASSOC garantit un tableau propre
             return $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
         } catch (\PDOException $e) {
-            // AT2 : Gestion de l'exception (On logue l'erreur silencieusement)
             error_log("Erreur SQL (findClientRequests) pour le client $clientId : " . $e->getMessage());
-
-            // On retourne un tableau vide pour protéger la vue (le foreach ne plantera pas)
             return [];
         }
     }
