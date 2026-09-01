@@ -252,6 +252,33 @@ class User
         }
     }
 
+
+    /**
+     * Compte le nombre de clients distincts ayant un événement actif.
+     * Répond à l'exigence des KPIs du tableau de bord (AT2).
+     *
+     * @return int Le nombre de clients actifs.
+     */
+    public function countActiveClients(): int
+    {
+        try {
+            $sql = "SELECT COUNT(DISTINCT u.id) as total 
+                    FROM users u 
+                    JOIN events e ON u.id = e.client_id 
+                    WHERE u.role = 'CLIENT' 
+                    AND e.status IN ('accepté', 'en cours')";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            return (int)($result['total'] ?? 0);
+        } catch (\PDOException $e) {
+            error_log("Erreur SQL countActiveClients : " . $e->getMessage());
+            return 0;
+        }
+    }
+
 }
 
 

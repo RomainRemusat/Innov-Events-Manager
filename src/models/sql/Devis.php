@@ -83,4 +83,23 @@ class Devis
 
         return $stmt->fetchAll();
     }
+
+
+    public function findByStatus(string $status): array
+    {
+        $db = Database::getInstance();
+
+        $sql = "SELECT d.id_devis, d.reference_pdf, d.montant_ht, d.date_creation, p.company_name, p.contact_name
+                FROM devis d
+                JOIN prospects p ON d.id_prospect = p.id
+                WHERE d.status = :status
+                ORDER BY d.date_creation DESC";
+
+        $stmt = $db->prepare($sql);
+        $stmt->bindValue(':status', $status, PDO::PARAM_STR);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
 }

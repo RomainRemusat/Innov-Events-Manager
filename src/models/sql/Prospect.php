@@ -271,4 +271,27 @@ class Prospect
             return [];
         }
     }
+
+
+    /**
+     * Récupère les prospects selon leur statut métier.
+     * Utilise une requête préparée PDO pour contrer les injections SQL (AT1).
+     *
+     * @param string $status Le statut à rechercher (ex: 'à contacter').
+     * @return array La liste des prospects correspondants.
+     */
+    public function findByStatus(string $status): array
+    {
+        try {
+            $sql = "SELECT * FROM prospects WHERE status = :status ORDER BY created_at DESC";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindValue(':status', $status, PDO::PARAM_STR);
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            error_log("Erreur SQL Prospect::findByStatus : " . $e->getMessage());
+            return [];
+        }
+    }
 }
