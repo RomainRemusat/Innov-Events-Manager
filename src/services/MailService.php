@@ -195,6 +195,55 @@ class MailService
         }
     }
 
+    /**
+     * Envoie un e-mail contenant les identifiants initiaux suite à la conversion d'un prospect.
+     *
+     * @param string $email        Adresse email du nouveau compte client.
+     * @param string $firstname    Prénom du client pour personnalisation.
+     * @param string $tempPassword Mot de passe temporaire généré.
+     * @return bool Vrai en cas de distribution réussie.
+     */
+    public function sendTemporaryPasswordEmail(string $email, string $firstname, string $tempPassword): bool
+    {
+        try {
+            $mail = $this->createMailer();
+            $mail->addAddress($email, $firstname);
+            $mail->isHTML(true);
+            $mail->Subject = "Vos accès à l'espace client Innov'Events";
+
+            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+            $host = $_SERVER['HTTP_HOST'] ?? 'localhost:8081';
+            $loginUrl = $protocol . $host . dirname($_SERVER['PHP_SELF']) . '/index.php?action=login';
+
+            $mail->Body = "
+                <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;'>
+                    <h2 style='color: #0F172A; font-size: 20px; margin-top: 0;'>Bonjour {$firstname},</h2>
+                    <p style='line-height: 1.6;'>Un compte client sécurisé a été créé par notre équipe pour le suivi de vos projets événementiels.</p>
+                    <p style='line-height: 1.6;'>Voici vos identifiants temporaires générés automatiquement :</p>
+                    
+                    <div style='text-align: center; margin: 25px 0; background-color: #f8fafc; padding: 15px; border-radius: 6px; border: 1px dashed #cbd5e1;'>
+                        <p style='margin: 5px 0;'><strong>Identifiant :</strong> {$email}</p>
+                        <p style='margin: 5px 0;'><strong>Mot de passe :</strong> <span style='font-family: monospace; font-size: 18px; font-weight: bold; color: #3B82F6;'>{$tempPassword}</span></p>
+                    </div>
+                    
+                    <div style='text-align: center; margin: 30px 0;'>
+                        <a href='{$loginUrl}' style='background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>
+                            Accéder à mon espace
+                        </a>
+                    </div>
+                    
+                    <p style='line-height: 1.6; color: #b91c1c; font-weight: bold;'>🚨 Directive de Sécurité :</p>
+                    <p style='line-height: 1.6; font-size: 13px; color: #6b7280;'>Il vous sera demandé de modifier ce mot de passe dès votre première connexion pour garantir la confidentialité de vos données.</p>
+                </div>
+            ";
+
+            return $mail->send();
+
+        } catch (Exception $e) {
+            error_log("Défaut MailService (Création Client) : " . $e->getMessage());
+            return false;
+        }
+    }
 
     public function sendQuoteEmail(string $email, string $clientName, string $filePath): bool
     {

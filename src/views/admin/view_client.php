@@ -30,6 +30,7 @@
                         <h2 class="h6 fw-bold mb-0 text-dark">Informations Contact</h2>
                     </div>
                     <div class="card-body">
+                        <p class="mb-1"><strong>Société :</strong> <span class="fs-5"><?= htmlspecialchars($client['company_name'], ENT_QUOTES, 'UTF-8') ?></span></p>
                         <p class="mb-2"><strong>Nom :</strong> <?= htmlspecialchars($client['lastname'], ENT_QUOTES, 'UTF-8') ?></p>
                         <p class="mb-2"><strong>Prénom :</strong> <?= htmlspecialchars($client['firstname'], ENT_QUOTES, 'UTF-8') ?></p>
                         <p class="mb-2">

@@ -248,15 +248,27 @@ class Prospect
 
     public function findClientRequests(int $clientId): array
     {
-        // On s'assure d'ajouter d.id_devis dans le SELECT
-        $stmt = $this->db->prepare("
-            SELECT p.*, d.id_devis, d.reference_pdf, d.montant_ht 
-            FROM prospects p
-            LEFT JOIN devis d ON p.id = d.id_prospect
-            WHERE p.user_id = ?
-            ORDER BY p.created_at DESC
-        ");
-        $stmt->execute([$clientId]);
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        try {
+
+            $stmt = $this->db->prepare("
+                SELECT p.*, d.* 
+                FROM prospects p
+                LEFT JOIN devis d ON p.id = d.id_prospect
+                WHERE p.user_id = :user_id
+                ORDER BY p.created_at DESC
+            ");
+
+            $stmt->execute([':user_id' => $clientId]);
+
+            // FETCH_ASSOC garantit un tableau propre
+            return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        } catch (\PDOException $e) {
+            // AT2 : Gestion de l'exception (On logue l'erreur silencieusement)
+            error_log("Erreur SQL (findClientRequests) pour le client $clientId : " . $e->getMessage());
+
+            // On retourne un tableau vide pour protéger la vue (le foreach ne plantera pas)
+            return [];
+        }
     }
 }

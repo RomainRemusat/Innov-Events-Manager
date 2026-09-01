@@ -72,10 +72,10 @@
                                 <!-- Itération sur le jeu de résultats SQL -->
                                 <?php foreach ($clients as $client): ?>
                                     <tr>
-                                        <td class="px-4 py-3 fw-bold text-dark">
+                                        <td class="px-4 py-3 text-dark">
                                             <!-- Sécurisation XSS stricte lors de l'affichage des identités -->
-                                            <?= htmlspecialchars($client['firstname'] . ' ' . $client['lastname'], ENT_QUOTES, 'UTF-8') ?>
-                                            <?= htmlspecialchars($client['firstname'] . ' ' . $client['lastname'], ENT_QUOTES, 'UTF-8') ?>
+                                            <div class="fs-4"><?= htmlspecialchars($client['company_name'], ENT_QUOTES, 'UTF-8') ?></div>
+                                            <div class="fst-italic"><?= htmlspecialchars($client['firstname'] . ' ' . $client['lastname'], ENT_QUOTES, 'UTF-8') ?></div>
                                         </td>
                                         <td class="px-4 py-3 text-muted">
                                             <!-- Lien mailto sécurisé -->

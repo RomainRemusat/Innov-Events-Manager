@@ -155,12 +155,12 @@ class User
         try {
 
             $req = "
-                    SELECT * 
-                    FROM users as u
-                    LEFT JOIN prospects as p ON u.id = p.user_id
-                    WHERE role = 'CLIENT' 
-                        ORDER BY created_at DESC
-                   ";
+                SELECT u.*, c.name AS company_name
+                FROM users u
+                LEFT JOIN companies c ON u.company_id = c.id
+                WHERE u.role = 'CLIENT' AND u.is_deleted = 0
+                ORDER BY u.created_at DESC
+            ";
             $stmt = $this->db->prepare($req);
             $stmt->execute();
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -229,11 +229,23 @@ class User
     public function findById(int $id)
     {
         try {
-            $query = "SELECT * FROM users WHERE id = :id LIMIT 1";
+
+            $query = "SELECT u.*, 
+                             c.name AS company_name, 
+                             c.siren, 
+                             c.address, 
+                             c.postal_code, 
+                             c.city 
+                      FROM users as u
+                      LEFT JOIN companies c ON u.company_id = c.id
+                      WHERE u.id = :id 
+                      LIMIT 1";
+
             $stmt = $this->db->prepare($query);
             $stmt->execute([':id' => $id]);
 
             return $stmt->fetch(PDO::FETCH_ASSOC);
+
         } catch (\PDOException $e) {
             error_log("Erreur lors de la récupération de l'utilisateur $id : " . $e->getMessage());
             return false;
