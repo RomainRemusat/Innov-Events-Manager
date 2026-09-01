@@ -269,4 +269,19 @@ class MailService
         }
     }
 
+    public function sendRejectionEmail(string $toEmail, string $contactName): bool
+    {
+        $subject = "Information concernant votre demande de devis - Innov'Events";
+        $message = "Bonjour " . htmlspecialchars($contactName, ENT_QUOTES, 'UTF-8') . ",\n\n"
+            . "Nous vous remercions pour l'intérêt porté à Innov'Events.\n"
+            . "Après étude de votre demande, nous avons le regret de vous informer que nous ne serons pas en mesure d'y donner une suite favorable pour la date souhaitée.\n\n"
+            . "Bien cordialement,\nL'équipe Innov'Events";
+
+        $headers = "From: contact@innovevents.fr\r\n" .
+            "Reply-To: contact@innovevents.fr\r\n" .
+            "X-Mailer: PHP/" . phpversion();
+
+        return mail($toEmail, $subject, $message, $headers);
+    }
+
 }
