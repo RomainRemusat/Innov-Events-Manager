@@ -1,6 +1,6 @@
 -- =====================================================================
 -- PROJET : INNOV'EVENTS MANAGER
--- FICHIER : test_data.sql (Script d'initialisation)
+-- FICHIER : test_data.sql (Script d'initialisation complet et conforme)
 -- =====================================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
@@ -77,7 +77,7 @@ CREATE TABLE prospects (
     estimated_participants INT NULL,
     budget DECIMAL(10, 2) NULL,
     description TEXT NULL,
-    status VARCHAR(50) DEFAULT 'à contacter', -- CORRECTION AT2
+    status VARCHAR(50) DEFAULT 'à contacter',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE ON UPDATE CASCADE
@@ -87,7 +87,8 @@ INSERT INTO prospects (id, user_id, company_id, company_name, contact_name, emai
     (1, NULL, 1, 'TechCorp', 'Jean Dupont', 'j.dupont@techcorp.fr', '0123456789', 'Séminaire', '2026-09-15', 'Éco-Lodge, Fontainebleau', 150, 15000.00, 'Séminaire de rentrée annuel.', 'à contacter'),
     (2, 3, 2, 'Luxury Hotel Group', 'Marc Petit', 'm.petit@hotel-luxe.fr', '0612345678', 'Soirée de Gala', '2026-12-10', 'Palais Brongniart, Paris', 200, 45000.00, 'Gala de fin d année haut de gamme.', 'converti'),
     (3, 4, 3, 'NextGen Software', 'Amandine Legrand', 'a.legrand@nextgen.io', '0789456123', 'Lancement de produit', '2026-10-05', 'Le Cargo, Espace Innovation Paris', 80, 8500.00, 'Keynote de lancement IA.', 'converti'),
-    (4, 8, 4, 'Alterboutique', 'Rémusat Bernole', 'rremusat@gmail.com', '0698291585', 'Team Building', '2026-10-18', 'Domaine de l Abbaye, Nancy', 24, 50000.00, 'Soirée cohésion d équipe.', 'échoué');
+    (4, 8, 4, 'Alterboutique', 'Rémusat Bernole', 'rremusat@gmail.com', '0698291585', 'Team Building', '2026-10-18', 'Domaine de l Abbaye, Nancy', 24, 50000.00, 'Soirée cohésion d équipe.', 'converti'),
+    (5, 7, 5, 'BioBoutique', 'Romain Rémusat', 'rremusat@hotmail.fr', '0383000000', 'Inauguration', '2026-11-20', 'Magasin Bio, Nancy', 50, 2000.00, 'Inauguration nouvelle boutique.', 'échoué');
 
 -- ---------------------------------------------------------------------
 -- 4. TABLE : DEVIS
@@ -105,7 +106,8 @@ CREATE TABLE devis (
 
 INSERT INTO devis (id_devis, id_prospect, reference_pdf, montant_ht, tva, status) VALUES
     (1, 2, 'Devis_Luxury_Hotel_Group_DEC2026.pdf', 45000.00, 9000.00, 'étude côté client'),
-    (2, 3, 'Devis_NextGen_Software_OCT2026.pdf', 8500.00, 1700.00, 'accepté');
+    (2, 3, 'Devis_NextGen_Software_OCT2026.pdf', 8500.00, 1700.00, 'accepté'),
+    (3, 4, 'Devis_ALTER_20260901_122234.pdf', 0.00, 0.00, 'brouillon');
 
 -- ---------------------------------------------------------------------
 -- 5. TABLE : EVENTS
@@ -120,7 +122,7 @@ CREATE TABLE events (
     location VARCHAR(255) NOT NULL,
     estimated_participants INT NULL,
     image_path VARCHAR(255) NULL,
-    status VARCHAR(50) DEFAULT 'accepté',
+    status VARCHAR(50) DEFAULT 'brouillon',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE ON UPDATE CASCADE
@@ -128,10 +130,11 @@ CREATE TABLE events (
 
 INSERT INTO events (id, client_id, company_id, title, description, event_date, location, estimated_participants, image_path, status) VALUES
     (1, 3, 2, 'Gala de Charité Luxury Group', 'Événement annuel de levée de fonds corporate.', '2026-06-15 20:00:00', 'Palais Brongniart, Paris', 200, 'uploads/events/gala_luxury.webp', 'terminé'),
-    (2, 4, 3, 'Keynote NextGen IA v2', 'Conférence de presse interactive.', '2026-10-05 14:00:00', 'Le Cargo, Espace Innovation Paris', 80, 'uploads/events/keynote_nextgen.webp', 'en cours');
+    (2, 4, 3, 'Keynote NextGen IA v2', 'Conférence de presse interactive.', '2026-10-05 14:00:00', 'Le Cargo, Espace Innovation Paris', 80, 'uploads/events/keynote_nextgen.webp', 'en cours'),
+    (3, 8, 4, 'Team Building - Alterboutique', 'Soirée cohésion d équipe.', '2026-10-18 08:00:00', 'Domaine de l Abbaye, Nancy', 24, NULL, 'brouillon');
 
 -- ---------------------------------------------------------------------
--- 6. TABLE : PRESTATIONS (Détail commercial des devis)
+-- 6. TABLE : PRESTATIONS
 -- ---------------------------------------------------------------------
 CREATE TABLE prestations (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -152,15 +155,15 @@ INSERT INTO prestations (id, devis_id, libelle, montant_ht) VALUES
 -- 7. TABLE : NOTES
 -- ---------------------------------------------------------------------
 CREATE TABLE notes (
-   id INT AUTO_INCREMENT PRIMARY KEY,
-   event_id INT NOT NULL,
-   user_id INT NOT NULL,
-   content TEXT NOT NULL,
-   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-   FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE ON UPDATE CASCADE,
-   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
+                       id INT AUTO_INCREMENT PRIMARY KEY,
+                       event_id INT NOT NULL,
+                       user_id INT NOT NULL,
+                       content TEXT NOT NULL,
+                       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                       FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO notes (id, event_id, user_id, content) VALUES
-(1, 1, 2, 'Attention, le client a demandé des options végétariennes supplémentaires pour le traiteur.'),
-(2, 2, 1, 'Le prestataire technique pour le streaming doit arriver à 10h pour les tests.');
+    (1, 1, 2, 'Attention, le client a demandé des options végétariennes supplémentaires pour le traiteur.'),
+    (2, 2, 1, 'Le prestataire technique pour le streaming doit arriver à 10h pour les tests.');
