@@ -7,10 +7,14 @@
  * et télécharger les propositions commerciales au format PDF, et d'exécuter
  * les arbitrages décisionnels (acceptation, demande de modification, refus).
  *
+ * Exigences respectées (ECF) :
+ * - AT1 : Interface responsive, contrôles CSRF, sécurisation XSS et gestion des identifiants uniques.
+ * - AT2 : Gestion du cycle de vie des devis et des demandes de modification.
+ *
  * @package    InnovEventsManager
  * @subpackage Views\Client
  * @author     Innov'Events
- * @version    2.1.0
+ * @version    2.2.0
  *
  * @var string $clientName Nom/Prénom ou raison sociale du client connecté.
  * @var array  $myQuotes   Liste des devis et projets rattachés au compte client.
@@ -95,25 +99,26 @@ require __DIR__ . '/../partials/header.php';
                                     <tbody>
                                     <?php foreach ($myQuotes as $quote): ?>
                                         <?php
-                                        // Normalisation du statut pour l'évaluation des conditions UI
+                                        // Normalisation du statut et résolution de l'identifiant unique
                                         $st = strtolower($quote['status'] ?? 'brouillon');
+                                        $quoteUniqueId = (int)($quote['id_devis'] ?? $quote['prospect_id'] ?? $quote['id'] ?? 0);
                                         ?>
                                         <tr>
-                                            <!-- Identifiant du dossier -->
+                                            <!-- Identifiant unique du dossier -->
                                             <td class="ps-4 fw-semibold text-secondary">
-                                                #<?= (int)$quote['id']; ?>
+                                                #<?= $quoteUniqueId; ?>
                                             </td>
 
                                             <!-- Libellé de l'événement et entreprise -->
                                             <td>
-                                                <span class="fw-bold text-dark"><?= htmlspecialchars($quote['event_type'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                                <span class="fw-bold text-dark"><?= htmlspecialchars($quote['event_type'] ?? '', ENT_QUOTES, 'UTF-8'); ?></span>
                                                 <br>
-                                                <small class="text-muted"><?= htmlspecialchars($quote['company_name'], ENT_QUOTES, 'UTF-8'); ?></small>
+                                                <small class="text-muted"><?= htmlspecialchars($quote['company_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?></small>
                                             </td>
 
                                             <!-- Date d'émission / création -->
                                             <td>
-                                                <?= date('d/m/Y', strtotime($quote['created_at'])); ?>
+                                                <?= !empty($quote['created_at']) ? date('d/m/Y', strtotime($quote['created_at'])) : date('d/m/Y'); ?>
                                             </td>
 
                                             <!-- Badges sémantiques indiquant l'état du dossier -->
@@ -144,11 +149,15 @@ require __DIR__ . '/../partials/header.php';
                                             <!-- Actions : Téléchargement PDF et Tunnel décisionnel -->
                                             <td class="text-end pe-4">
 
-                                                <!-- Téléchargement de la pièce jointe PDF (Storage sécurisé) -->
-                                                <?php if (!empty($quote['reference_pdf'])): ?>
+                                                <?php
+                                                $pdfPhysicalPath = __DIR__ . '/../../storage/devis/' . ($quote['reference_pdf'] ?? '');
+                                                $isPdfAvailable = !empty($quote['reference_pdf']) && $st !== 'brouillon' && file_exists($pdfPhysicalPath);
+                                                ?>
+
+                                                <?php if ($isPdfAvailable): ?>
                                                     <a href="index.php?action=download_pdf&file=<?= urlencode($quote['reference_pdf']); ?>"
                                                        class="btn btn-outline-primary btn-sm rounded-2 mb-1"
-                                                       aria-label="Télécharger le PDF du devis #<?= (int)$quote['id']; ?>">
+                                                       aria-label="Télécharger le PDF du devis #<?= $quoteUniqueId; ?>">
                                                         <i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i> Télécharger (<?= number_format((float)($quote['montant_ht'] ?? 0), 2, ',', ' '); ?> € HT)
                                                     </a>
                                                 <?php endif; ?>
@@ -160,7 +169,7 @@ require __DIR__ . '/../partials/header.php';
                                                         <!-- Formulaire 1 : Acceptation ferme du devis -->
                                                         <form action="index.php?action=respond_to_quote" method="POST" class="d-inline">
                                                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
-                                                            <input type="hidden" name="devis_id" value="<?= (int)($quote['id_devis'] ?? $quote['id']); ?>">
+                                                            <input type="hidden" name="devis_id" value="<?= $quoteUniqueId; ?>">
                                                             <button type="submit" name="quote_action" value="accept" class="btn btn-success btn-sm"
                                                                     onclick="return confirm('En acceptant ce devis, vous validez la prestation et engagez le projet. Confirmer ?');">
                                                                 <i class="bi bi-check-lg" aria-hidden="true"></i> Accepter
@@ -168,14 +177,18 @@ require __DIR__ . '/../partials/header.php';
                                                         </form>
 
                                                         <!-- Bouton d'affichage du formulaire de demande d'ajustement -->
-                                                        <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="collapse" data-bs-target="#modiffForm<?= (int)$quote['id']; ?>" aria-expanded="false" aria-controls="modiffForm<?= (int)$quote['id']; ?>">
+                                                        <button type="button" class="btn btn-warning btn-sm"
+                                                                data-bs-toggle="collapse"
+                                                                data-bs-target="#modiffForm<?= $quoteUniqueId; ?>"
+                                                                aria-expanded="false"
+                                                                aria-controls="modiffForm<?= $quoteUniqueId; ?>">
                                                             <i class="bi bi-pencil" aria-hidden="true"></i> Modifier
                                                         </button>
 
                                                         <!-- Formulaire 2 : Refus du devis -->
                                                         <form action="index.php?action=respond_to_quote" method="POST" class="d-inline">
                                                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
-                                                            <input type="hidden" name="devis_id" value="<?= (int)($quote['id_devis'] ?? $quote['id']); ?>">
+                                                            <input type="hidden" name="devis_id" value="<?= $quoteUniqueId; ?>">
                                                             <button type="submit" name="quote_action" value="reject" class="btn btn-danger btn-sm"
                                                                     onclick="return confirm('Confirmez-vous le refus définitif de ce devis ?');">
                                                                 <i class="bi bi-x-lg" aria-hidden="true"></i> Refuser
@@ -184,14 +197,14 @@ require __DIR__ . '/../partials/header.php';
                                                     </div>
 
                                                     <!-- Formulaire escamotable : Saisie explicite du motif de modification -->
-                                                    <div class="collapse mt-2 text-start" id="modiffForm<?= (int)$quote['id']; ?>">
+                                                    <div class="collapse mt-2 text-start" id="modiffForm<?= $quoteUniqueId; ?>">
                                                         <form action="index.php?action=respond_to_quote" method="POST" class="bg-light p-3 rounded border shadow-sm">
                                                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
-                                                            <input type="hidden" name="devis_id" value="<?= (int)($quote['id_devis'] ?? $quote['id']); ?>">
+                                                            <input type="hidden" name="devis_id" value="<?= $quoteUniqueId; ?>">
                                                             <input type="hidden" name="quote_action" value="request_change">
 
-                                                            <label for="change_reason_<?= (int)$quote['id']; ?>" class="form-label small fw-bold mb-1">Motif des modifications souhaitées :</label>
-                                                            <textarea id="change_reason_<?= (int)$quote['id']; ?>" name="change_reason" class="form-control form-control-sm mb-2" rows="2" required placeholder="Précisez les prestations ou les dates à ajuster..."></textarea>
+                                                            <label for="change_reason_<?= $quoteUniqueId; ?>" class="form-label small fw-bold mb-1">Motif des modifications souhaitées :</label>
+                                                            <textarea id="change_reason_<?= $quoteUniqueId; ?>" name="change_reason" class="form-control form-control-sm mb-2" rows="2" required placeholder="Précisez les prestations ou les dates à ajuster..."></textarea>
 
                                                             <button type="submit" class="btn btn-sm btn-warning w-100 fw-bold">
                                                                 <i class="bi bi-send me-1" aria-hidden="true"></i> Transmettre la demande de modification
