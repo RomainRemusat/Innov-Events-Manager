@@ -314,4 +314,56 @@ class MailService
         return @mail($adminEmail, $subject, $message, $headers);
     }
 
+
+    /**
+     * Alerte l'administration lorsqu'un devis est accepté par un client.
+     *
+     * @param string $companyName Raison sociale de l'entreprise client.
+     * @param int    $devisId     Identifiant du devis validé.
+     * @return bool
+     */
+    public function sendQuoteAcceptedEmail(string $companyName, int $devisId): bool
+    {
+        $adminEmail = 'contact@innovevents.fr';
+        $subject    = " Devis #{$devisId} ACCEPTÉ — {$companyName}";
+
+        $message = "
+        <h2>Excellente nouvelle ! Devis accepté</h2>
+        <p>Le client <strong>" . htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8') . "</strong> vient de valider le devis <strong>#{$devisId}</strong>.</p>
+        <p>Le projet événementiel peut désormais passer en phase d'organisation.</p>
+        <p><a href='http://localhost:8081/index.php?action=edit_devis&id={$devisId}'>Accéder au dossier dans le Back-Office</a></p>
+    ";
+
+        $headers  = "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $headers .= "From: Innov'Events <no-reply@innovevents.fr>\r\n";
+
+        return @mail($adminEmail, $subject, $message, $headers);
+    }
+
+    /**
+     * Alerte l'administration lorsqu'un devis est refusé par un client.
+     *
+     * @param string $companyName Raison sociale du client.
+     * @param int    $devisId     Identifiant du devis refusé.
+     * @return bool
+     */
+    public function sendQuoteRejectedEmail(string $companyName, int $devisId): bool
+    {
+        $adminEmail = 'contact@innovevents.fr';
+        $subject    = " Devis #{$devisId} REFUSÉ — {$companyName}";
+
+        $message = "
+        <h2>Devis refusé par le client</h2>
+        <p>Le client <strong>" . htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8') . "</strong> a décliné la proposition commerciale pour le devis <strong>#{$devisId}</strong>.</p>
+        <p>Pensez à le contacter pour analyser le motif du refus ou à clôturer le dossier dans le Back-Office.</p>
+    ";
+
+        $headers  = "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $headers .= "From: Innov'Events <no-reply@innovevents.fr>\r\n";
+
+        return @mail($adminEmail, $subject, $message, $headers);
+    }
+
 }

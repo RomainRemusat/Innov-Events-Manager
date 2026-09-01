@@ -5,6 +5,8 @@ require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/sql/Prospect.php';
 require_once __DIR__ . '/../models/sql/Devis.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
+require_once __DIR__ . '/../services/MailService.php';
+
 
 /**
  * Contrôleur : ClientController (Front-Office)
@@ -87,9 +89,9 @@ class ClientController extends BaseController
 
         $db = Database::getInstance();
 
-        // 2. Contrôle de propriété du devis (Sécurité Multi-Tenant)
+        // 2. Contrôle de propriété du devis + Récupération de company_name pour les notifications
         $stmt = $db->prepare("
-            SELECT d.id_devis, d.id_prospect, p.user_id
+            SELECT d.id_devis, d.id_prospect, p.user_id, p.company_name
             FROM devis d
             JOIN prospects p ON d.id_prospect = p.id
             WHERE d.id_devis = ? AND p.user_id = ?
@@ -115,20 +117,21 @@ class ClientController extends BaseController
         $stmtUpdate = $db->prepare("UPDATE devis SET status = ? WHERE id_devis = ?");
         $stmtUpdate->execute([$newStatus, $devisId]);
 
+        // 5. Notification par courriel centralisée à l'équipe commerciale
+        try {
+            $mailService = new MailService();
+            $companyName = !empty($devis['company_name']) ? $devis['company_name'] : 'Client';
 
-        // 5. Notification par courriel à l'équipe commerciale en cas de demande de modification
-        if ($action === 'request_change') {
-            try {
-                require_once __DIR__ . '/../services/MailService.php';
-                $mailService = new MailService();
-                $mailService->sendModificationRequestEmail(
-                    $devis['company_name'] ?? 'Client',
-                    $devisId,
-                    $reason
-                );
-            } catch (\Exception $e) {
-                error_log("Erreur d'envoi du courriel de modification : " . $e->getMessage());
+            if ($action === 'accept') {
+                $mailService->sendQuoteAcceptedEmail($companyName, $devisId);
+            } elseif ($action === 'request_change') {
+                $mailService->sendModificationRequestEmail($companyName, $devisId, $reason);
+            } elseif ($action === 'reject') {
+                $mailService->sendQuoteRejectedEmail($companyName, $devisId);
             }
+
+        } catch (\Exception $e) {
+            error_log("Erreur d'envoi du courriel de réponse devis : " . $e->getMessage());
         }
 
         // 6. Journalisation d'audit dans MongoDB (AT2)
@@ -154,7 +157,7 @@ class ClientController extends BaseController
             error_log("Erreur Log MongoDB (handleQuoteResponse) : " . $e->getMessage());
         }
 
-        // 6. Feedback visuel utilisateur
+        // 7. Feedback visuel utilisateur
         $_SESSION['client_success'] = match ($action) {
             'accept'         => "Merci ! Votre devis a été validé avec succès. Notre équipe prend le relais.",
             'reject'         => "Votre refus a bien été pris en compte.",
@@ -164,7 +167,6 @@ class ClientController extends BaseController
         header('Location: index.php?action=client_dashboard');
         exit();
     }
-
     /**
      * Alias de routage vers handleQuoteResponse pour la compatibilité d'action URL.
      *
