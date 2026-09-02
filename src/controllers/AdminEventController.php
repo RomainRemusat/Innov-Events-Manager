@@ -6,6 +6,8 @@ require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../models/sql/Event.php';
 require_once __DIR__ . '/../models/sql/Note.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
+require_once __DIR__ . '/../services/FileUploadService.php';
+
 
 /**
  * Contrôleur Back-Office : Pilotage opérationnel des événements et notes.
@@ -139,4 +141,55 @@ class AdminEventController extends BaseController
         }
         exit();
     }
-}
+
+    public function uploadImage(): void
+    {
+        $this->checkStaffAccess();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=admin_events');
+            exit();
+        }
+
+        // Vérification du Token CSRF (Sécurité AT1 / OWASP)
+        if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+            header('Location: index.php?action=admin_events&error=invalid_csrf');
+            exit();
+        }
+
+        $eventId = (int)($_POST['event_id'] ?? 0);
+        $eventModel = new Event();
+        $event = $eventModel->findByIdAdmin($eventId);
+
+        if (!$event) {
+            header('Location: index.php?action=admin_events');
+            exit();
+        }
+
+        $uploadService = new FileUploadService(5 * 1024 * 1024);
+
+        try {
+            $targetDir = __DIR__ . '/../../public/uploads/events/';
+            $filename = $uploadService->uploadImage($_FILES['event_image'] ?? [], $targetDir, 'event_');
+
+            if ($filename !== null) {
+                // Suppression propre de l'ancien fichier s'il existait
+                if (!empty($event['image_path'])) {
+                    $oldPath = __DIR__ . '/../../public/' . ltrim($event['image_path'], '/');
+                    $uploadService->deleteFile($oldPath);
+                }
+
+                // Persistance du chemin relatif en base
+                $eventModel->updateImagePath($eventId, 'uploads/events/' . $filename);
+
+                header("Location: index.php?action=admin_event_detail&id={$eventId}&success=image_updated");
+                exit();
+            }
+        } catch (\InvalidArgumentException $e) {
+            header("Location: index.php?action=admin_event_detail&id={$eventId}&error=" . urlencode($e->getMessage()));
+            exit();
+        }
+
+        header("Location: index.php?action=admin_event_detail&id={$eventId}&error=upload_failed");
+        exit();
+    }}

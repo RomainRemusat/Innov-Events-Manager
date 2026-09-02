@@ -187,6 +187,10 @@ switch (true) {
         (new AdminEventController())->addNote();
         break;
 
+    case ($action === 'admin_upload_image'):
+        (new AdminEventController())->uploadImage();
+        break;
+
     // -------------------------------------------------------------------
     // ROUTES : ADMINISTRER LES CLIENTS (AdminClientController - Back-Office)
     // -------------------------------------------------------------------
