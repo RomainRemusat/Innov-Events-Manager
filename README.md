@@ -86,7 +86,7 @@ docker compose exec app composer install
 5. **Initialiser les bases de données (Script manuel & Jeu d'essai) :**
 ```bash
 docker compose exec -T db mysql -u root -proot_password innovevents_db < scripts/schema.sql
-docker compose exec -T db mysql -u root -proot_password innovevents_db < scripts/test_data.sql
+docker compose exec -T db mysql -u root -proot_password innovevents_db < scripts/initialise.sql
 
 ```
 
