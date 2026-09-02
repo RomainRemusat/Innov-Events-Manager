@@ -21,12 +21,17 @@
                 <?php endif; ?>
             </div>
 
-            <?php if (!empty($event['image_path'])): ?>
-                <img src="<?= htmlspecialchars($event['image_path'], ENT_QUOTES, 'UTF-8') ?>"
-                     class="img-fluid rounded-3 mb-4 w-100 shadow-sm object-fit-cover"
-                     alt="Visuel grand format pour <?= htmlspecialchars($event['title'], ENT_QUOTES, 'UTF-8') ?>"
-                     style="max-height: 450px;">
-            <?php endif; ?>
+            <?php require_once __DIR__ . '/../../utils/ImageHelper.php'; ?>
+
+            <!-- Bannière grand format de la réalisation (400px de hauteur) -->
+            <div class="mb-4 rounded-3 overflow-hidden shadow-sm">
+                <?= ImageHelper::renderThumbnail(
+                    $event['image_path'] ?? null,
+                    $event['title'],
+                    '400px',
+                    'w-100'
+                ) ?>
+            </div>
 
             <section class="mb-5">
                 <h2 class="h4 fw-bold text-dark mb-3">À propos de cet événement</h2>

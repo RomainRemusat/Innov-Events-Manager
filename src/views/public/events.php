@@ -68,33 +68,26 @@
                 <a href="index.php?action=events" class="btn btn-outline-primary btn-sm mt-2">Réinitialiser les filtres</a>
             </div>
         <?php else: ?>
+            <?php require_once __DIR__ . '/../../utils/ImageHelper.php'; ?>
             <?php foreach ($events as $ev): ?>
                 <div class="col-md-6 col-lg-4">
                     <article class="card h-100 shadow-sm border-0 overflow-hidden">
-                        <?php if (!empty($ev['image_path'])): ?>
-                            <img src="<?= htmlspecialchars($ev['image_path'], ENT_QUOTES, 'UTF-8') ?>"
-                                 class="card-img-top object-fit-cover"
-                                 alt="Visuel de l'événement <?= htmlspecialchars($ev['title'], ENT_QUOTES, 'UTF-8') ?>"
-                                 style="height: 220px;">
-                        <?php else: ?>
-                            <div class="bg-secondary-subtle d-flex align-items-center justify-content-center text-muted" style="height: 220px;">
-                                <i class="fa-regular fa-image fa-2x" aria-hidden="true"></i>
-                            </div>
-                        <?php endif; ?>
+                        <!-- Rendu unique : gère l'image réelle ou le placeholder sans doublon -->
+                        <?= ImageHelper::renderThumbnail($ev['image_path'] ?? null, $ev['title'], '220px') ?>
 
                         <div class="card-body d-flex flex-column">
-                            <div class="d-flex gap-2 mb-2">
-                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-                                    <?= htmlspecialchars($ev['event_type'], ENT_QUOTES, 'UTF-8') ?>
-                                </span>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                        <?= htmlspecialchars($ev['event_type'] ?? 'Événement', ENT_QUOTES, 'UTF-8') ?>
+                    </span>
                                 <?php if (!empty($ev['theme'])): ?>
-                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
-                                        <?= htmlspecialchars($ev['theme'], ENT_QUOTES, 'UTF-8') ?>
-                                    </span>
+                                    <span class="badge bg-secondary-subtle text-secondary">
+                            <?= htmlspecialchars($ev['theme'], ENT_QUOTES, 'UTF-8') ?>
+                        </span>
                                 <?php endif; ?>
                             </div>
 
-                            <h2 class="h5 card-title fw-bold text-dark mb-2">
+                            <h2 class="card-title h5 fw-bold text-dark mb-2">
                                 <?= htmlspecialchars($ev['title'], ENT_QUOTES, 'UTF-8') ?>
                             </h2>
 
@@ -102,23 +95,16 @@
                                 <?= htmlspecialchars(mb_strimwidth($ev['description'] ?? '', 0, 120, '...'), ENT_QUOTES, 'UTF-8') ?>
                             </p>
 
-                            <ul class="list-unstyled small text-muted my-3 border-top pt-3">
-                                <li class="mb-1">
-                                    <i class="fa-regular fa-calendar me-2 text-primary" aria-hidden="true"></i>
-                                    Du <?= date('d/m/Y', strtotime($ev['start_date'])) ?>
-                                    <?php if (!empty($ev['end_date'])): ?>
-                                        au <?= date('d/m/Y', strtotime($ev['end_date'])) ?>
-                                    <?php endif; ?>
-                                </li>
-                                <li class="mb-1">
-                                    <i class="fa-solid fa-location-dot me-2 text-primary" aria-hidden="true"></i>
-                                    <?= htmlspecialchars($ev['location'], ENT_QUOTES, 'UTF-8') ?>
-                                </li>
-                            </ul>
-
-                            <a href="index.php?action=event_detail&id=<?= (int)$ev['id'] ?>" class="btn btn-outline-primary w-100 mt-auto">
-                                Découvrir le projet
-                            </a>
+                            <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                                <div class="small text-muted">
+                                    <i class="fa-regular fa-calendar me-1" aria-hidden="true"></i>
+                                    <?= date('d/m/Y', strtotime($ev['start_date'])) ?>
+                                </div>
+                                <!-- Jamais de prix affiché sur la vitrine (CDC p. 7) -->
+                                <a href="index.php?action=event_detail&id=<?= (int)$ev['id'] ?>" class="btn btn-outline-primary btn-sm fw-semibold">
+                                    Découvrir <i class="fa-solid fa-arrow-right ms-1" aria-hidden="true"></i>
+                                </a>
+                            </div>
                         </div>
                     </article>
                 </div>
