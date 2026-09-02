@@ -1,141 +1,167 @@
 # 📅 Innov'Events Manager 🚀
 
-**Innov'Events Manager** est une solution web et mobile B2B de gestion événementielle conçue pour l'agence Innov'Events. Ce projet vise à remplacer un système obsolète basé sur des fichiers Excel et Word dispersés par une **source unique de vérité**, garantissant la fiabilité des données et l'automatisation du tunnel commercial (prospects, devis PDF, suivi de projets).
+Innov'Events Manager est une solution logicielle sécurisée (Web et Mobile) organisée en couches, conçue pour l'agence événementielle B2B Innov'Events. Ce projet remplace un système obsolète et dispersé (fichiers Word, classeurs Excel CRM non synchronisés) par une source unique de vérité centralisée, automatisant le tunnel commercial (prospects, devis PDF) et fiabilisant la gestion opérationnelle des événements.
 
-Ce dépôt constitue le projet d'**Évaluation en Cours de Formation (ECF)** pour le titre professionnel **Concepteur Développeur d'Applications (CDA)** (École Studi).
+Ce dépôt constitue le livrable technique d'évaluation en cours de formation (ECF) pour le titre professionnel **Concepteur Développeur d'Applications (CDA)** (Niveau 6 - École Studi).
 
 ---
 
 ## 🛠️ Stack Technique
 
-* **Infrastructure & Conteneurisation :** Docker & Docker Compose (Multi-conteneurs avec persistance par volumes).
-* **Back-end :** PHP 8.2 (Architecture MVC POO maison, Front Controller `index.php`).
-* **Bases de données :**
-   * **Relationnelle (MySQL 8.0) :** Données métiers (Users, Prospects, Clients, Événements, Devis).
-   * **NoSQL (MongoDB) :** Journalisation d'audit de sécurité et traçabilité immuable (Logs).
-* **Services Auxiliaires :** MailHog (Serveur SMTP local d'interception d'e-mails), DomPDF (Génération dynamique de devis PDF).
-* **Front-end :** HTML5, CSS3, Bootstrap 5 (Responsive Design, Bootstrap Icons).
+* **Infrastructure & Conteneurisation :** Docker & Docker Compose v2 (isolation multi-conteneurs étanches, volumes de persistance).
+* **Back-end :** PHP 8.2+ (Architecture multicouche MVC, POO stricte, Front Controller `index.php`).
+* **Persistance Polyglotte :**
+* **Base relationnelle (MySQL 8.0) :** Entités structurées (Users, Prospects, Devis, Prestations, Events, Notes, Tasks) conformes à la 3NF et à l'intégrité référentielle.
+* **Base NoSQL orientée documents (MongoDB) :** Journalisation d'audit immuable (`logs`) pour la traçabilité des opérations sensibles.
+
+
+* **Services Auxiliaires :** MailHog (capture locale des flux SMTP), Dompdf (compilation dynamique des propositions commerciales en PDF).
+* **Front-end Web :** HTML5 sémantique (accessibilité RGAA), CSS3 / SCSS, Bootstrap 5 (Responsive Web Design).
+* **Application Mobile :** Interface mobile conteneurisée sous Docker optimisée pour la consultation terrain et le déclenchement d'actions en un clic (Appels, Emails, Itinéraires).
 
 ---
 
-## 🔐 Fonctionnalités Clés incluses (MVP Sprint 1)
+## 🌐 Cartographie des Services et Ports Locaux
 
-* **Architecture MVC & Front Controller :** Routage centralisé via `index.php` et séparation stricte des couches logiques.
-* **Acquisition de Leads :** Interface publique avec formulaire de demande de devis dynamique, reliée à la base de données métier complète (Gestion des budgets, jauges et dates).
-* **Authentification et Back-Office :** Espace d'administration sécurisé (`AuthController` & `DashboardController`) avec gestion des variables de sessions et protection des routes par *Guard Clauses*.
-* **Sécurisation Globale (Defense in Depth) :**
-   * Programmation défensive et typage strict.
-   * Requêtes préparées avec PDO (Protection contre les Injections SQL).
-   * Nettoyage en entrée et échappement en sortie (`htmlspecialchars`) contre les failles XSS.
+| Service | Rôle et Périmètre | Point d'Entrée / Port |
+| --- | --- | --- |
+| **Application Web** | Vitrine publique, Espace Client & Back-Office Staff | http://localhost:8081 |
+| **Authentification** | Formulaire de connexion sécurisé multi-rôles | http://localhost:8081/index.php?action=login |
+| **phpMyAdmin** | Administration visuelle de la base MySQL | http://localhost:8082 |
+| **MailHog** | Capture et inspection des courriels sortants | http://localhost:8025 |
+| **MySQL 8.0** | Serveur SQL relationnel | localhost:3306 |
+| **MongoDB** | Serveur NoSQL documentaire (Audit logs) | localhost:27017 |
 
 ---
 
-## 🚀 Installation et Exécution en Local
+## 🚀 Installation et Démarrage en Local
 
-### Prérequis
-* [Docker Desktop](https://www.docker.com/products/docker-desktop/) (avec Docker Compose v2).
-* Un client [Git](https://git-scm.com/).
+### Prérequis Système
 
-### Procédure de Lancement Pas à Pas
+* Docker Desktop (moteur Docker v24+ avec Compose v2).
+* Un client Git.
+
+### Procédure de Déploiement Local
 
 1. **Cloner le dépôt et basculer sur la branche de développement :**
-   ```bash
-   git clone https://github.com/RomainRemusat/Innov-Events-Manager.git
-   cd Innov-Events-Manager
-   git checkout dev
-   ```
+```bash
+git clone https://github.com/RomainRemusat/Innov-Events-Manager.git
+cd Innov-Events-Manager
+git checkout dev
 
-2. **Configurer l'environnement local :**
-   Dupliquez le modèle de configuration pour générer votre fichier d'environnement local `.env` :
-   * *Sous Bash / macOS / Linux :*
-     ```bash
-     cp .env.example.php
-     ```
-   * *Sous PowerShell (Windows) :*
-     ```powershell
-     Copy-Item .env.example.php
-     ```
+```
 
-3. **Lancer les conteneurs Docker :**
-   ```bash
-   docker-compose up -d --build
-   ```
 
-4. **Installer les dépendances Composer (DomPDF, PHPMailer) :**
-   ```bash
-   docker-compose exec app composer install
-   ```
+2. **Créer le fichier de variables d'environnement :**
+* *Linux / macOS / Git Bash :*
+```bash
+cp .env.example .env
 
-5. **Initialiser le Schéma SQL et le Jeu d'Essai :**
-   Accédez à **phpMyAdmin** sur `http://localhost:8082` (Serveur: `db`, Utilisateur: `root`, Mot de passe: `root_password`).
-   Dans la base `innovevents_db`, importez le script d'initialisation situé dans :
-   `scripts/test_data.sql`
+```
+
+
+* *PowerShell (Windows) :*
+```powershell
+Copy-Item .env.example .env
+
+```
+
+
+
+
+3. **Construire et lancer l'infrastructure Docker :**
+```bash
+docker compose up -d --build
+
+```
+
+
+4. **Installer les dépendances logicielles (Composer) :**
+```bash
+docker compose exec app composer install
+
+```
+
+
+5. **Initialiser les bases de données (Script manuel & Jeu d'essai) :**
+```bash
+docker compose exec -T db mysql -u root -proot_password innovevents_db < scripts/schema.sql
+docker compose exec -T db mysql -u root -proot_password innovevents_db < scripts/test_data.sql
+
+```
+
+
 
 ---
-- `main` : version stable destinée à la production ;
-- `dev` : branche d'intégration des développements ;
-- `feature/*` : développement isolé d'une fonctionnalité.
-
-## 🌐 Cartographie des Services et Ports
-Workflow attendu :
-
-| Service | Rôle | URL / Port d'Accès |
-| :--- | :--- | :--- |
-| **Application Web** | Interface Publique & Back-Office | [http://localhost:8081](http://localhost:8081) |
-| **Back-Office Login** | Authentification Sécurisée | [http://localhost:8081/index.php?action=login](http://localhost:8081/index.php?action=login) |
-| **phpMyAdmin** | Gestionnaire BDD MySQL | [http://localhost:8082](http://localhost:8082) |
-| **MailHog** | Capture d'emails locaux | [http://localhost:8025](http://localhost:8025) |
-| **MySQL 8** | BDD Relationnelle | `localhost:3306` |
-| **MongoDB** | BDD Logs NoSQL | `localhost:27017` |
-1. créer une branche `feature/nom-fonctionnalite` depuis `dev` ;
-2. réaliser des commits fréquents avec des messages explicites ;
-3. tester la fonctionnalité ;
-4. fusionner la branche de fonctionnalité dans `dev` ;
-5. après validation globale, fusionner `dev` dans `main`.
-
-Exemples de messages : `feat(auth): ajoute la réinitialisation du mot de passe`,
-`fix(pdf): corrige le montant du devis` ou `docs(readme): précise l'installation`.
 
 ## 🔐 Comptes de Démonstration (Jeu d'Essai)
 
-Les comptes suivants sont pré-initialisés via le script `scripts/test_data.sql` pour tester les différents niveaux d'habilitation :
+| Rôle Métier | Identifiant (Email) | Mot de Passe Local | Périmètre Applicatif |
+| --- | --- | --- | --- |
+| **Administratrice (Chloé)** | chloe@innovevents.fr | Password123! | Pilotage global, conversion prospects, génération devis, logs NoSQL, gestion d'équipe |
+| **Employé (José)** | jose@innovevents.fr | Password123! | Suivi des projets, gestion des tâches opérationnelles, notes de terrain |
+| **Client B2B** | client@luxe.com | Password123! | Espace client, arbitrage des devis (acceptation, refus, demande de modification) |
 
-| Rôle | Adresse Email | Mot de Passe Local |
-| :--- | :--- |:-------------------|
-| **Administratrice (Chloé)** | `chloe@innovevents.fr` | `password`         |
-| **Employé (José)** | `jose@innovevents.fr` | `password`         |
-| **Client Test** | `client@luxe.com` | `password`                 |
-Le dossier `docs/` contient actuellement :
+---
 
-- la documentation technique ;
-- la charte graphique et UX/UI ;
-- le MCD ;
-- un diagramme de cas d'utilisation ;
-- un diagramme de séquence ;
-- des wireframes et captures relatives à Docker, Git/Kanban et aux e-mails.
+## 🌿 Gouvernance Git & Gestion de Projet (AT1)
 
-## 🌿 Gestion des Versions (Workflow Git)
-Ces documents doivent rester synchronisés avec le code et le schéma SQL au fil du
-développement.
+### Modèle de Branches GitFlow
 
-Ce projet applique les bonnes pratiques **GitFlow** :
-* `main` : Branche de production stable.
+* `main` : Version de production stable et testée.
 * `dev` : Branche d'intégration continue des développements.
-* `feature/*` : Branches isolées pour le développement atomique des fonctionnalités (ex: `feature/csrf-security`).
-* **Commits Sémantiques :** Messages préfixés par `feat:`, `fix:`, `docs:`, `refactor:`.
+* `feature/*` : Branches de travail isolées pour chaque fonctionnalité (ex: `feature/events-filters`, `feature/notes-system`).
+
+### Norme de Commits (Conventional Commits)
+
+* `feat(scope): description` : Nouvelle fonctionnalité.
+* `fix(scope): description` : Correction d'anomalie.
+* `refactor(scope): description` : Réorganisation du code à comportement constant.
+* `docs(scope): description` : Rédaction ou mise à jour documentaire.
+* `test(scope): description` : Ajout ou révision de tests automatisés.
+
+### Pilotage Kanban
+
+Le projet suit un tableau Kanban partagé en 5 colonnes :
+
+1. Fonctionnalités prévues (ordonnées par priorité).
+2. Fonctionnalités prévues dans le sprint en cours.
+3. En cours de développement.
+4. Terminées et testées sur la branche `dev`.
+5. Mergées dans la branche `main` (Production).
 
 ---
 
-## 🛡️ Sécurité et Conformité RGPD Implémentées
+## 📋 Matrice de Couverture des Exigences ECF
 
-* **Protections Web :** Requêtes préparées PDO contre les injections SQL, échappement systématique (`htmlspecialchars`) contre les failles XSS, jetons Anti-CSRF sur les formulaires sensibles, et régénération de session (`session_regenerate_id`).
-* **Hachage des Mots de Passe :** Utilisation de l'algorithme fort `BCRYPT` via `password_hash()`.
-* **Audits & Traçabilité :** Journalisation des connexions et des actions critiques dans MongoDB avec respect du principe de minimisation des données (RGPD).
+### AT1 - Développer une Application Sécurisée
 
----
+* [x] Conteneurisation Docker multi-services et gestion de configuration par environnement.
+* [x] Gestion de version GitFlow (`main`, `dev`, `feature/*`) avec commits sémantiques.
+* [x] Authentification sécurisée (Bcrypt, sessions régénérées, mot de passe oublié temporaire).
+* [x] Formulaire public de devis avec insertion en table `prospects` (statut `à contacter`) et notification mail.
+* [x] Back-Office Chloé : badge dynamique d'indicateurs de devis en attente et édition des prestations.
+* [x] Espace Client B2B : arbitrage des devis (`accepté`, `refusé`, `modification` avec motif obligatoire).
+* [ ] Vitrine publique des événements avec filtres multicritères (dates, type, thème) sans affichage des prix.
+* [ ] Application Mobile Dockerisée pour Chloé et José (fiches concises, appels/mails/itinéraires en un clic, notes rapides).
+* [ ] Pages légales : Mentions légales, CGU et CGV.
+* [ ] Respect des règles d'accessibilité RGAA (navigation clavier, sémantique HTML, attributs ARIA).
 
-## 🧪 Tests et Qualité
+### AT2 - Concevoir et Développer une Application Sécurisée Organisée en Couches
 
-* **Tests Unitaires & Fonctionnels :** Suites PHPUnit pour la validation des composants métiers.
-* **Tests E2E :** Validation des scénarios critiques d'authentification et de création de devis.
-* **Couverture de Code :** Génération des rapports dans le dossier `docs/coverage`.
+* [x] Modélisation relationnelle 3NF découpant Prospects, Devis, Prestations, Événements et Notes.
+* [x] Journalisation NoSQL MongoDB (`logs`) des opérations sensibles (connexions, CRUD client, statut devis).
+* [x] Prévention des vulnérabilités OWASP Top 10 (requêtes préparées PDO anti-injections SQL, assainissement XSS, CSRF tokens).
+* [ ] Rédaction du script SQL de création des tables écrit manuellement (non exporté de phpMyAdmin).
+* [ ] Modèle Conceptuel de Données (MCD textuel et graphique).
+* [ ] Dossier d'architecture multicouche avec schémas techniques détaillant chaque brique logicielle.
+* [ ] Diagrammes UML : Diagramme de Cas d'Utilisation global et Diagramme de Séquence du tunnel commercial.
+* [ ] 3 Wireframes et 3 Mockups pour le Web, 3 Wireframes et 3 Mockups pour le Mobile avec charte graphique.
+
+### AT3 - Préparer le Déploiement d'une Application Sécurisée
+
+* [ ] Suite de tests automatisés (Tests unitaires, fonctionnels et E2E sur le parcours commercial).
+* [ ] Rapport de couverture de code chiffré (`docs/coverage`).
+* [ ] Pipeline CI/CD automatisé (GitHub Actions ou GitLab CI) validant le code avant merge.
+* [ ] Procédure de déploiement continu automatisée vers l'hébergeur en ligne (Fly.io).
+* [ ] Rédaction des guides d'installation détaillés, reproductibles et de la documentation utilisateur finale.
