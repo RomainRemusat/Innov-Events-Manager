@@ -2,84 +2,133 @@
 /**
  * Component Partial : Barre de navigation latérale (Sidebar Admin)
  *
- * Ce composant centralise la navigation du Back-Office. L'état actif du lien
- * est géré dynamiquement en évaluant la variable globale d'aiguillage $action.
- *
  * @package    InnovEventsManager
  * @subpackage Views/Partials
  * @author     Romain Remusat
- * @version    1.0.0
+ * @version    1.3.0
  */
 
-// Récupération sécurisée de l'action courante pour gérer la classe active
 $currentAction = $_GET['action'] ?? 'dashboard';
+
+// Récupération des données dynamiques pour les badges (Indicateurs clés)
+require_once __DIR__ . '/../../models/sql/Prospect.php';
+require_once __DIR__ . '/../../models/sql/Devis.php';
+
+$prospectModel = new Prospect();
+$nbActiveProspects = $prospectModel->NbActive();
+
+$devisModel = new Devis();
+$nbPendingModifications = $devisModel->countPendingModifications();
+
+$navigation = [
+        'Générales' => [
+                [
+                        'label'  => 'Dashboard',
+                        'url'    => 'index.php?action=dashboard',
+                        'active' => ['dashboard'],
+                        'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
+                ],
+                [
+                        'label'  => 'Prospects',
+                        'url'    => 'index.php?action=prospects',
+                        'active' => ['prospects'],
+                        'badge'  => $nbActiveProspects > 0 ? $nbActiveProspects : null,
+                        'badgeClass' => 'bg-primary',
+                ],
+                [
+                        'label'  => 'Événements',
+                        'url'    => 'index.php?action=admin_events',
+                        'active' => ['admin_events', 'event_detail'],
+                        'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
+                ],
+                [
+                        'label'  => 'Clients',
+                        'url'    => 'index.php?action=admin_clients',
+                        'active' => ['admin_clients', 'clients', 'view_client', 'edit_client'],
+                        'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
+                ],
+                [
+                        'label'  => 'Devis & Facturation',
+                        'url'    => 'index.php?action=admin_devis',
+                        'active' => ['admin_devis', 'edit_devis'],
+                        'badge'  => $nbPendingModifications > 0 ? $nbPendingModifications : null,
+                        'badgeClass' => 'bg-danger', // Alerte visuelle rouge pour Chloé
+                ],
+        ],
+        'Administration & Système' => [
+                [
+                        'label'  => 'Gestion d\'Équipe',
+                        'url'    => '#',
+                        'active' => ['teams'],
+                        'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
+                ],
+                [
+                        'label'  => 'Avis & Témoignages',
+                        'url'    => '#',
+                        'active' => ['reviews'],
+                        'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
+                ],
+                [
+                        'label'  => 'Logs (NoSQL)',
+                        'url'    => 'index.php?action=mongo_logs',
+                        'active' => ['mongo_logs'],
+                        'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
+                ],
+        ],
+        'Profils' => [
+                [
+                        'label'  => 'Mon Profil',
+                        'url'    => '#',
+                        'active' => ['profile'],
+                        'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
+                ],
+                [
+                        'label'     => 'Déconnexion',
+                        'url'       => 'index.php?action=logout',
+                        'active'    => [],
+                        'badge'     => null,
+                        'itemClass' => 'mt-3',
+                        'badgeClass' => 'bg-secondary',
+                ],
+        ],
+];
 ?>
+
 <nav class="col-md-3 col-lg-2 d-md-block bg-secondary-subtle border-end min-vh-100 p-4">
+    <?php foreach ($navigation as $sectionTitle => $items): ?>
+        <ul class="nav flex-column mb-4">
+            <div class="fs-6 text-dark mb-3 mt-2"><?= htmlspecialchars($sectionTitle) ?></div>
 
-    <ul class="nav flex-column mb-4">
-        <div class="fs-6 text-dark mb-3">Générales</div>
+            <?php foreach ($items as $item): ?>
+                <?php
+                $isActive  = in_array($currentAction, $item['active'], true);
+                $itemClass = $item['itemClass'] ?? 'mb-1';
+                $badge     = $item['badge'] ?? null;
+                ?>
+                <li class="nav-item <?= $itemClass ?> d-flex align-items-center">
+                    <a class="nav-link px-0 py-1 small <?= $isActive ? 'text-dark fw-bold' : 'text-secondary' ?>"
+                       href="<?= htmlspecialchars($item['url']) ?>"
+                            <?= $isActive ? 'aria-current="page"' : '' ?>>
+                        <?php if ($isActive): ?>
+                            <i class="fa-solid fa-caret-right me-1" aria-hidden="true"></i>
+                        <?php endif; ?>
+                        <?= htmlspecialchars($item['label']) ?>
+                    </a>
 
-        <li class="nav-item mb-1">
-            <a class="nav-link px-0 py-1 small <?= $currentAction === 'dashboard' ? 'text-dark fw-bold' : 'text-secondary' ?>" href="index.php?action=dashboard">
-                <?= $currentAction === 'dashboard' ? '<i class="fa-solid fa-caret-right me-1"></i>' : '' ?>Dashboard
-            </a>
-        </li>
-        <li class="nav-item mb-1">
-
-            <a class="nav-link px-0 py-1 small <?= $currentAction === 'prospects' ? 'text-dark fw-bold' : 'text-secondary' ?>" href="index.php?action=prospects">
-                <?= $currentAction === 'prospects' ? '<i class="fa-solid fa-caret-right me-1"></i>' : '' ?>Prospects
-                <span class="badge bg-secondary rounded-pill ms-1" style="font-size: 0.65rem;">1</span>
-            </a>
-        </li>
-        <li class="nav-item mb-1">
-            <a class="nav-link px-0 py-1 small <?= $currentAction === 'events' ? 'text-dark fw-bold' : 'text-secondary' ?>" href="#">
-                <?= $currentAction === 'events' ? '<i class="fa-solid fa-caret-right me-1"></i>' : '' ?>Événements
-            </a>
-        </li>
-        <li class="nav-item mb-1">
-            <a class="nav-link px-0 py-1 small <?= $currentAction === 'clients' ? 'text-dark fw-bold' : 'text-secondary' ?>" href="#">
-                <?= $currentAction === 'clients' ? '<i class="fa-solid fa-caret-right me-1"></i>' : '' ?>Clients
-            </a>
-        </li>
-        <li class="nav-item mb-1">
-            <a class="nav-link px-0 py-1 small <?= $currentAction === 'devis_factures' ? 'text-dark fw-bold' : 'text-secondary' ?>" href="#">
-                <?= $currentAction === 'devis_factures' ? '<i class="fa-solid fa-caret-right me-1"></i>' : '' ?>Devis & Facturation
-            </a>
-        </li>
-    </ul>
-
-    <ul class="nav flex-column mb-4">
-        <div class="fs-6 text-dark mb-3 mt-2">Administration & Système</div>
-
-        <li class="nav-item mb-1">
-            <a class="nav-link px-0 py-1 small <?= $currentAction === 'teams' ? 'text-dark fw-bold' : 'text-secondary' ?>" href="#">
-                <?= $currentAction === 'teams' ? '<i class="fa-solid fa-caret-right me-1"></i>' : '' ?>Gestion d'Équipe
-            </a>
-        </li>
-        <li class="nav-item mb-1">
-            <a class="nav-link px-0 py-1 small <?= $currentAction === 'reviews' ? 'text-dark fw-bold' : 'text-secondary' ?>" href="#">
-                <?= $currentAction === 'reviews' ? '<i class="fa-solid fa-caret-right me-1"></i>' : '' ?>Avis & Témoignages
-            </a>
-        </li>
-        <li class="nav-item mb-1">
-            <a class="nav-link px-0 py-1 small <?= $currentAction === 'mongo_logs' ? 'text-dark fw-bold' : 'text-secondary' ?>" href="index.php?action=mongo_logs">
-                <?= $currentAction === 'mongo_logs' ? '<i class="fa-solid fa-caret-right me-1"></i>' : '' ?>Logs (NoSQL)
-            </a>
-        </li>
-    </ul>
-
-    <ul class="nav flex-column mb-4">
-        <div class="fs-6 text-dark mb-3 mt-2">Profils</div>
-
-        <li class="nav-item mb-1">
-            <a class="nav-link px-0 py-1 small <?= $currentAction === 'profile' ? 'text-dark fw-bold' : 'text-secondary' ?>" href="#">
-                <?= $currentAction === 'profile' ? '<i class="fa-solid fa-caret-right me-1"></i>' : '' ?>Mon Profil
-            </a>
-        </li>
-        <li class="nav-item mt-3">
-            <a class="nav-link px-0 py-1 small text-secondary" href="index.php?action=logout">
-                Déconnexion
-            </a>
-        </li>
-    </ul>
+                    <?php if ($badge !== null && $badge !== ''): ?>
+                        <span class="badge <?= htmlspecialchars($item['badgeClass'] ?? 'bg-secondary') ?> rounded-pill ms-auto" style="font-size: 0.65rem;">
+                            <?= htmlspecialchars((string) $badge) ?>
+                        </span>
+                    <?php endif; ?>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    <?php endforeach; ?>
 </nav>

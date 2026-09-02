@@ -33,32 +33,82 @@ class Prospect
     /**
      * Enregistre une nouvelle demande de devis dans la table 'prospects'.
      *
-     * @param array $data Tableau associatif contenant les informations brutes issues de $_POST.
-     * @return bool Renvoie true en cas de succès de l'insertion, false sinon.
-     * * @throws PDOException En cas d'anomalie de structure ou de contrainte d'intégrité en BDD.
+     * @param array $data Données assainies issues du QuoteController
+     * @return bool True en cas de succès, False sinon
      */
     public function create(array $data): bool
     {
-        // Préparation de la requête SQL d'insertion.
-        // Le statut est forcé par défaut selon la spécification fonctionnelle.
-        $sql = "INSERT INTO prospects (company_name, contact_name, email, phone, event_type, event_date, estimated_participants, budget, description) 
-            VALUES (:company_name, :contact_name, :email, :phone, :event_type, :event_date, :estimated_participants, :budget, :description)";
+        try {
+            // A. Gestion B2B : Recherche ou création de l'entreprise
+            $companyId = null;
+            $companyName = trim($data['company_name'] ?? '');
 
-        // Sécurisation contre les injections SQL grâce à l'utilisation d'une requête préparée
-        $stmt = $this->db->prepare($sql);
+            if (!empty($companyName)) {
+                $stmtCompany = $this->db->prepare("SELECT id FROM companies WHERE name = ? LIMIT 1");
+                $stmtCompany->execute([$companyName]);
+                $existing = $stmtCompany->fetch(PDO::FETCH_ASSOC);
 
-        // Exécution de la requête avec nettoyage et sanitisation des entrées (Protection failles XSS)
-        return $stmt->execute([
-            ':company_name'           => $data['company_name'],
-            ':contact_name'           => $data['contact_name'],
-            ':email'                  => $data['email'],
-            ':phone'                  => $data['phone'],
-            ':event_type'             => $data['event_type'],
-            ':event_date'             => $data['event_date'] ?? null,
-            ':estimated_participants' => $data['estimated_participants'] ?? null,
-            ':budget'                 => $data['budget'] ?? null,
-            ':description'            => htmlspecialchars($data['description'] ?? '', ENT_QUOTES, 'UTF-8')
-        ]);
+                if ($existing) {
+                    $companyId = (int)$existing['id'];
+                } else {
+                    $stmtNew = $this->db->prepare("INSERT INTO companies (name) VALUES (?)");
+                    $stmtNew->execute([$companyName]);
+                    $companyId = (int)$this->db->lastInsertId();
+                }
+            }
+
+            // B. Insertion dans la table prospects
+            $sql = "INSERT INTO prospects (
+                        user_id,
+                        company_id,
+                        company_name, 
+                        contact_name, 
+                        email, 
+                        phone, 
+                        location,
+                        event_type, 
+                        event_date, 
+                        estimated_participants, 
+                        budget, 
+                        description,
+                        status
+                    ) VALUES (
+                        :user_id,
+                        :company_id,
+                        :company_name, 
+                        :contact_name, 
+                        :email, 
+                        :phone, 
+                        :location,
+                        :event_type, 
+                        :event_date, 
+                        :estimated_participants, 
+                        :budget, 
+                        :description,
+                        'en attente'
+                    )";
+
+            $stmt = $this->db->prepare($sql);
+
+            return $stmt->execute([
+                ':user_id'                => $data['user_id'] ?? null,
+                ':company_id'             => $companyId,
+                ':company_name'           => $companyName,
+                ':contact_name'           => $data['contact_name'],
+                ':email'                  => $data['email'],
+                ':phone'                  => $data['phone'],
+                ':location'               => $data['location'],
+                ':event_type'             => $data['event_type'],
+                ':event_date'             => $data['event_date'],
+                ':estimated_participants' => $data['estimated_participants'],
+                ':budget'                 => $data['budget'],
+                ':description'            => $data['description']
+            ]);
+
+        } catch (\PDOException $e) {
+            error_log("CRASH SQL Prospect::create : " . $e->getMessage());
+            return false;
+        }
     }
 
     /**
@@ -71,13 +121,49 @@ class Prospect
     {
         try {
             // Préparation de la requête SQL (Tri par ID décroissant pour avoir les plus récents)
-            $query = "SELECT * FROM prospects ORDER BY id DESC";
-
+            $query = "SELECT * FROM prospects ORDER BY created_at DESC";
             $stmt = $this->db->prepare($query);
             $stmt->execute();
 
             // Récupération de tous les résultats sous forme de tableau associatif
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (\PDOException $e) {
+            // Enregistrement de l'erreur dans les logs du serveur sans bloquer l'application
+            error_log("Erreur lors de la récupération des prospects : " . $e->getMessage());
+            return []; // Retourne un tableau vide en cas d'échec pour éviter un crash de la vue
+        }
+    }
+
+    public function findAllActive(): array
+    {
+        try {
+            // Préparation de la requête SQL (Tri par ID décroissant pour avoir les plus récents)
+            $query = "SELECT * FROM prospects WHERE status NOT IN ('accepté', 'refusé')  ORDER BY created_at DESC";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute();
+
+            // Récupération de tous les résultats sous forme de tableau associatif
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (\PDOException $e) {
+            // Enregistrement de l'erreur dans les logs du serveur sans bloquer l'application
+            error_log("Erreur lors de la récupération des prospects : " . $e->getMessage());
+            return []; // Retourne un tableau vide en cas d'échec pour éviter un crash de la vue
+        }
+    }
+
+
+    public function NbActive(): int
+    {
+        try {
+
+            // Préparation de la requête SQL (Tri par ID décroissant pour avoir les plus récents)
+            $query = "SELECT count(id) FROM prospects WHERE status NOT IN ('accepté', 'refusé')  ORDER BY created_at DESC";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute();
+
+            return (int) $stmt->fetchColumn();
 
         } catch (\PDOException $e) {
             // Enregistrement de l'erreur dans les logs du serveur sans bloquer l'application
@@ -159,19 +245,61 @@ class Prospect
         }
     }
 
-    public function findClientRequests(int $userId): array
+    public function findClientRequests(int $clientId): array
     {
-        $sql = "
+        try {
+            $stmt = $this->db->prepare("
             SELECT 
-                p.id, p.event_type, p.company_name, p.status, p.created_at,
-                d.reference_pdf, d.montant_ht
+                d.id_devis,
+                p.id AS prospect_id,
+                p.company_name,
+                p.contact_name,
+                p.email,
+                p.event_type,
+                p.event_date,
+                d.reference_pdf,
+                COALESCE(d.montant_ht, 0.00) AS montant_ht,
+                COALESCE(d.tva, 0.00) AS tva,
+                COALESCE(d.status, p.status) AS status,
+                d.status AS devis_status,
+                p.status AS prospect_status,
+                COALESCE(d.date_creation, p.created_at) AS created_at
             FROM prospects p
             LEFT JOIN devis d ON p.id = d.id_prospect
             WHERE p.user_id = :user_id
-            ORDER BY p.created_at DESC
-        ";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([':user_id' => $userId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            ORDER BY COALESCE(d.date_creation, p.created_at) DESC
+        ");
+
+            $stmt->execute([':user_id' => $clientId]);
+
+            return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        } catch (\PDOException $e) {
+            error_log("Erreur SQL (findClientRequests) pour le client $clientId : " . $e->getMessage());
+            return [];
+        }
+    }
+
+
+    /**
+     * Récupère les prospects selon leur statut métier.
+     * Utilise une requête préparée PDO pour contrer les injections SQL (AT1).
+     *
+     * @param string $status Le statut à rechercher (ex: 'à contacter').
+     * @return array La liste des prospects correspondants.
+     */
+    public function findByStatus(string $status): array
+    {
+        try {
+            $sql = "SELECT * FROM prospects WHERE status = :status ORDER BY created_at DESC";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindValue(':status', $status, PDO::PARAM_STR);
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            error_log("Erreur SQL Prospect::findByStatus : " . $e->getMessage());
+            return [];
+        }
     }
 }

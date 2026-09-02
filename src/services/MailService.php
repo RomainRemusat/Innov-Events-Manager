@@ -195,4 +195,175 @@ class MailService
         }
     }
 
+    /**
+     * Envoie un e-mail contenant les identifiants initiaux suite à la conversion d'un prospect.
+     *
+     * @param string $email        Adresse email du nouveau compte client.
+     * @param string $firstname    Prénom du client pour personnalisation.
+     * @param string $tempPassword Mot de passe temporaire généré.
+     * @return bool Vrai en cas de distribution réussie.
+     */
+    public function sendTemporaryPasswordEmail(string $email, string $firstname, string $tempPassword): bool
+    {
+        try {
+            $mail = $this->createMailer();
+            $mail->addAddress($email, $firstname);
+            $mail->isHTML(true);
+            $mail->Subject = "Vos accès à l'espace client Innov'Events";
+
+            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+            $host = $_SERVER['HTTP_HOST'] ?? 'localhost:8081';
+            $loginUrl = $protocol . $host . dirname($_SERVER['PHP_SELF']) . '/index.php?action=login';
+
+            $mail->Body = "
+                <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;'>
+                    <h2 style='color: #0F172A; font-size: 20px; margin-top: 0;'>Bonjour {$firstname},</h2>
+                    <p style='line-height: 1.6;'>Un compte client sécurisé a été créé par notre équipe pour le suivi de vos projets événementiels.</p>
+                    <p style='line-height: 1.6;'>Voici vos identifiants temporaires générés automatiquement :</p>
+                    
+                    <div style='text-align: center; margin: 25px 0; background-color: #f8fafc; padding: 15px; border-radius: 6px; border: 1px dashed #cbd5e1;'>
+                        <p style='margin: 5px 0;'><strong>Identifiant :</strong> {$email}</p>
+                        <p style='margin: 5px 0;'><strong>Mot de passe :</strong> <span style='font-family: monospace; font-size: 18px; font-weight: bold; color: #3B82F6;'>{$tempPassword}</span></p>
+                    </div>
+                    
+                    <div style='text-align: center; margin: 30px 0;'>
+                        <a href='{$loginUrl}' style='background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>
+                            Accéder à mon espace
+                        </a>
+                    </div>
+                    
+                    <p style='line-height: 1.6; color: #b91c1c; font-weight: bold;'>🚨 Directive de Sécurité :</p>
+                    <p style='line-height: 1.6; font-size: 13px; color: #6b7280;'>Il vous sera demandé de modifier ce mot de passe dès votre première connexion pour garantir la confidentialité de vos données.</p>
+                </div>
+            ";
+
+            return $mail->send();
+
+        } catch (Exception $e) {
+            error_log("Défaut MailService (Création Client) : " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function sendQuoteEmail(string $email, string $clientName, string $filePath): bool
+    {
+        try {
+            $mail = $this->createMailer();
+            $mail->addAddress($email, $clientName);
+            $mail->Subject = "Votre proposition commerciale - Innov'Events";
+
+            $mail->isHTML(true);
+            $mail->Body = "<p>Bonjour {$clientName},</p><p>Veuillez trouver ci-joint votre devis. Il est également consultable depuis votre espace client.</p>";
+
+            // Attachement du document PDF physique
+            if (file_exists($filePath)) {
+                $mail->addAttachment($filePath);
+            } else {
+                error_log("Fichier introuvable pour l'attachement : " . $filePath);
+            }
+
+            return $mail->send();
+        } catch (Exception $e) {
+            error_log("Erreur MailService (Envoi Devis) : " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function sendRejectionEmail(string $toEmail, string $contactName): bool
+    {
+        $subject = "Information concernant votre demande de devis - Innov'Events";
+        $message = "Bonjour " . htmlspecialchars($contactName, ENT_QUOTES, 'UTF-8') . ",\n\n"
+            . "Nous vous remercions pour l'intérêt porté à Innov'Events.\n"
+            . "Après étude de votre demande, nous avons le regret de vous informer que nous ne serons pas en mesure d'y donner une suite favorable pour la date souhaitée.\n\n"
+            . "Bien cordialement,\nL'équipe Innov'Events";
+
+        $headers = "From: contact@innovevents.fr\r\n" .
+            "Reply-To: contact@innovevents.fr\r\n" .
+            "X-Mailer: PHP/" . phpversion();
+
+        return mail($toEmail, $subject, $message, $headers);
+    }
+
+    /**
+     * Alerte l'administration lorsqu'un client demande un ajustement sur son devis.
+     *
+     * @param string $companyName Raison sociale du client.
+     * @param int    $devisId     Identifiant du devis concerné.
+     * @param string $reason      Motif de la modification saisi par le client.
+     * @return bool
+     */
+    public function sendModificationRequestEmail(string $companyName, int $devisId, string $reason): bool
+    {
+        $adminEmail = 'contact@innovevents.fr'; // Adresse interne de l'agence
+        $subject    = " Demande de modification — Devis #{$devisId} ({$companyName})";
+
+        $message = "
+        <h2>Nouvelle demande de modification de devis</h2>
+        <p>Le client <strong>" . htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8') . "</strong> souhaite modifier le devis <strong>#{$devisId}</strong>.</p>
+        <p><strong>Motif indiqué :</strong></p>
+        <blockquote style='background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 10px 0;'>
+            « " . nl2br(htmlspecialchars($reason, ENT_QUOTES, 'UTF-8')) . " »
+        </blockquote>
+        <p>Rendez-vous dans votre back-office pour ajuster les prestations et renvoyer le devis au client.</p>
+    ";
+
+        $headers  = "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $headers .= "From: Innov'Events <no-reply@innovevents.fr>\r\n";
+
+        return @mail($adminEmail, $subject, $message, $headers);
+    }
+
+
+    /**
+     * Alerte l'administration lorsqu'un devis est accepté par un client.
+     *
+     * @param string $companyName Raison sociale de l'entreprise client.
+     * @param int    $devisId     Identifiant du devis validé.
+     * @return bool
+     */
+    public function sendQuoteAcceptedEmail(string $companyName, int $devisId): bool
+    {
+        $adminEmail = 'contact@innovevents.fr';
+        $subject    = " Devis #{$devisId} ACCEPTÉ — {$companyName}";
+
+        $message = "
+        <h2>Excellente nouvelle ! Devis accepté</h2>
+        <p>Le client <strong>" . htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8') . "</strong> vient de valider le devis <strong>#{$devisId}</strong>.</p>
+        <p>Le projet événementiel peut désormais passer en phase d'organisation.</p>
+        <p><a href='http://localhost:8081/index.php?action=edit_devis&id={$devisId}'>Accéder au dossier dans le Back-Office</a></p>
+    ";
+
+        $headers  = "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $headers .= "From: Innov'Events <no-reply@innovevents.fr>\r\n";
+
+        return @mail($adminEmail, $subject, $message, $headers);
+    }
+
+    /**
+     * Alerte l'administration lorsqu'un devis est refusé par un client.
+     *
+     * @param string $companyName Raison sociale du client.
+     * @param int    $devisId     Identifiant du devis refusé.
+     * @return bool
+     */
+    public function sendQuoteRejectedEmail(string $companyName, int $devisId): bool
+    {
+        $adminEmail = 'contact@innovevents.fr';
+        $subject    = " Devis #{$devisId} REFUSÉ — {$companyName}";
+
+        $message = "
+        <h2>Devis refusé par le client</h2>
+        <p>Le client <strong>" . htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8') . "</strong> a décliné la proposition commerciale pour le devis <strong>#{$devisId}</strong>.</p>
+        <p>Pensez à le contacter pour analyser le motif du refus ou à clôturer le dossier dans le Back-Office.</p>
+    ";
+
+        $headers  = "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $headers .= "From: Innov'Events <no-reply@innovevents.fr>\r\n";
+
+        return @mail($adminEmail, $subject, $message, $headers);
+    }
+
 }

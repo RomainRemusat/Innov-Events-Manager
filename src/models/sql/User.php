@@ -141,4 +141,144 @@ class User
             error_log("Erreur SQL lors de la mise à jour du mot de passe (User ID $userId) : " . $e->getMessage());
             return false;
         }
-    }}
+    }
+
+    /**
+     * Récupère la liste de tous les clients finaux.
+     *
+     * Exclut les administrateurs et employés grâce à la clause WHERE role = 'CLIENT'.
+     *
+     * @return array Tableau associatif des clients
+     */
+    public function findAllClients(): array
+    {
+        try {
+
+            $req = "
+                SELECT u.*, c.name AS company_name
+                FROM users u
+                LEFT JOIN companies c ON u.company_id = c.id
+                WHERE u.role = 'CLIENT' AND u.is_deleted = 0
+                ORDER BY u.created_at DESC
+            ";
+            $stmt = $this->db->prepare($req);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            error_log("Erreur lors de la récupération des clients : " . $e->getMessage());
+            return [];
+        }
+    }
+
+
+    /**
+     * Effectue une suppression logique (Soft Delete) du client.
+     * Conserve l'intégrité référentielle des devis et événements liés.
+     *
+     * @param int $id L'identifiant du client à supprimer
+     * @return bool
+     */
+    public function softDeleteClient(int $id): bool
+    {
+        try {
+            // On part du principe que tu as ajouté une colonne 'is_deleted' (TINYINT par défaut à 0)
+            // ou que tu gères un statut de compte.
+            $sql = "UPDATE users SET is_deleted = 1 WHERE id = :id AND role = 'CLIENT'";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([':id' => $id]);
+        } catch (\PDOException $e) {
+            error_log("Erreur lors de la suppression logique du client $id : " . $e->getMessage());
+            return false;
+        }
+    }
+
+
+    /**
+     * Met à jour les informations d'un utilisateur (Client).
+     *
+     * @param int $id Identifiant du client
+     * @param string $firstname Prénom
+     * @param string $lastname Nom de famille
+     * @param string $email Adresse email
+     * @return bool True en cas de succès, False sinon
+     */
+    public function updateClient(int $id, string $firstname, string $lastname, string $email): bool
+    {
+        try {
+            $sql = "UPDATE users SET firstname = :firstname, lastname = :lastname, email = :email WHERE id = :id AND role = 'CLIENT'";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([
+                ':firstname' => $firstname,
+                ':lastname'  => $lastname,
+                ':email'     => $email,
+                ':id'        => $id
+            ]);
+        } catch (\PDOException $e) {
+            error_log("Erreur lors de la mise à jour du client $id : " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Recherche et récupère un utilisateur unique par son identifiant.
+     * Utilise une requête préparée pour prévenir les injections SQL.
+     *
+     * @param int $id L'identifiant unique de l'utilisateur.
+     * @return array|false Tableau associatif des données ou false si non trouvé.
+     */
+    public function findById(int $id)
+    {
+        try {
+
+            $query = "SELECT u.*, 
+                             c.name AS company_name, 
+                             c.siren, 
+                             c.address, 
+                             c.postal_code, 
+                             c.city 
+                      FROM users as u
+                      LEFT JOIN companies c ON u.company_id = c.id
+                      WHERE u.id = :id 
+                      LIMIT 1";
+
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':id' => $id]);
+
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+
+        } catch (\PDOException $e) {
+            error_log("Erreur lors de la récupération de l'utilisateur $id : " . $e->getMessage());
+            return false;
+        }
+    }
+
+
+    /**
+     * Compte le nombre de clients distincts ayant un événement actif.
+     * Répond à l'exigence des KPIs du tableau de bord (AT2).
+     *
+     * @return int Le nombre de clients actifs.
+     */
+    public function countActiveClients(): int
+    {
+        try {
+            $sql = "SELECT COUNT(DISTINCT u.id) as total 
+                    FROM users u 
+                    JOIN events e ON u.id = e.client_id 
+                    WHERE u.role = 'CLIENT' 
+                    AND e.status IN ('accepté', 'en cours')";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            return (int)($result['total'] ?? 0);
+        } catch (\PDOException $e) {
+            error_log("Erreur SQL countActiveClients : " . $e->getMessage());
+            return 0;
+        }
+    }
+
+}
+
+

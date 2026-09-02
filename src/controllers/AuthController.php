@@ -67,9 +67,9 @@ class AuthController
         // ---------------------------------------------------------------------
         // 1. ASSAINISSEMENT ET NETTOYAGE DES ENTRÉES (Anti-XSS)
         // ---------------------------------------------------------------------
-        $firstname = htmlspecialchars(trim($postData['firstname'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $lastname  = htmlspecialchars(trim($postData['lastname'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $username  = htmlspecialchars(trim($postData['username'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $firstname = trim($postData['firstname'] ?? '');
+        $lastname  = trim($postData['lastname'] ?? '');
+        $username  = trim($postData['username'] ?? '');
         $email     = filter_var(trim($postData['email'] ?? ''), FILTER_VALIDATE_EMAIL);
         $password  = $postData['password'] ?? '';
 
@@ -176,6 +176,11 @@ class AuthController
      */
     public function login(array $postData): void
     {
+
+        if (empty($postData['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $postData['csrf_token'])) {
+            die("Erreur de sécurité : Jeton CSRF invalide ou expiré.");
+        }
+
         $email = filter_var($postData['email'] ?? '', FILTER_VALIDATE_EMAIL);
         $password = $postData['password'] ?? '';
 
@@ -193,7 +198,11 @@ class AuthController
                 session_start();
             }
 
-            // 🛑 BARRAGE DE SÉCURITÉ : Le mot de passe est-il temporaire ?
+            // PROTECTION FIXATION DE SESSION (AT1)
+            // Régénère l'ID de session et supprime l'ancien fichier de session
+            session_regenerate_id(true);
+
+            // BARRAGE DE SÉCURITÉ : Le mot de passe est-il temporaire ?
             if (isset($user['must_change_password']) && $user['must_change_password'] == 1) {
                 // On stocke temporairement l'ID mais on ne l'authentifie pas complètement
                 $_SESSION['temp_user_id'] = $user['id'];
