@@ -125,7 +125,7 @@ $caPrev = $caPrevisionnel ?? 0;
                                             <i class="bi bi-building me-1"></i><?= htmlspecialchars($event['company_name'] ?? $event['firstname'] . ' ' . $event['lastname'], ENT_QUOTES, 'UTF-8') ?>
                                         </div>
                                         <div class="small fw-semibold mt-1" style="color: #3B82F6;">
-                                            <i class="bi bi-calendar me-1"></i><?= date('d/m/Y', strtotime($event['event_date'])) ?>
+                                            <i class="bi bi-calendar me-1"></i><?= date('d/m/Y', strtotime($event['start_date'])) ?>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>

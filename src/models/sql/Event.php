@@ -246,4 +246,123 @@ class Event
             return [];
         }
     }
+    /**
+     * Extrait l'intégralité des événements pour le Back-Office d'administration.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function findAllAdmin(): array
+    {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT e.id,
+                       e.title,
+                       e.start_date,
+                       e.end_date,
+                       e.location,
+                       e.status,
+                       e.is_published,
+                       e.event_type,
+                       e.theme,
+                       e.estimated_participants,
+                       u.firstname,
+                       u.lastname,
+                       c.name AS company_name
+                FROM events e
+                INNER JOIN users u ON e.client_id = u.id
+                LEFT JOIN companies c ON e.company_id = c.id
+                ORDER BY e.start_date DESC
+            ");
+            $stmt->execute();
+            return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            error_log("[Event::findAllAdmin] Erreur SQL : " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Recherche un événement par son identifiant unique (Accès Back-Office).
+     *
+     * @param int $id Identifiant unique de l'événement.
+     * @return array<string, mixed>|null
+     */
+    public function findByIdAdmin(int $id): ?array
+    {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT e.*,
+                       u.firstname,
+                       u.lastname,
+                       u.email AS client_email,
+                       c.name AS company_name
+                FROM events e
+                INNER JOIN users u ON e.client_id = u.id
+                LEFT JOIN companies c ON e.company_id = c.id
+                WHERE e.id = :id
+                LIMIT 1
+            ");
+            $stmt->execute([':id' => $id]);
+            $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+            return $result !== false ? $result : null;
+        } catch (\PDOException $e) {
+            error_log(sprintf("[Event::findByIdAdmin] Erreur SQL #%d : %s", $id, $e->getMessage()));
+            return null;
+        }
+    }
+
+    /**
+     * Met à jour le statut opérationnel d'un événement.
+     *
+     * @param int    $id        Identifiant de l'événement.
+     * @param string $newStatus Nouveau statut ('brouillon', 'accepté', 'en cours', 'terminé', 'annuler').
+     * @return bool
+     */
+    public function updateStatus(int $id, string $newStatus): bool
+    {
+        $allowedStatuses = ['brouillon', 'accepté', 'en cours', 'terminé', 'annuler'];
+        if (!in_array($newStatus, $allowedStatuses, true)) {
+            return false;
+        }
+
+        try {
+            $stmt = $this->db->prepare("
+                UPDATE events
+                SET status = :status
+                WHERE id = :id
+            ");
+            return $stmt->execute([
+                ':status' => $newStatus,
+                ':id'     => $id
+            ]);
+        } catch (\PDOException $e) {
+            error_log(sprintf("[Event::updateStatus] Erreur SQL #%d : %s", $id, $e->getMessage()));
+            return false;
+        }
+    }
+
+    /**
+     * Bascule la visibilité publique d'un événement (accord client).
+     *
+     * @param int  $id          Identifiant de l'événement.
+     * @param bool $isPublished État de publication.
+     * @return bool
+     */
+    public function updatePublication(int $id, bool $isPublished): bool
+    {
+        try {
+            $stmt = $this->db->prepare("
+                UPDATE events
+                SET is_published = :is_published
+                WHERE id = :id
+            ");
+            return $stmt->execute([
+                ':is_published' => $isPublished ? 1 : 0,
+                ':id'           => $id
+            ]);
+        } catch (\PDOException $e) {
+            error_log(sprintf("[Event::updatePublication] Erreur SQL #%d : %s", $id, $e->getMessage()));
+            return false;
+        }
+    }
 }

@@ -25,6 +25,7 @@ require_once __DIR__ . '/../src/controllers/QuoteController.php';
 require_once __DIR__ . '/../src/controllers/LogController.php';
 require_once __DIR__ . '/../src/controllers/PdfController.php';
 require_once __DIR__ . '/../src/controllers/EventController.php';
+require_once __DIR__ . '/../src/controllers/AdminEventController.php';
 
 // Initialisation sécurisée du contexte utilisateur (Session)
 if (session_status() === PHP_SESSION_NONE) {
@@ -138,6 +139,18 @@ switch (true) {
         (new DashboardController())->updateProspectStatus();
         break;
 
+    case ($action === 'admin_events'):
+        (new AdminEventController())->listEvents();
+        break;
+
+    case ($action === 'admin_event_update_status'):
+        (new AdminEventController())->updateStatus();
+        break;
+
+    case ($action === 'admin_event_detail'):
+        (new AdminEventController())->showEventDetail();
+        break;
+
     // -------------------------------------------------------------------
     // ROUTES : GESTION DES DEVIS & PRESTATIONS (QuoteController - Back-Office)
     // -------------------------------------------------------------------
@@ -168,6 +181,10 @@ switch (true) {
         } else {
             header('Location: index.php?action=admin_devis');
         }
+        break;
+
+    case ($action === 'admin_add_note'):
+        (new AdminEventController())->addNote();
         break;
 
     // -------------------------------------------------------------------
