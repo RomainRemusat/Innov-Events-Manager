@@ -1,145 +1,186 @@
 <?php
+
+declare(strict_types=1);
+
 /**
- * Modèle : Log (Persistance Documentaire MongoDB)
+ * Modèle : Log (Persistance Documentaire NoSQL MongoDB)
  *
- * Gère les opérations de lecture et d'écriture sur la collection d'audit
- * de sécurité et de traçabilité des flux métiers stockés dans MongoDB via le driver natif.
+ * Implémente la traçabilité des actions sensibles de sécurité et de gestion.
  *
- * Exigences respectées (ECF) :
- * - AT2 : Traçabilité des actions et journalisation d'audit NoSQL.
+ * Exigences respectées (ECF Titre CDA) :
+ * - AT2 : Traçabilité documentaire NoSQL immuable.
+ * - AT1 / RGPD (p. 13) : Anonymisation obligatoire de l'adresse IP collectée.
+ * - Structure CDC (p. 12) : Horodatage (ISODate), type_action, id_utilisateur, details.
  *
  * @package    InnovEventsManager
- * @subpackage Models/NoSQL
+ * @subpackage Models\NoSQL
  * @author     Romain Remusat
- * @version    1.2.0
+ * @version    1.3.0
  */
-
 class Log
 {
-    /**
-     * Manager de connexion au driver natif MongoDB.
-     *
-     * @var \MongoDB\Driver\Manager
-     */
-    private \MongoDB\Driver\Manager $manager;
+    private ?\MongoDB\Driver\Manager $manager = null;
+    private string $namespace;
 
-    /**
-     * Namespace de la collection MongoDB (Base.Collection).
-     *
-     * @var string
-     */
-    private string $dbCollection = "innovevents_db.logs";
-
-    /**
-     * Initialise la connexion au conteneur Docker "mongodb".
-     */
     public function __construct()
     {
-        $this->manager = new \MongoDB\Driver\Manager("mongodb://mongodb:27017");
-    }
-
-    /**
-     * Récupère les derniers logs d'activité enregistrés.
-     *
-     * @param  int $limit Nombre maximum de documents à retourner.
-     * @return array      Liste des logs convertis en tableaux associatifs.
-     */
-    public function getLatestLogs(int $limit = 5): array
-    {
         try {
-            $filter = [];
-            $options = [
-                'sort'  => ['created_at' => -1],
-                'limit' => $limit
-            ];
+            $uri = $_ENV['MONGO_URI'] ?? 'mongodb://mongodb:27017';
+            $dbName = $_ENV['MONGO_DATABASE'] ?? 'innovevents_nosql';
 
-            $query = new \MongoDB\Driver\Query($filter, $options);
-            $cursor = $this->manager->executeQuery($this->dbCollection, $query);
-
-            $logs = [];
-            foreach ($cursor as $document) {
-                $logs[] = (array)$document;
-            }
-
-            return $logs;
-        } catch (\Exception $e) {
-            error_log("Erreur lors de la lecture des logs MongoDB : " . $e->getMessage());
-            return [];
+            $this->namespace = "{$dbName}.logs";
+            $this->manager = new \MongoDB\Driver\Manager($uri);
+        } catch (\Throwable $e) {
+            error_log("[Log::__construct] Échec connexion MongoDB : " . $e->getMessage());
+            $this->manager = null;
         }
     }
 
     /**
-     * Enregistre une action d'audit dans la base NoSQL MongoDB.
+     * Insère un document d'audit dans la collection 'logs'.
      *
-     * @param  string   $typeAction    Libellé normalisé de l'action (ex: REPONSE_DEVIS_CLIENT).
-     * @param  string   $message       Description textuelle de l'événement.
-     * @param  int|null $idUtilisateur ID de l'utilisateur ou null (session active).
-     * @param  array    $details       Métadonnées et contexte de l'action.
-     * @return void
+     * @param string   $typeAction    Identifiant normalisé (ex: 'MODIFICATION_STATUT_EVENEMENT').
+     * @param int|null $idUtilisateur Identifiant SQL ou session active résolue automatiquement.
+     * @param array    $details       Métadonnées contextuelles.
+     * @return bool
      */
-    public function addLog(string $typeAction, string $message, ?int $idUtilisateur = null, array $details = []): void
+    public function addLog(string $typeAction, ?int $idUtilisateur = null, array $details = []): bool
     {
+        if ($this->manager === null) {
+            return false;
+        }
+
         try {
             if ($idUtilisateur === null && session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['user_id'])) {
                 $idUtilisateur = (int)$_SESSION['user_id'];
             }
 
-            $bulk = new \MongoDB\Driver\BulkWrite;
+            // Anonymisation RGPD du dernier octet IPv4 / prefixe IPv6 (CDC p. 13)
+            $rawIp = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+            $details['ip_address'] = $this->anonymizeIp($rawIp);
 
-            $doc = [
-                'created_at'     => new \MongoDB\BSON\UTCDateTime(),
-                'type_action'    => $typeAction,
+            $bulk = new \MongoDB\Driver\BulkWrite();
+            $bulk->insert([
+                'Horodatage'     => new \MongoDB\BSON\UTCDateTime(),
+                'type_action'    => trim(strtoupper($typeAction)),
                 'id_utilisateur' => $idUtilisateur,
-                'message'        => $message,
-                'ip_address'     => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
                 'details'        => $details
-            ];
+            ]);
 
-            $bulk->insert($doc);
-            $this->manager->executeBulkWrite($this->dbCollection, $bulk);
-        } catch (\Exception $e) {
-            error_log("Erreur lors de l'écriture du log NoSQL : " . $e->getMessage());
+            $result = $this->manager->executeBulkWrite($this->namespace, $bulk);
+            return $result->getInsertedCount() === 1;
+        } catch (\Throwable $e) {
+            error_log(sprintf("[Log::addLog] Erreur insertion log '%s' : %s", $typeAction, $e->getMessage()));
+            return false;
         }
     }
 
     /**
-     * Récupère le dernier motif de modification soumis par le client pour un devis donné.
+     * Récupère l'historique des derniers logs pour la vue technique.
      *
-     * Exploite le driver natif \MongoDB\Driver\Query pour effectuer un filtre
-     * sur les champs imbriqués du document d'audit `type_action` et `details`.
+     * @param int $limit
+     * @return array<int, array<string, mixed>>
+     */
+    public function getLatestLogs(int $limit = 20): array
+    {
+        if ($this->manager === null) {
+            return [];
+        }
+
+        try {
+            $query = new \MongoDB\Driver\Query([], [
+                'sort'  => ['Horodatage' => -1],
+                'limit' => $limit
+            ]);
+
+            $cursor = $this->manager->executeQuery($this->namespace, $query);
+            $logs = [];
+
+            foreach ($cursor as $doc) {
+                $item = (array)$doc;
+                $dateFormatted = 'N/A';
+
+                if (isset($item['Horodatage']) && $item['Horodatage'] instanceof \MongoDB\BSON\UTCDateTime) {
+                    $dateFormatted = $item['Horodatage']->toDateTime()->format('d/m/Y H:i:s');
+                }
+
+                $logs[] = [
+                    'id'             => (string)$item['_id'],
+                    'timestamp'      => $dateFormatted,
+                    'type_action'    => (string)($item['type_action'] ?? 'NON_DEFINI'),
+                    'id_utilisateur' => isset($item['id_utilisateur']) ? (int)$item['id_utilisateur'] : null,
+                    'details'        => isset($item['details']) ? (array)$item['details'] : []
+                ];
+            }
+
+            return $logs;
+        } catch (\Throwable $e) {
+            error_log("[Log::getLatestLogs] Erreur lecture : " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Récupère le motif d'une demande de modification client sur un devis.
      *
-     * @param  int $devisId Identifiant du devis cible.
-     * @return string|null  Le motif saisi par le client ou null si introuvable.
+     * @param int $devisId
+     * @return string|null
      */
     public function getLatestChangeReason(int $devisId): ?string
     {
+        if ($this->manager === null) {
+            return null;
+        }
+
         try {
             $filter = [
                 'type_action'      => 'REPONSE_DEVIS_CLIENT',
                 'details.devis_id' => $devisId,
                 'details.action'   => 'request_change'
             ];
-            $options = [
-                'sort'  => ['created_at' => -1],
+
+            $query = new \MongoDB\Driver\Query($filter, [
+                'sort'  => ['Horodatage' => -1],
                 'limit' => 1
-            ];
+            ]);
 
-            $query = new \MongoDB\Driver\Query($filter, $options);
-            $cursor = $this->manager->executeQuery($this->dbCollection, $query);
+            $cursor = $this->manager->executeQuery($this->namespace, $query);
 
-            foreach ($cursor as $document) {
-                $docArray = (array)$document;
-                if (isset($docArray['details'])) {
-                    $details = (array)$docArray['details'];
+            foreach ($cursor as $doc) {
+                $data = (array)$doc;
+                if (isset($data['details'])) {
+                    $details = (array)$data['details'];
                     if (!empty($details['change_reason'])) {
                         return (string)$details['change_reason'];
                     }
                 }
             }
-        } catch (\Exception $e) {
-            error_log("Erreur lors de la lecture du motif de modification NoSQL : " . $e->getMessage());
+        } catch (\Throwable $e) {
+            error_log("[Log::getLatestChangeReason] Erreur lecture motif : " . $e->getMessage());
         }
 
         return null;
+    }
+
+    /**
+     * Masque le dernier octet (IPv4) pour respecter l'anonymisation RGPD.
+     */
+    private function anonymizeIp(string $ip): string
+    {
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            $parts = explode('.', $ip);
+            $parts[3] = '0';
+            return implode('.', $parts);
+        }
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            $packed = inet_pton($ip);
+            if ($packed !== false) {
+                $mask = inet_pton('ffff:ffff:ffff::');
+                return inet_ntop($packed & $mask);
+            }
+        }
+
+        return '127.0.0.0';
     }
 }
