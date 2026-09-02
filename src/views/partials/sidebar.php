@@ -5,19 +5,20 @@
  * @package    InnovEventsManager
  * @subpackage Views/Partials
  * @author     Romain Remusat
- * @version    1.2.0
+ * @version    1.3.0
  */
 
 $currentAction = $_GET['action'] ?? 'dashboard';
 
-// Récupération des données dynamiques
+// Récupération des données dynamiques pour les badges (Indicateurs clés)
+require_once __DIR__ . '/../../models/sql/Prospect.php';
+require_once __DIR__ . '/../../models/sql/Devis.php';
+
 $prospectModel = new Prospect();
 $nbActiveProspects = $prospectModel->NbActive();
 
-// Exemples futurs (à remplacer quand ils seront dev) :
-// $nbEvents = $eventModel->count();
-// $nbClients = $clientModel->count();
-// $nbDevis = $devisModel->countPending();
+$devisModel = new Devis();
+$nbPendingModifications = $devisModel->countPendingModifications();
 
 $navigation = [
         'Générales' => [
@@ -26,30 +27,35 @@ $navigation = [
                         'url'    => 'index.php?action=dashboard',
                         'active' => ['dashboard'],
                         'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
                 ],
                 [
                         'label'  => 'Prospects',
                         'url'    => 'index.php?action=prospects',
                         'active' => ['prospects'],
-                        'badge'  => $nbActiveProspects,
+                        'badge'  => $nbActiveProspects > 0 ? $nbActiveProspects : null,
+                        'badgeClass' => 'bg-primary',
                 ],
                 [
                         'label'  => 'Événements',
-                        'url'    => '#',
-                        'active' => ['events'],
-                        'badge'  => null, // ex: $nbEvents
+                        'url'    => 'index.php?action=admin_events',
+                        'active' => ['admin_events', 'event_detail'],
+                        'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
                 ],
                 [
                         'label'  => 'Clients',
                         'url'    => 'index.php?action=admin_clients',
-                        'active' => ['admin_clients', 'clients'],
-                        'badge'  => null, // ex: $nbClients
+                        'active' => ['admin_clients', 'clients', 'view_client', 'edit_client'],
+                        'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
                 ],
                 [
                         'label'  => 'Devis & Facturation',
                         'url'    => 'index.php?action=admin_devis',
                         'active' => ['admin_devis', 'edit_devis'],
-                        'badge'  => null, // ex: $nbDevis
+                        'badge'  => $nbPendingModifications > 0 ? $nbPendingModifications : null,
+                        'badgeClass' => 'bg-danger', // Alerte visuelle rouge pour Chloé
                 ],
         ],
         'Administration & Système' => [
@@ -58,18 +64,21 @@ $navigation = [
                         'url'    => '#',
                         'active' => ['teams'],
                         'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
                 ],
                 [
                         'label'  => 'Avis & Témoignages',
                         'url'    => '#',
                         'active' => ['reviews'],
                         'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
                 ],
                 [
                         'label'  => 'Logs (NoSQL)',
                         'url'    => 'index.php?action=mongo_logs',
                         'active' => ['mongo_logs'],
                         'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
                 ],
         ],
         'Profils' => [
@@ -78,6 +87,7 @@ $navigation = [
                         'url'    => '#',
                         'active' => ['profile'],
                         'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
                 ],
                 [
                         'label'     => 'Déconnexion',
@@ -85,6 +95,7 @@ $navigation = [
                         'active'    => [],
                         'badge'     => null,
                         'itemClass' => 'mt-3',
+                        'badgeClass' => 'bg-secondary',
                 ],
         ],
 ];
@@ -112,7 +123,7 @@ $navigation = [
                     </a>
 
                     <?php if ($badge !== null && $badge !== ''): ?>
-                        <span class="badge bg-secondary rounded-pill ms-1" style="font-size: 0.65rem;">
+                        <span class="badge <?= htmlspecialchars($item['badgeClass'] ?? 'bg-secondary') ?> rounded-pill ms-auto" style="font-size: 0.65rem;">
                             <?= htmlspecialchars((string) $badge) ?>
                         </span>
                     <?php endif; ?>
