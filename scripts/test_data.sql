@@ -1,6 +1,6 @@
 -- =====================================================================
 -- PROJET : INNOV'EVENTS MANAGER
--- FICHIER : test_data.sql (Script d'initialisation complet et conforme)
+-- FICHIER : test_data.sql (Script d'initialisation)
 -- =====================================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
@@ -15,6 +15,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 -- ---------------------------------------------------------------------
 -- 1. TABLE : COMPANIES
+-- Structure juridique des clients et partenaires
 -- ---------------------------------------------------------------------
 CREATE TABLE companies (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -37,6 +38,7 @@ INSERT INTO companies (id, name, siren, address, postal_code, city) VALUES
 
 -- ---------------------------------------------------------------------
 -- 2. TABLE : USERS
+-- Authentification, contrôle d'accès RBAC (ADMIN, EMPLOYEE, CLIENT)
 -- ---------------------------------------------------------------------
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -49,7 +51,7 @@ CREATE TABLE users (
     role VARCHAR(50) DEFAULT 'CLIENT',
     is_deleted TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT fk_users_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO users (id, company_id, email, password, firstname, lastname, role, must_change_password) VALUES
@@ -62,6 +64,7 @@ INSERT INTO users (id, company_id, email, password, firstname, lastname, role, m
 
 -- ---------------------------------------------------------------------
 -- 3. TABLE : PROSPECTS
+-- Phase d'acquisition commerciale / qualification initiale
 -- ---------------------------------------------------------------------
 CREATE TABLE prospects (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -79,8 +82,8 @@ CREATE TABLE prospects (
     description TEXT NULL,
     status VARCHAR(50) DEFAULT 'à contacter',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT fk_prospects_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_prospects_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO prospects (id, user_id, company_id, company_name, contact_name, email, phone, event_type, event_date, location, estimated_participants, budget, description, status) VALUES
@@ -92,6 +95,7 @@ INSERT INTO prospects (id, user_id, company_id, company_name, contact_name, emai
 
 -- ---------------------------------------------------------------------
 -- 4. TABLE : DEVIS
+-- Phase de négociation commerciale & arbitrage client
 -- ---------------------------------------------------------------------
 CREATE TABLE devis (
     id_devis INT AUTO_INCREMENT PRIMARY KEY,
@@ -101,7 +105,7 @@ CREATE TABLE devis (
     tva DECIMAL(10, 2) NOT NULL,
     status VARCHAR(50) DEFAULT 'brouillon',
     date_creation DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_prospect) REFERENCES prospects(id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT fk_devis_prospect FOREIGN KEY (id_prospect) REFERENCES prospects(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO devis (id_devis, id_prospect, reference_pdf, montant_ht, tva, status) VALUES
@@ -111,6 +115,7 @@ INSERT INTO devis (id_devis, id_prospect, reference_pdf, montant_ht, tva, status
 
 -- ---------------------------------------------------------------------
 -- 5. TABLE : EVENTS
+-- Pilotage opérationnel (Back-office) & Vitrine publique filtrable (sans prix)
 -- ---------------------------------------------------------------------
 CREATE TABLE events (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -118,30 +123,35 @@ CREATE TABLE events (
     company_id INT NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT NULL,
-    event_date DATETIME NOT NULL,
+    start_date DATETIME NOT NULL,
+    end_date DATETIME NULL,
     location VARCHAR(255) NOT NULL,
+    event_type VARCHAR(100) NOT NULL DEFAULT 'Autre',
+    theme VARCHAR(100) NULL,
     estimated_participants INT NULL,
     image_path VARCHAR(255) NULL,
     status VARCHAR(50) DEFAULT 'brouillon',
+    is_published TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT fk_events_client FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_events_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO events (id, client_id, company_id, title, description, event_date, location, estimated_participants, image_path, status) VALUES
-    (1, 3, 2, 'Gala de Charité Luxury Group', 'Événement annuel de levée de fonds corporate.', '2026-06-15 20:00:00', 'Palais Brongniart, Paris', 200, 'uploads/events/gala_luxury.webp', 'terminé'),
-    (2, 4, 3, 'Keynote NextGen IA v2', 'Conférence de presse interactive.', '2026-10-05 14:00:00', 'Le Cargo, Espace Innovation Paris', 80, 'uploads/events/keynote_nextgen.webp', 'en cours'),
-    (3, 8, 4, 'Team Building - Alterboutique', 'Soirée cohésion d équipe.', '2026-10-18 08:00:00', 'Domaine de l Abbaye, Nancy', 24, NULL, 'brouillon');
+INSERT INTO events (id, client_id, company_id, title, description, start_date, end_date, location, event_type, theme, estimated_participants, image_path, status, is_published) VALUES
+    (1, 3, 2, 'Gala de Charité Luxury Group', 'Événement annuel de levée de fonds corporate réunissant donateurs et partenaires.', '2026-06-15 20:00:00', '2026-06-16 01:00:00', 'Palais Brongniart, Paris', 'Gala', 'Luxe & Prestige', 200, 'uploads/events/gala_luxury.webp', 'terminé', 1),
+    (2, 4, 3, 'Keynote NextGen IA v2', 'Conférence de presse interactive présentant la nouvelle suite algorithmique.', '2026-10-05 14:00:00', '2026-10-05 18:00:00', 'Le Cargo, Espace Innovation Paris', 'Conférence', 'Intelligence Artificielle', 80, 'uploads/events/keynote_nextgen.webp', 'en cours', 1),
+    (3, 8, 4, 'Team Building - Alterboutique', 'Journée de cohésion d équipe en pleine nature avec ateliers collaboratifs.', '2026-10-18 08:00:00', '2026-10-18 19:00:00', 'Domaine de l Abbaye, Nancy', 'Team Building', 'Nature & Cohésion', 24, NULL, 'brouillon', 0);
 
 -- ---------------------------------------------------------------------
 -- 6. TABLE : PRESTATIONS
+-- Détail chiffré des postes rattachés aux devis
 -- ---------------------------------------------------------------------
 CREATE TABLE prestations (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    devis_id INT NOT NULL,
-    libelle VARCHAR(255) NOT NULL,
-    montant_ht DECIMAL(10, 2) NOT NULL,
-    FOREIGN KEY (devis_id) REFERENCES devis(id_devis) ON DELETE CASCADE ON UPDATE CASCADE
+     id INT AUTO_INCREMENT PRIMARY KEY,
+     devis_id INT NOT NULL,
+     libelle VARCHAR(255) NOT NULL,
+     montant_ht DECIMAL(10, 2) NOT NULL,
+     CONSTRAINT fk_prestations_devis FOREIGN KEY (devis_id) REFERENCES devis(id_devis) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO prestations (id, devis_id, libelle, montant_ht) VALUES
@@ -153,17 +163,19 @@ INSERT INTO prestations (id, devis_id, libelle, montant_ht) VALUES
 
 -- ---------------------------------------------------------------------
 -- 7. TABLE : NOTES
+-- Collaboration terrain Chloé/José et notes globales d'équipe
 -- ---------------------------------------------------------------------
 CREATE TABLE notes (
-                       id INT AUTO_INCREMENT PRIMARY KEY,
-                       event_id INT NOT NULL,
-                       user_id INT NOT NULL,
-                       content TEXT NOT NULL,
-                       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                       FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE ON UPDATE CASCADE,
-                       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
+   id INT AUTO_INCREMENT PRIMARY KEY,
+   event_id INT NULL,
+   user_id INT NOT NULL,
+   content TEXT NOT NULL,
+   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+   CONSTRAINT fk_notes_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE ON UPDATE CASCADE,
+   CONSTRAINT fk_notes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO notes (id, event_id, user_id, content) VALUES
     (1, 1, 2, 'Attention, le client a demandé des options végétariennes supplémentaires pour le traiteur.'),
-    (2, 2, 1, 'Le prestataire technique pour le streaming doit arriver à 10h pour les tests.');
+    (2, 2, 1, 'Le prestataire technique pour le streaming doit arriver à 10h pour les tests.'),
+    (3, NULL, 1, 'Note globale : point d équipe hebdomadaire avancé à lundi 9h30 exceptionnellement.');
