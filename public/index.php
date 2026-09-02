@@ -24,6 +24,7 @@ require_once __DIR__ . '/../src/controllers/AdminClientController.php';
 require_once __DIR__ . '/../src/controllers/QuoteController.php';
 require_once __DIR__ . '/../src/controllers/LogController.php';
 require_once __DIR__ . '/../src/controllers/PdfController.php';
+require_once __DIR__ . '/../src/controllers/EventController.php';
 
 // Initialisation sécurisée du contexte utilisateur (Session)
 if (session_status() === PHP_SESSION_NONE) {
@@ -235,6 +236,19 @@ switch (true) {
             header('Location: index.php?action=admin_devis');
         }
         break;
+
+
+    // -------------------------------------------------------------------
+    // ROUTES : VITRINE ÉVÉNEMENTS (Espace Public)
+    // -------------------------------------------------------------------
+    case ($action === 'events'):
+        (new EventController())->listPublicEvents();
+        break;
+
+    case ($action === 'event_detail'):
+        (new EventController())->showPublicDetail();
+        break;
+
 
     // -------------------------------------------------------------------
     // ROUTE PAR DÉFAUT : PAGE D'ACCUEIL (Espace Public)
