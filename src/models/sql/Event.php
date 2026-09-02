@@ -365,4 +365,31 @@ class Event
             return false;
         }
     }
+
+    /**
+     * Met à jour le chemin relatif de l'illustration de l'événement.
+     *
+     * Permet à Chloé de modifier le visuel du lieu (CDC p. 9 et 12).
+     *
+     * @param int         $id        Identifiant unique de l'événement.
+     * @param string|null $imagePath Chemin relatif sécurisé (ex: 'uploads/events/event_xyz.webp') ou null.
+     * @return bool
+     */
+    public function updateImagePath(int $id, ?string $imagePath): bool
+    {
+        try {
+            $stmt = $this->db->prepare("
+                UPDATE events
+                SET image_path = :image_path
+                WHERE id = :id
+            ");
+            return $stmt->execute([
+                ':image_path' => $imagePath,
+                ':id'         => $id
+            ]);
+        } catch (\PDOException $e) {
+            error_log(sprintf("[Event::updateImagePath] Erreur SQL event #%d : %s", $id, $e->getMessage()));
+            return false;
+        }
+    }
 }
