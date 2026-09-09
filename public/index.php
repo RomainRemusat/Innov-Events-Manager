@@ -250,7 +250,7 @@ switch (true) {
         break;
 
     case ($action === 'send_quote_to_client'):
-        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        $id = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
         if ($id > 0) {
             (new PdfController())->sendQuoteToClient($id);
         } else {

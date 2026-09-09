@@ -57,6 +57,7 @@ require __DIR__ . '/../partials/header.php';
                             <strong>Attention, cette action est irréversible.</strong> Vos devis et événements seront détruits.
                         </p>
                         <form action="index.php?action=delete_account" method="POST">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                             <button type="submit" class="btn btn-danger fw-bold w-100 py-2 shadow-sm" onclick="return confirm('Êtes-vous absolument certain(e) de vouloir supprimer définitivement votre compte et l\'intégralité de vos données ? Cette action est immédiate et irréversible.');">
                                 <i class="bi bi-trash3-fill me-2"></i>SUPPRIMER MON COMPTE
                             </button>

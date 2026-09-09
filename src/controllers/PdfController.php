@@ -165,6 +165,15 @@ class PdfController
             exit;
         }
 
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=edit_devis&id=' . $devisId);
+            exit;
+        }
+
+        if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+            die("Erreur de sécurité : Jeton CSRF invalide ou expiré.");
+        }
+
         try {
             $db = Database::getInstance();
             $stmt = $db->prepare("

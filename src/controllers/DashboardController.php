@@ -209,6 +209,7 @@ class DashboardController extends BaseController
         $this->checkAuth(['ADMIN']);
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['id']) && !empty($_POST['status'])) {
+            $this->validateCsrf($_POST);
             $id = (int)$_POST['id'];
             $status = trim($_POST['status']);
 

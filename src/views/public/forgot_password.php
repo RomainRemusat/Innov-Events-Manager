@@ -37,6 +37,7 @@ require __DIR__ . '/../partials/header.php';
 
                     <!-- Le formulaire pointe vers la route 'reset_password_request' -->
                     <form action="index.php?action=reset_password_request" method="POST" class="d-flex flex-column gap-3">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                         <div>
                             <label for="email" class="form-label text-muted small fw-bold">
                                 ADRESSE E-MAIL <span class="text-danger" aria-hidden="true">*</span>

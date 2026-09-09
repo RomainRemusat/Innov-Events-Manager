@@ -203,6 +203,7 @@ class ClientController extends BaseController
         $this->checkClientPermission();
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $this->validateCsrf($_POST);
             $userId = (int)$_SESSION['user_id'];
             $userModel = new User();
 

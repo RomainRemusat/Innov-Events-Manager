@@ -35,6 +35,7 @@ require __DIR__ . '/../partials/header.php';
                     <?php endif; ?>
 
                     <form action="index.php?action=update_forced_password" method="POST" class="d-flex flex-column gap-3">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                         <div>
                             <label for="new_password" class="form-label text-muted small fw-bold">NOUVEAU MOT DE PASSE <span class="text-danger">*</span></label>
                             <input type="password" class="form-control" id="new_password" name="new_password" required>

@@ -64,6 +64,8 @@ class AuthController
             session_start();
         }
 
+        $this->validateCsrf($postData);
+
         // ---------------------------------------------------------------------
         // 1. ASSAINISSEMENT ET NETTOYAGE DES ENTRÉES (Anti-XSS)
         // ---------------------------------------------------------------------
@@ -326,6 +328,8 @@ class AuthController
             session_start();
         }
 
+        $this->validateCsrf($postData);
+
         $email = filter_var($postData['email'] ?? '', FILTER_VALIDATE_EMAIL);
 
         if (!$email) {
@@ -385,6 +389,8 @@ class AuthController
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
+
+        $this->validateCsrf($postData);
 
         // Vérification que l'utilisateur est bien dans le processus de changement
         if (empty($_SESSION['temp_user_id'])) {

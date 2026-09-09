@@ -210,6 +210,7 @@
                 <div class="card-body p-4">
                     <!-- Formulaire de consigne à chaud (Accessible sur desktop et mobile)[cite: 11] -->
                     <form method="POST" action="index.php?action=admin_add_note" class="mb-4">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="event_id" value="<?= (int)$event['id'] ?>">
                         <div class="mb-3">
                             <label for="note_content" class="form-label small fw-semibold">

@@ -81,11 +81,14 @@ $totalTTC = $totalHT + $totalTVA;
 
                 <!-- Boutons d'action : Expédition, Génération PDF et Navigation -->
                 <div class="d-flex gap-2">
-                    <a href="index.php?action=send_quote_to_client&id=<?= (int)$devis['id_devis'] ?>"
-                       class="btn btn-success shadow-sm"
-                       onclick="return confirm('Confirmez-vous l\'envoi direct du devis au client par courriel ?');">
-                        <i class="bi bi-send me-2" aria-hidden="true"></i>Envoyer au client
-                    </a>
+                    <form action="index.php?action=send_quote_to_client" method="POST" class="d-inline"
+                          onsubmit="return confirm('Confirmez-vous l\'envoi direct du devis au client par courriel ?');">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="id" value="<?= (int)$devis['id_devis'] ?>">
+                        <button type="submit" class="btn btn-success shadow-sm">
+                            <i class="bi bi-send me-2" aria-hidden="true"></i>Envoyer au client
+                        </button>
+                    </form>
                     <a href="index.php?action=generate_pdf&id=<?= (int)$devis['id_devis'] ?>"
                        target="_blank"
                        rel="noopener noreferrer"

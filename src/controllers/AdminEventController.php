@@ -79,6 +79,8 @@ class AdminEventController extends BaseController
             exit();
         }
 
+        $this->validateCsrf($_POST);
+
         $eventId   = (int)($_POST['event_id'] ?? 0);
         $newStatus = trim($_POST['status'] ?? '');
 
@@ -119,6 +121,8 @@ class AdminEventController extends BaseController
             header('Location: index.php?action=admin_events');
             exit();
         }
+
+        $this->validateCsrf($_POST);
 
         $eventId = !empty($_POST['event_id']) ? (int)$_POST['event_id'] : null;
         if ($eventId === null) {

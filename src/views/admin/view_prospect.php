@@ -88,6 +88,7 @@
 
                             <!-- Formulaire restreint aux seuls états de qualification prospect -->
                             <form action="index.php?action=update_prospect_status" method="POST">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                 <input type="hidden" name="id" value="<?= (int)$prospect['id'] ?>">
 
                                 <label class="form-label fw-bold text-muted small">Changer l'état du prospect :</label>

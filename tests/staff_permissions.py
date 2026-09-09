@@ -110,7 +110,10 @@ def main():
                 elif route == 'admin_upload_image':
                     assert f"admin_event_detail&id={ids['event']}&success=image_updated" in headers['Location']
                     assert sql(f"$path = $db->query('SELECT image_path FROM events WHERE id={ids['event']}')->fetchColumn(); echo json_encode(is_file('public/' . $path));")
-            code, headers, _ = request(client, f"send_quote_to_client&id={ids['quote']}")
+            if admin:
+                code, headers, _ = request(client, "send_quote_to_client", {'id': ids['quote'], 'csrf_token': token})
+            else:
+                code, headers, _ = request(client, f"send_quote_to_client&id={ids['quote']}")
             assert code == 302
             assert headers['Location'] == (f"index.php?action=edit_devis&id={ids['quote']}" if admin else 'index.php?action=login')
             if not admin:
@@ -121,10 +124,10 @@ def main():
                     assert code == 200 and marker in body, route
                     for action in ['edit_client', 'delete_client', 'admin_upload_image', 'admin_event_update_status', 'edit_devis', 'mongo_logs']:
                         assert 'action='+action not in body, (route, action)
-                code, headers, _ = request(client, 'admin_add_note', {'content': marker})
+                code, headers, _ = request(client, 'admin_add_note', {'content': marker, 'csrf_token': token})
                 assert code == 302 and headers['Location'] == 'index.php?action=admin_events'
                 assert snapshot() == before, 'Note globale créée par un employé'
-                code, _, _ = request(client, 'admin_add_note', {'event_id': ids['event'], 'content': marker})
+                code, _, _ = request(client, 'admin_add_note', {'event_id': ids['event'], 'content': marker, 'csrf_token': token})
                 assert code == 302
                 notes = sql(f"echo json_encode($db->query(\"SELECT content FROM notes WHERE event_id={ids['event']} AND user_id=2\")->fetchAll(PDO::FETCH_COLUMN));")
                 assert marker in notes, 'Note événement employé absente'
