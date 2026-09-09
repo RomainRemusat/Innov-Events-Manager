@@ -167,7 +167,7 @@ client (p. 10) imposent un changement à la première connexion, via
 | Événements publics | Liste, détail, filtres dates/type/thème ; brouillons exclus et montants commerciaux non affichés |
 | Inscription et connexion | Connexion des quatre comptes, session régénérée, redirection et journal MongoDB vérifiés ; inscription et mot de passe temporaire présents, contrôles de sécurité et retour à l’action initiale à compléter |
 | Demande de devis | Formulaire et insertion présents, appel de journalisation corrigé ; le PHP force encore `en attente` et ignore certaines validations |
-| Conversion | Bloquée par l’utilisation de `events.event_date` au lieu de `start_date` |
+| Conversion | Colonne `start_date` corrigée ; conversion avec compte existant et rollback vérifiés sur bases temporaires. Parcours HTTP, nouveau compte et image à compléter |
 | Devis et PDF | Prestations, calcul et génération présents ; droits d’accès, envois et route de téléchargement client à corriger |
 | Réponse client | Acceptation/refus/modification présents ; motif non imposé côté serveur, transitions et notifications à fiabiliser |
 | Clients, événements et notes | Listes, fiches, indicateurs et certaines mutations présents ; CRUD, droits employé, profil et notes globales à compléter |
@@ -213,6 +213,16 @@ python tests/login_logging.py
 Ce contrôle ouvre puis ferme ses sessions, vérifie les redirections et lit les
 journaux dans MongoDB et l’interface admin. Il ne modifie pas les données SQL,
 mais conserve les journaux de connexion normaux produits pendant le test.
+
+Vérification du service de conversion sur des bases SQL et MongoDB temporaires :
+
+```bash
+docker compose exec -T app php tests/conversion.php
+```
+
+Ce test utilise les services Docker locaux et crée des bases au nom aléatoire,
+supprimées en fin d’exécution. Il vérifie la date de début, les liens métier, le
+devis, le journal et le rollback. Il utilise un client existant, sans envoyer de mail.
 
 **Git et suivi du projet**
 

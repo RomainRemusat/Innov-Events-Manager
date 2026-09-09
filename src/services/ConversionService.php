@@ -157,7 +157,7 @@ class ConversionService
             // D. Création du projet événementiel (events)
             $mysqlDate = date('Y-m-d H:i:s', strtotime($startDate));
             $stmtEvent = $this->db->prepare("
-                INSERT INTO events (client_id, company_id, title, description, event_date, location, estimated_participants, image_path, status) 
+                INSERT INTO events (client_id, company_id, title, description, start_date, location, estimated_participants, image_path, status)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmtEvent->execute([

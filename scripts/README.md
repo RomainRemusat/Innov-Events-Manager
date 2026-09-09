@@ -82,8 +82,9 @@ silencieuse. Dans ce cas, qualifier la donnée concernée avant de reprendre.
 MySQL effectue des validations implicites autour des ALTER TABLE : un
 START TRANSACTION/ROLLBACK ne permet pas d'annuler une série entière de DDL.
 
-Le PHP doit encore être corrigé séparément : `ConversionService` doit écrire dans
-`events.start_date`, et `Prospect::create()` ne doit plus imposer `en attente`.
+`ConversionService` écrit désormais dans `events.start_date` ; le test
+`tests/conversion.php` vérifie cette insertion sur le schéma courant.
+`Prospect::create()` doit encore être corrigé pour ne plus imposer `en attente`.
 Le défaut SQL ne remplace pas une valeur explicitement envoyée par l'application.
 
 **Vérification automatisée**
