@@ -101,7 +101,7 @@ class Log
                 $dateFormatted = 'N/A';
 
                 if (isset($item['Horodatage']) && $item['Horodatage'] instanceof \MongoDB\BSON\UTCDateTime) {
-                    $dateFormatted = $item['Horodatage']->toDateTime()->format('d/m/Y H:i:s');
+                    $dateFormatted = $item['Horodatage']->toDateTime()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('d/m/Y H:i:s');
                 }
 
                 $logs[] = [

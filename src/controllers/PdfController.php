@@ -204,9 +204,12 @@ class PdfController
             $logModel = new Log();
             $logModel->addLog(
                 "ENVOI_DEVIS",
-                "Devis #{$devisId} envoyé au client " . $data['email'],
-                $_SESSION['user_id'],
-                ['devis_id' => $devisId, 'prospect_id' => $data['id_prospect']]
+                (int)$_SESSION['user_id'],
+                [
+                    'message' => "Devis #{$devisId} envoyé au client " . $data['email'],
+                    'devis_id' => $devisId,
+                    'prospect_id' => (int)$data['id_prospect']
+                ]
             );
 
             $_SESSION['flash_success'] = "Le devis a bien été généré, sauvegardé et envoyé au client.";

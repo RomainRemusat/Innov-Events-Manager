@@ -242,9 +242,9 @@ class ConversionService
             $logModel = new Log();
             $logModel->addLog(
                 "CONVERSION_PROSPECT",
-                "Prospect #$prospectId converti en Client #$clientId (Société #$companyId, Événement #$eventId, Devis #$devisId)",
                 $actorUserId,
                 array_merge([
+                    'message' => "Prospect #$prospectId converti en Client #$clientId (Société #$companyId, Événement #$eventId, Devis #$devisId)",
                     'prospect_id' => $prospectId,
                     'client_id'   => $clientId,
                     'company_id'  => $companyId,

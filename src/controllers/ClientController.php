@@ -145,9 +145,9 @@ class ClientController extends BaseController
 
             $logModel->addLog(
                 "REPONSE_DEVIS_CLIENT",
-                $logMsg,
-                $_SESSION['user_id'],
+                (int)$_SESSION['user_id'],
                 [
+                    'message' => $logMsg,
                     'devis_id'      => $devisId,
                     'action'        => $action,
                     'change_reason' => $reason
@@ -209,7 +209,9 @@ class ClientController extends BaseController
             if ($userModel->deleteAccount($userId)) {
                 try {
                     $logModel = new Log();
-                    $logModel->addLog("SUPPRESSION_RGPD", "L'utilisateur ID $userId a supprimé son compte et l'intégralité de ses données.");
+                    $logModel->addLog("SUPPRESSION_RGPD", $userId, [
+                        'message' => "L'utilisateur ID $userId a supprimé son compte."
+                    ]);
                 } catch (\Exception $e) {
                     error_log("Erreur d'audit MongoDB (Suppression RGPD) : " . $e->getMessage());
                 }

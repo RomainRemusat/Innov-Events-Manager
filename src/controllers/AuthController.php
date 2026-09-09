@@ -145,9 +145,13 @@ class AuthController
                 $logModel = new Log();
                 $logModel->addLog(
                     "CREATION_CLIENT",
-                    "Nouvelle inscription d'un client : $firstname $lastname ($email)",
-                    $userId,
-                    ['username' => $username]
+                    (int)$userId,
+                    [
+                        'message' => "Nouvelle inscription d'un client : $firstname $lastname ($email)",
+                        'client_id' => (int)$userId,
+                        'client_name' => "$firstname $lastname",
+                        'username' => $username
+                    ]
                 );
             } catch (\Exception $e) {
                 // Stratégie de résilience : une panne du service de log n'interrompt pas l'inscription
@@ -220,7 +224,9 @@ class AuthController
             // Audit NoSQL
             try {
                 $logModel = new Log();
-                $logModel->addLog("CONNEXION_REUSSIE", "Connexion de l'utilisateur : $email", $user['id']);
+                $logModel->addLog("CONNEXION_REUSSIE", (int)$user['id'], [
+                    'message' => "Connexion de l'utilisateur : $email"
+                ]);
             } catch (\Exception $e) {
                 error_log("Erreur NoSQL : " . $e->getMessage());
             }
@@ -354,7 +360,10 @@ class AuthController
 
                     // Audit NoSQL (AT2)
                     $logModel = new Log();
-                    $logModel->addLog("RESET_PASSWORD", "Demande de mot de passe oublié générée pour l'utilisateur ID " . $user['id']);
+                    $logModel->addLog("RESET_PASSWORD", null, [
+                        'message' => "Demande de mot de passe oublié générée pour l'utilisateur ID " . $user['id'],
+                        'user_id' => (int)$user['id']
+                    ]);
                 } catch (\Exception $e) {
                     error_log("Erreur lors de l'envoi de l'e-mail : " . $e->getMessage());
                 }
@@ -402,14 +411,17 @@ class AuthController
         $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
         $userModel = new User();
 
-        if ($userModel->updatePassword($_SESSION['temp_user_id'], $hashedPassword, false)) {
+        $userId = (int)$_SESSION['temp_user_id'];
+        if ($userModel->updatePassword($userId, $hashedPassword, false)) {
             unset($_SESSION['temp_user_id']); // On nettoie la session temporaire
             $_SESSION['auth_message'] = "Votre mot de passe a été mis à jour avec succès. Vous pouvez maintenant vous connecter.";
 
             // Audit NoSQL (AT2)
             try {
                 $logModel = new Log();
-                $logModel->addLog("PASSWORD_MODIFIE", "L'utilisateur a défini son mot de passe définitif.");
+                $logModel->addLog("PASSWORD_MODIFIE", $userId, [
+                    'message' => "L'utilisateur a défini son mot de passe définitif."
+                ]);
             } catch (\Exception $e) {}
 
             header('Location: index.php?action=login');

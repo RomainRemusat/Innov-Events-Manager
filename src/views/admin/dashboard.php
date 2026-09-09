@@ -248,33 +248,23 @@ $caPrev = $caPrevisionnel ?? 0;
                                         <div class="mb-4 position-relative">
                                             <?php
                                             $color = 'text-primary';
-                                            $logAction = strtolower($log['action'] ?? '');
+                                            $logAction = strtolower($log['type_action'] ?? '');
                                             if (strpos($logAction, 'erreur') !== false) $color = 'text-danger';
                                             if (strpos($logAction, 'succès') !== false) $color = 'text-success';
                                             ?>
                                             <i class="bi bi-circle-fill <?= $color ?> position-absolute bg-white timeline-dot"></i>
 
                                             <span class="small text-muted fw-bold d-block mb-1">
-                                                <?php
-                                                if (isset($log['created_at'])) {
-                                                    if (is_object($log['created_at']) && method_exists($log['created_at'], 'toDateTime')) {
-                                                        echo $log['created_at']->toDateTime()->setTimezone(new DateTimeZone('Europe/Paris'))->format('d/m/Y, H:i');
-                                                    } else {
-                                                        echo date('d/m/Y, H:i', strtotime((string)$log['created_at']));
-                                                    }
-                                                } else {
-                                                    echo 'Date inconnue';
-                                                }
-                                                ?>
+                                                <?= htmlspecialchars($log['timestamp'] ?? 'Date inconnue', ENT_QUOTES, 'UTF-8') ?>
                                             </span>
 
                                             <p class="mb-1 text-dark small">
-                                                <?= htmlspecialchars($log['message'] ?? $log['action'] ?? 'Action système enregistrée', ENT_QUOTES, 'UTF-8') ?>
+                                                <?= htmlspecialchars($log['details']['message'] ?? $log['type_action'] ?? 'Action système enregistrée', ENT_QUOTES, 'UTF-8') ?>
                                             </p>
 
-                                            <?php if (!empty($log['ip_address'])): ?>
+                                            <?php if (!empty($log['details']['ip_address'])): ?>
                                                 <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
-                                                    <i class="bi bi-hdd-network me-1"></i>IP: <?= htmlspecialchars($log['ip_address'], ENT_QUOTES, 'UTF-8') ?>
+                                                    <i class="bi bi-hdd-network me-1"></i>IP: <?= htmlspecialchars($log['details']['ip_address'], ENT_QUOTES, 'UTF-8') ?>
                                                 </small>
                                             <?php endif; ?>
                                         </div>

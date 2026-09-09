@@ -247,7 +247,11 @@ class DashboardController extends BaseController
                 // Journalisation Audit NoSQL
                 try {
                     $logModel = new Log();
-                    $logModel->addLog("UPDATE_PROSPECT", "Statut du prospect #$id modifié en : $status", $_SESSION['user_id'] ?? null);
+                    $logModel->addLog("UPDATE_PROSPECT", (int)$_SESSION['user_id'], [
+                        'message' => "Statut du prospect #$id modifié en : $status",
+                        'prospect_id' => $id,
+                        'status' => $status
+                    ]);
                 } catch (\Exception $e) {
                     error_log("Erreur Log MongoDB : " . $e->getMessage());
                 }

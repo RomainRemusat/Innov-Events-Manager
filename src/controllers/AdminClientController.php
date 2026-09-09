@@ -103,9 +103,12 @@ class AdminClientController extends BaseController
 
                     $logModel->addLog(
                         "SUPPRESSION_CLIENT",
-                        "Suppression logique du client #$clientId ($clientFullName)",
-                        $_SESSION['user_id'],
-                        ['client_id' => $clientId, 'client_name' => $clientFullName]
+                        (int)$_SESSION['user_id'],
+                        [
+                            'message' => "Suppression logique du client #$clientId ($clientFullName)",
+                            'client_id' => $clientId,
+                            'client_name' => $clientFullName
+                        ]
                     );
                 } catch (\Exception $e) {
                     error_log("Erreur Log MongoDB (Suppression Client) : " . $e->getMessage());

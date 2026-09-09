@@ -94,9 +94,10 @@ class QuoteController extends BaseController
                 $logModel = new Log();
                 $logModel->addLog(
                     'NOUVELLE_DEMANDE_DEVIS',
-                    "Nouvelle demande de devis déposée par " . $sanitizedData['company_name'] . " pour un événement à " . $sanitizedData['location'],
                     $sanitizedData['user_id'],
-                    $sanitizedData
+                    array_merge($sanitizedData, [
+                        'message' => "Nouvelle demande de devis déposée par " . $sanitizedData['company_name'] . " pour un événement à " . $sanitizedData['location']
+                    ])
                 );
             } catch (\Exception $e) {
                 error_log("Erreur MongoDB : " . $e->getMessage());
