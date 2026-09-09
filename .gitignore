@@ -48,3 +48,5 @@ Thumbs.db
 # --- Bases de données temporaires locales ---
 *.sqlite
 *.sqlite-journal
+# Documents de travail locaux
+/docs/AUDIT_*
