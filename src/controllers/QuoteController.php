@@ -128,7 +128,7 @@ class QuoteController extends BaseController
 
     public function showDevisList(): void
     {
-        $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+        $this->checkAuth(['ADMIN']);
 
         $devisModel = new Devis();
         $devisList = $devisModel->findAllWithTotals();
@@ -142,7 +142,7 @@ class QuoteController extends BaseController
 
     public function editDevis(int $devisId): void
     {
-        $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+        $this->checkAuth(['ADMIN']);
 
         $devisModel = new Devis();
         $devis = $devisModel->findWithProspect($devisId);
@@ -175,7 +175,7 @@ class QuoteController extends BaseController
 
     public function addPrestation(array $postData): void
     {
-        $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+        $this->checkAuth(['ADMIN']);
         $this->validateCsrf($postData);
 
         $devisId   = (int)($postData['devis_id'] ?? 0);
@@ -197,7 +197,7 @@ class QuoteController extends BaseController
 
     public function deletePrestation(array $postData): void
     {
-        $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+        $this->checkAuth(['ADMIN']);
         $this->validateCsrf($postData);
 
         $prestationId = (int)($postData['prestation_id'] ?? 0);

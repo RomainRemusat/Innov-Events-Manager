@@ -53,6 +53,10 @@ class DashboardController extends BaseController
     {
         // Vérifie que l'utilisateur est connecté avec les bons droits
         $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+        if ($_SESSION['user_role'] === 'EMPLOYEE') {
+            header('Location: index.php?action=admin_events');
+            exit();
+        }
 
         // 1. Instanciation des modèles
         $devisModel = new Devis();
@@ -104,7 +108,7 @@ class DashboardController extends BaseController
 
     public function showConvertForm(int $id): void
     {
-        $this->checkAuth(['ADMIN', 'EMPLOYEE']); // Authentification + contrôle de rôle
+        $this->checkAuth(['ADMIN']); // Authentification + contrôle de rôle
 
         $prospectModel = new Prospect();
         $prospect = $prospectModel->find($id);
@@ -123,7 +127,7 @@ class DashboardController extends BaseController
 
     public function processConversion(array $postData): void
     {
-        $this->checkAuth(['ADMIN', 'EMPLOYEE']); // RBAC strict
+        $this->checkAuth(['ADMIN']); // RBAC strict
         $this->validateCsrf($postData);           // Validation Anti-CSRF
 
         // Validation des champs obligatoires

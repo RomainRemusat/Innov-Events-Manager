@@ -21,12 +21,7 @@ class AdminEventController extends BaseController
 {
     private function checkStaffAccess(): void
     {
-        $this->startSession();
-        $role = $_SESSION['user_role'] ?? '';
-        if (!in_array($role, ['ADMIN', 'EMPLOYEE'], true)) {
-            header('Location: index.php?action=login');
-            exit();
-        }
+        $this->checkAuth(['ADMIN', 'EMPLOYEE']);
     }
 
     /**
@@ -77,7 +72,7 @@ class AdminEventController extends BaseController
      */
     public function updateStatus(): void
     {
-        $this->checkStaffAccess();
+        $this->checkAuth(['ADMIN']);
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: index.php?action=admin_events');
@@ -126,6 +121,9 @@ class AdminEventController extends BaseController
         }
 
         $eventId = !empty($_POST['event_id']) ? (int)$_POST['event_id'] : null;
+        if ($eventId === null) {
+            $this->checkAuth(['ADMIN']); // Les notes globales sont réservées à Chloé.
+        }
         $content = trim($_POST['content'] ?? '');
         $userId  = (int)$_SESSION['user_id'];
 
@@ -144,7 +142,7 @@ class AdminEventController extends BaseController
 
     public function uploadImage(): void
     {
-        $this->checkStaffAccess();
+        $this->checkAuth(['ADMIN']);
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: index.php?action=admin_events');

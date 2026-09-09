@@ -120,6 +120,7 @@
 
                                         <!-- Formulaire d'arbitrage direct du cycle de vie opérationnel (Sécurité OWASP CSRF) -->
                                         <td>
+                                            <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
                                             <form method="POST" action="index.php?action=admin_event_update_status" class="d-inline">
                                                 <!-- Jeton de protection anti-CSRF -->
                                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
@@ -145,6 +146,7 @@
                                                     <?php endforeach; ?>
                                                 </select>
                                             </form>
+                                            <?php else: ?><?= htmlspecialchars($ev['status'], ENT_QUOTES, 'UTF-8') ?><?php endif; ?>
                                         </td>
 
                                         <!-- Accès à la fiche projet détaillée et aux notes de terrain -->

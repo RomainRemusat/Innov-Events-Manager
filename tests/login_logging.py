@@ -70,9 +70,12 @@ def main():
             assert headers["Location"] == "index.php?action=" + destination
             new_session = next(cookie.value for cookie in cookies if cookie.name == "PHPSESSID")
             assert new_session != old_session, "La session n'a pas été régénérée"
-            code, _, body = request(client, destination)
+            code, headers, body = request(client, destination)
+            if user_id == 2:
+                assert code == 302 and headers["Location"] == "index.php?action=admin_events"
+                code, _, body = request(client, "admin_events")
             assert code == 200
-            if destination == "dashboard":
+            if user_id == 1:
                 assert email in body, "Le flux du dashboard n'affiche pas le message de connexion"
             print(f"OK : connexion, session régénérée et redirection pour {email}", flush=True)
 

@@ -151,7 +151,7 @@ class PdfController
     }
 
     /**
-     * Traite l'expédition de la proposition commerciale au client (Admin / Employé).
+     * Traite l'expédition de la proposition commerciale au client (Administrateur).
      *
      * @param  int $devisId Identifiant du devis à expédier.
      * @return void
@@ -160,7 +160,7 @@ class PdfController
     {
         if (session_status() === PHP_SESSION_NONE) session_start();
 
-        if (empty($_SESSION['user_id']) || !in_array($_SESSION['user_role'] ?? '', ['ADMIN', 'EMPLOYEE'], true)) {
+        if (empty($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'ADMIN') {
             header('Location: index.php?action=login');
             exit;
         }

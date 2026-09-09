@@ -41,9 +41,11 @@
 
                         <!-- Action métier : Modifier -->
                         <div class="mt-4 pt-3 border-top">
+                            <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
                             <a href="index.php?action=edit_client&id=<?= (int)$client['id'] ?>" class="btn btn-sm btn-primary w-100">
                                 <i class="fa-solid fa-pen me-2"></i>Modifier les informations
                             </a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -93,9 +95,11 @@
                                             </td>
                                             <td class="px-4 py-3 text-center">
                                                 <?php if (!empty($quote['id_devis'])): ?>
+                                                    <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
                                                     <a href="index.php?action=edit_devis&id=<?= (int)$quote['id_devis'] ?>" class="btn btn-sm btn-outline-primary" title="Ouvrir le devis">
                                                         <i class="fa-solid fa-arrow-up-right-from-square"></i>
                                                     </a>
+                                                    <?php endif; ?>
                                                 <?php else: ?>
                                                     <span class="text-muted small">Pas de devis</span>
                                                 <?php endif; ?>

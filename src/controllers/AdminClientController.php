@@ -49,7 +49,7 @@ class AdminClientController extends BaseController
 
     public function showEditClientForm(int $clientId): void
     {
-        $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+        $this->checkAuth(['ADMIN']);
 
         $userModel = new User();
         $client = $userModel->findById($clientId);
@@ -68,7 +68,7 @@ class AdminClientController extends BaseController
 
     public function updateClient(array $postData): void
     {
-        $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+        $this->checkAuth(['ADMIN']);
         $this->validateCsrf($postData);
 
         $clientId  = (int)($postData['client_id'] ?? 0);
@@ -87,7 +87,7 @@ class AdminClientController extends BaseController
 
     public function deleteClient(array $postData): void
     {
-        $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+        $this->checkAuth(['ADMIN']);
         $this->validateCsrf($postData);
 
         $clientId = (int)($postData['client_id'] ?? 0);

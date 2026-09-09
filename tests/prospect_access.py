@@ -50,7 +50,7 @@ def main():
                 assert code == 302 and headers["Location"] == "index.php?action=" + account[2]
 
             admin = account == ACCOUNTS[0]
-            destination = "index.php?action=" + ("client_dashboard" if account else "login")
+            destination = "index.php?action=" + ("admin_events" if account == ACCOUNTS[1] else "client_dashboard" if account else "login")
             for route in ["prospects"] + [f"view_prospect&id={id_}" for id_ in ids]:
                 code, headers, body = request(client, route)
                 if admin:

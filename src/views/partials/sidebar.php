@@ -14,11 +14,15 @@ $currentAction = $_GET['action'] ?? 'dashboard';
 require_once __DIR__ . '/../../models/sql/Prospect.php';
 require_once __DIR__ . '/../../models/sql/Devis.php';
 
-$prospectModel = new Prospect();
-$nbActiveProspects = $prospectModel->NbActive();
+$isAdmin = ($_SESSION['user_role'] ?? '') === 'ADMIN';
+$nbActiveProspects = $nbPendingModifications = 0;
+if ($isAdmin) {
+    $prospectModel = new Prospect();
+    $nbActiveProspects = $prospectModel->NbActive();
 
-$devisModel = new Devis();
-$nbPendingModifications = $devisModel->countPendingModifications();
+    $devisModel = new Devis();
+    $nbPendingModifications = $devisModel->countPendingModifications();
+}
 
 $navigation = [
         'Générales' => [
@@ -108,6 +112,9 @@ $navigation = [
 
             <?php foreach ($items as $item): ?>
                 <?php
+                if (!$isAdmin && in_array($item['active'][0] ?? '', ['prospects', 'admin_devis', 'mongo_logs', 'teams'], true)) {
+                    continue;
+                }
                 $isActive  = in_array($currentAction, $item['active'], true);
                 $itemClass = $item['itemClass'] ?? 'mb-1';
                 $badge     = $item['badge'] ?? null;

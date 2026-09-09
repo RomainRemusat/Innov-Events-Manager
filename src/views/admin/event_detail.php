@@ -132,6 +132,7 @@
                         </div>
                     </div>
 
+                    <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
                     <!-- Carte de téléversement média (Sécurisation OWASP : jeton CSRF, MIME côté serveur) -->
                     <div class="card shadow-sm border-0">
                         <div class="card-header bg-light fw-bold py-3">
@@ -161,6 +162,7 @@
                             </form>
                         </div>
                     </div>
+                    <?php endif; ?>
                 </div>
 
                 <!-- COLONNE DROITE : Client rattaché & Actions directes terrain (Mobilité CDC p. 14) -->

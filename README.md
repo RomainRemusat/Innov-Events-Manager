@@ -170,7 +170,7 @@ client (p. 10) imposent un changement à la première connexion, via
 | Conversion | Colonne `start_date` corrigée ; conversion avec compte existant et rollback vérifiés sur bases temporaires. Parcours HTTP, nouveau compte et image à compléter |
 | Devis et PDF | Génération réservée à ADMIN et au client propriétaire, testée sur Docker ; envois et téléchargement client restent à corriger |
 | Réponse client | Acceptation/refus/modification présents ; motif non imposé côté serveur, transitions et notifications à fiabiliser |
-| Clients, événements et notes | Listes, fiches, indicateurs et certaines mutations présents ; CRUD, droits employé, profil et notes globales à compléter |
+| Clients, événements et notes | Listes, fiches, indicateurs et certaines mutations présents ; mutations structurelles réservées à ADMIN ; consultation et ajout de notes événement conservés pour EMPLOYEE. CRUD et profil à compléter |
 | Journalisation et sécurité | Appels de logs et affichage alignés sur le modèle MongoDB ; couverture des actions à compléter, autres permissions, téléchargement des PDF stockés et protections CSRF à corriger |
 | Mobile, tâches, avis, contact | Parcours dédiés non réalisés ; le dossier mobile est vide |
 | Mentions légales, CGU et CGV | Pages manquantes ; les liens légaux existants ne suffisent pas |
@@ -245,6 +245,23 @@ Le test utilise les quatre comptes de démonstration et un devis existant par cl
 Il vérifie les PDF autorisés et le refus des accès directs aux devis d’autrui, ainsi
 que les accès visiteur, employé et administrateur. Aucune écriture SQL, aucun mail
 ni sauvegarde de PDF ; les journaux de connexion sont conservés.
+
+Vérification des permissions employé et administrateur :
+
+```bash
+python -B tests/staff_permissions.py
+```
+
+Conversion, modification/suppression de client, prestations, envoi de devis,
+statut et image d’événement sont réservés à ADMIN. EMPLOYEE conserve la consultation
+des clients/événements et l’ajout de notes sur un événement. Les notes globales sont
+réservées à ADMIN. Son dashboard redirige vers la liste des événements.
+
+Le test crée des dossiers synthétiques sur le Docker local et contrôle les refus
+par accès direct, les lectures et notes employé, puis les mutations administrateur,
+y compris un téléversement PNG. Il nettoie les dossiers, le PNG et le PDF créés.
+Les journaux et l’email de test envoyé à MailHog restent disponibles localement.
+Les protections CSRF manquantes et les autres fonctionnalités ECF restent à compléter.
 
 **Git et suivi du projet**
 

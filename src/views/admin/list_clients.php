@@ -98,14 +98,17 @@
                                               Bouton d'édition (Exigence AT2 : modification d'un client).
                                               RGAA : aria-label est obligatoire car le bouton ne contient pas de texte, juste une icône.
                                             -->
+                                            <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
                                             <a href="index.php?action=edit_client&id=<?= (int)$client['id'] ?>" class="btn btn-sm btn-outline-primary me-1" title="Éditer le client" aria-label="Éditer le profil de <?= htmlspecialchars($client['firstname'], ENT_QUOTES, 'UTF-8') ?>">
                                                 <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
                                             </a>
+                                            <?php endif; ?>
 
                                             <!--
                                               Bouton de suppression (Exigence AT2 : suppression d'un client).
                                               Utilisation de la couleur danger (rouge) selon la charte d'interface.
                                             -->
+                                            <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
                                             <form action="index.php?action=delete_client" method="POST" class="d-inline" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer définitivement ce client ? Cette action est irréversible.');">
                                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                                 <input type="hidden" name="client_id" value="<?= (int)$client['id'] ?>">
@@ -113,6 +116,7 @@
                                                     <i class="fa-solid fa-trash" aria-hidden="true"></i>
                                                 </button>
                                             </form>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
