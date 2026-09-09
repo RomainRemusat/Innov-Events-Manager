@@ -120,38 +120,38 @@ def main():
             setup
             + """
             $db->beginTransaction();
-            $db->exec("INSERT INTO companies (name) VALUES ('MARKER')");
+            $db->exec("INSERT INTO companies (name) VALUES ('MARKER Corp')");
             $company = (int)$db->lastInsertId();
 
             $hash = password_hash('Password123!', PASSWORD_BCRYPT);
             $stmt = $db->prepare("INSERT INTO users (company_id, email, password, firstname, lastname, role, must_change_password)
-                VALUES (?, 'MARKER_client@example.test', ?, 'Test', 'CSRFClient', 'CLIENT', 0)");
+                VALUES (?, 'MARKER_client@example.test', ?, 'Test', 'ClientCSRF', 'CLIENT', 0)");
             $stmt->execute([$company, $hash]);
             $client_user = (int)$db->lastInsertId();
 
-            $stmtReset = $db->prepare("INSERT INTO users (company_id, email, password, firstname, lastname, role, must_change_password)
-                VALUES (?, 'MARKER_reset@example.test', ?, 'Reset', 'User', 'CLIENT', 0)");
-            $stmtReset->execute([$company, $hash]);
+            $stmt = $db->prepare("INSERT INTO users (company_id, email, password, firstname, lastname, role, must_change_password)
+                VALUES (?, 'MARKER_reset@example.test', ?, 'Test', 'ResetCSRF', 'CLIENT', 0)");
+            $stmt->execute([$company, $hash]);
             $reset_user = (int)$db->lastInsertId();
 
-            $stmtForced = $db->prepare("INSERT INTO users (company_id, email, password, firstname, lastname, role, must_change_password)
-                VALUES (?, 'MARKER_forced@example.test', ?, 'Forced', 'User', 'CLIENT', 1)");
-            $stmtForced->execute([$company, $hash]);
+            $stmt = $db->prepare("INSERT INTO users (company_id, email, password, firstname, lastname, role, must_change_password)
+                VALUES (?, 'MARKER_forced@example.test', ?, 'Test', 'ForcedCSRF', 'CLIENT', 1)");
+            $stmt->execute([$company, $hash]);
             $forced_user = (int)$db->lastInsertId();
 
             $stmt = $db->prepare("INSERT INTO prospects (user_id, company_id, company_name, contact_name, email, phone, event_type, status)
-                VALUES (?, ?, 'MARKER', 'Contact CSRF', 'MARKER_prospect@example.test', '0102030405', 'Séminaire', 'à contacter')");
+                VALUES (?, ?, 'MARKER Corp', 'Contact CSRF', 'MARKER_prospect@example.test', '0102030405', 'Soirée', 'à contacter')");
             $stmt->execute([$client_user, $company]);
             $prospect = (int)$db->lastInsertId();
 
-            $db->exec("INSERT INTO devis (id_prospect, reference_pdf, montant_ht, tva, status) VALUES ($prospect, 'MARKER.pdf', 100, 20, 'brouillon')");
+            $db->exec("INSERT INTO devis (id_prospect, reference_pdf, montant_ht, tva, status)
+                VALUES ($prospect, 'MARKER_dev.pdf', 100, 20, 'brouillon')");
             $quote = (int)$db->lastInsertId();
 
             $db->exec("INSERT INTO prestations (devis_id, libelle, montant_ht) VALUES ($quote, 'Prestation Test', 100)");
             $prestation = (int)$db->lastInsertId();
 
-            $db->exec("INSERT INTO events (client_id, company_id, title, start_date, location, status)
-                VALUES ($client_user, $company, 'MARKER Event', '2026-12-01 10:00:00', 'Paris', 'planifié')");
+            $db->exec("INSERT INTO events (client_id, company_id, title, start_date, location, status)\n                VALUES ($client_user, $company, 'MARKER Event', '2026-12-01 10:00:00', 'Paris', 'planifié')");
             $event = (int)$db->lastInsertId();
 
             $db->commit();
@@ -197,7 +197,7 @@ def main():
         assert "Erreur de sécurité" in body or "Jeton CSRF" in body, "Rejet attendu avec faux token CSRF"
 
         # 1.c Avec token CSRF valide
-        code, _, body = request(
+        code, headers, body = request(
             c_anon,
             "register",
             {
@@ -209,7 +209,7 @@ def main():
                 "password": "Password123!",
             },
         )
-        assert "succès" in body.lower() or code == 200, "Inscription réussie attendue avec token valide"
+        assert code == 302 and "login" in headers.get("Location", ""), "Inscription réussie attendue avec token valide"
         print("OK : register protégé par CSRF", flush=True)
 
         # ---------------------------------------------------------------------
