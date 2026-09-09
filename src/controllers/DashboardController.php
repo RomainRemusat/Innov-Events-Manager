@@ -171,14 +171,7 @@ class DashboardController extends BaseController
      */
     public function showProspectDetails(int $id): void
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (empty($_SESSION['user_id'])) {
-            header('Location: index.php?action=login');
-            exit;
-        }
+        $this->checkAuth(['ADMIN']);
 
         $prospectModel = new Prospect();
         $prospect = $prospectModel->find($id);
@@ -209,14 +202,7 @@ class DashboardController extends BaseController
      */
     public function updateProspectStatus(): void
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (empty($_SESSION['user_id'])) {
-            header('Location: index.php?action=login');
-            exit;
-        }
+        $this->checkAuth(['ADMIN']);
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['id']) && !empty($_POST['status'])) {
             $id = (int)$_POST['id'];
@@ -273,14 +259,7 @@ class DashboardController extends BaseController
      */
     public function showProspectsList(): void
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (empty($_SESSION['user_id'])) {
-            header('Location: index.php?action=login');
-            exit;
-        }
+        $this->checkAuth(['ADMIN']);
 
         $prospectModel = new Prospect();
         $prospects = $prospectModel->findAllActive();

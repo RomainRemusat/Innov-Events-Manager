@@ -224,6 +224,17 @@ Ce test utilise les services Docker locaux et crée des bases au nom aléatoire,
 supprimées en fin d’exécution. Il vérifie la date de début, les liens métier, le
 devis, le journal et le rollback. Il utilise un client existant, sans envoyer de mail.
 
+Vérification des accès directs aux routes prospects (réservées à ADMIN) :
+
+```bash
+python tests/prospect_access.py
+```
+
+Sur Docker local avec les quatre comptes de démonstration, ce test vérifie les
+lectures et POST des visiteurs, clients, employé et administrateur. Il crée puis
+supprime deux prospects synthétiques ; les dossiers existants restent inchangés.
+Les journaux normaux produits par le test sont conservés. Aucun mail n’est envoyé.
+
 **Git et suivi du projet**
 
 Les branches `main`, `dev` et `feature/*` sont présentes. Le workflow visé est de
