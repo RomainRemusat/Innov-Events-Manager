@@ -1,167 +1,234 @@
-# 📅 Innov'Events Manager 🚀
+**Innov’Events Manager**
 
-Innov'Events Manager est une solution logicielle sécurisée (Web et Mobile) organisée en couches, conçue pour l'agence événementielle B2B Innov'Events. Ce projet remplace un système obsolète et dispersé (fichiers Word, classeurs Excel CRM non synchronisés) par une source unique de vérité centralisée, automatisant le tunnel commercial (prospects, devis PDF) et fiabilisant la gestion opérationnelle des événements.
+Projet en cours de développement pour l’ECF du titre professionnel Concepteur
+Développeur d’Applications (Studi). L’objectif est de centraliser les prospects,
+clients, événements et devis de l’agence Innov’Events.
 
-Ce dépôt constitue le livrable technique d'évaluation en cours de formation (ECF) pour le titre professionnel **Concepteur Développeur d'Applications (CDA)** (Niveau 6 - École Studi).
+État documenté au **9 septembre 2026** : l’application web et les scripts SQL
+existent, mais des corrections fonctionnelles et de sécurité restent nécessaires.
+L’application mobile et le déploiement en ligne ne sont pas encore livrés dans
+ce dépôt.
 
----
+**Technologies présentes**
 
-## 🛠️ Stack Technique
+| Élément | Implémentation actuelle |
+| --- | --- |
+| Serveur web | PHP 8.2 / Apache, image `php:8.2-apache` |
+| Organisation | Point d’entrée `public/index.php`, contrôleurs, modèles, vues et services PHP |
+| SQL | MySQL 8.0 : `companies`, `users`, `prospects`, `devis`, `events`, `prestations`, `notes` |
+| NoSQL | MongoDB pour les journaux d’actions ; connexion et affichage des journaux vérifiés |
+| Interface | HTML, CSS et Bootstrap 5 ; aucun SCSS trouvé dans le dépôt |
+| PDF | Dompdf |
+| Emails | PHPMailer vers MailHog pour une partie des envois ; certains appels `mail()` restent à corriger |
+| Environnement local | Docker Compose : application, MySQL, MongoDB, MailHog et phpMyAdmin |
 
-* **Infrastructure & Conteneurisation :** Docker & Docker Compose v2 (isolation multi-conteneurs étanches, volumes de persistance).
-* **Back-end :** PHP 8.2+ (Architecture multicouche MVC, POO stricte, Front Controller `index.php`).
-* **Persistance Polyglotte :**
-* **Base relationnelle (MySQL 8.0) :** Entités structurées (Users, Prospects, Devis, Prestations, Events, Notes, Tasks) conformes à la 3NF et à l'intégrité référentielle.
-* **Base NoSQL orientée documents (MongoDB) :** Journalisation d'audit immuable (`logs`) pour la traçabilité des opérations sensibles.
+Les tâches et les avis ne disposent pas encore de tables ou de parcours complets.
+Le stockage MongoDB ne garantit pas, à lui seul, l’immutabilité des journaux.
 
+**Installation locale**
 
-* **Services Auxiliaires :** MailHog (capture locale des flux SMTP), Dompdf (compilation dynamique des propositions commerciales en PDF).
-* **Front-end Web :** HTML5 sémantique (accessibilité RGAA), CSS3 / SCSS, Bootstrap 5 (Responsive Web Design).
-* **Application Mobile :** Interface mobile conteneurisée sous Docker optimisée pour la consultation terrain et le déclenchement d'actions en un clic (Appels, Emails, Itinéraires).
+Prérequis : Git et Docker avec le moteur démarré et la commande `docker compose`
+disponible. PHP et Composer sont fournis dans le conteneur applicatif. Python 3
+est nécessaire uniquement pour les tests SQL.
 
----
+1. Cloner le dépôt et sélectionner la branche à tester :
 
-## 🌐 Cartographie des Services et Ports Locaux
-
-| Service | Rôle et Périmètre | Point d'Entrée / Port |
-| --- | --- | --- |
-| **Application Web** | Vitrine publique, Espace Client & Back-Office Staff | http://localhost:8081 |
-| **Authentification** | Formulaire de connexion sécurisé multi-rôles | http://localhost:8081/index.php?action=login |
-| **phpMyAdmin** | Administration visuelle de la base MySQL | http://localhost:8082 |
-| **MailHog** | Capture et inspection des courriels sortants | http://localhost:8025 |
-| **MySQL 8.0** | Serveur SQL relationnel | localhost:3306 |
-| **MongoDB** | Serveur NoSQL documentaire (Audit logs) | localhost:27017 |
-
----
-
-## 🚀 Installation et Démarrage en Local
-
-### Prérequis Système
-
-* Docker Desktop (moteur Docker v24+ avec Compose v2).
-* Un client Git.
-
-### Procédure de Déploiement Local
-
-1. **Cloner le dépôt et basculer sur la branche de développement :**
 ```bash
 git clone https://github.com/RomainRemusat/Innov-Events-Manager.git
 cd Innov-Events-Manager
-git checkout dev
-
+git checkout feature/evenement
 ```
 
+Cette documentation décrit la branche `feature/evenement` en cours de correction.
+Les branches `dev` et `main` existent, mais ne contiennent pas nécessairement les
+mêmes modifications. Les corrections doivent être intégrées après vérification.
 
-2. **Créer le fichier de variables d'environnement :**
-* *Linux / macOS / Git Bash :*
+2. Créer `.env` à partir du fichier réellement présent dans le dépôt, sans écraser
+une configuration locale existante.
+
+Sous Linux/macOS ou Git Bash :
+
 ```bash
-cp .env.example .env
-
+cp .env.example.php .env
 ```
 
+Sous PowerShell :
 
-* *PowerShell (Windows) :*
 ```powershell
-Copy-Item .env.example .env
-
+Copy-Item .env.example.php .env
 ```
 
+Malgré son extension `.php`, ce modèle contient des lignes `CLE=valeur`, pas du
+code PHP. Pour l’installation actuelle, conserver les paramètres SQL suivants :
 
+```dotenv
+DB_HOST=db
+DB_PORT=3306
+DB_NAME=innovevents_db
+DB_USER=root
+DB_PASS=root_password
+```
 
+Compose utilise `.env` pour sa configuration. En revanche, les identifiants SQL
+de `src/config/Database.php` et la connexion MailHog de `MailService.php` sont
+encore codés en dur. Modifier uniquement `.env` ne reconfigure donc pas toute
+l’application. Les variables MongoDB d’authentification du modèle ne sont pas
+transmises au service MongoDB par le Compose actuel.
 
-3. **Construire et lancer l'infrastructure Docker :**
+3. Construire et démarrer les services, puis installer les dépendances :
+
 ```bash
 docker compose up -d --build
-
-```
-
-
-4. **Installer les dépendances logicielles (Composer) :**
-```bash
 docker compose exec app composer install
-
+docker compose ps
 ```
 
+Attendre que MySQL accepte les connexions avant d’importer le SQL :
 
-5. **Initialiser les bases de données (Script manuel & Jeu d'essai) :**
 ```bash
-docker compose exec -T db mysql -u root -proot_password innovevents_db < scripts/schema.sql
-docker compose exec -T db mysql -u root -proot_password innovevents_db < scripts/initialise.sql
-
+docker compose exec -T db mysql -uroot -proot_password -e 'SELECT 1'
 ```
 
+Si la base n’est pas encore prête, attendre puis relancer cette commande.
 
+4. Initialiser **uniquement une base vide**, avec le schéma puis le jeu d’essai.
+Sous Linux/macOS ou Git Bash :
 
----
+```bash
+docker compose exec -T db mysql --default-character-set=utf8mb4 -uroot -proot_password innovevents_db < scripts/schema.sql
+docker compose exec -T db mysql --default-character-set=utf8mb4 -uroot -proot_password innovevents_db < scripts/initialise.sql
+```
 
-## 🔐 Comptes de Démonstration (Jeu d'Essai)
+Sous PowerShell :
 
-| Rôle Métier | Identifiant (Email) | Mot de Passe Local | Périmètre Applicatif |
-| --- | --- | --- | --- |
-| **Administratrice (Chloé)** | chloe@innovevents.fr | Password123! | Pilotage global, conversion prospects, génération devis, logs NoSQL, gestion d'équipe |
-| **Employé (José)** | jose@innovevents.fr | Password123! | Suivi des projets, gestion des tâches opérationnelles, notes de terrain |
-| **Client B2B** | client@luxe.com | Password123! | Espace client, arbitrage des devis (acceptation, refus, demande de modification) |
+```powershell
+docker compose cp scripts/schema.sql db:/tmp/innovevents-schema.sql
+docker compose exec -T db sh -c 'exec mysql --default-character-set=utf8mb4 -uroot -proot_password innovevents_db < /tmp/innovevents-schema.sql'
+# Continuer uniquement si le schéma a été importé sans erreur.
+docker compose cp scripts/initialise.sql db:/tmp/innovevents-initialise.sql
+docker compose exec -T db sh -c 'exec mysql --default-character-set=utf8mb4 -uroot -proot_password innovevents_db < /tmp/innovevents-initialise.sql'
+```
 
----
+Pour une base existante, suivre [le guide des scripts SQL](scripts/README.md).
+`schema.sql` refuse les tables déjà présentes ; `initialise.sql` ne doit pas être
+rejoué sur les données de travail. Les volumes SQL et MongoDB persistent après
+un arrêt normal des services.
 
-## 🌿 Gouvernance Git & Gestion de Projet (AT1)
+**Services locaux**
 
-### Modèle de Branches GitFlow
+Ports avec la configuration fournie :
 
-* `main` : Version de production stable et testée.
-* `dev` : Branche d'intégration continue des développements.
-* `feature/*` : Branches de travail isolées pour chaque fonctionnalité (ex: `feature/events-filters`, `feature/notes-system`).
+| Service | Adresse |
+| --- | --- |
+| Application web | http://localhost:8081 |
+| Connexion | http://localhost:8081/index.php?action=login |
+| phpMyAdmin | http://localhost:8082 |
+| Interface MailHog | http://localhost:8025 |
+| SMTP MailHog | `localhost:1025` depuis l’hôte ; `mailhog:1025` depuis PHP |
+| MySQL | `localhost:3306` depuis l’hôte ; `db:3306` depuis PHP |
+| MongoDB | `localhost:27017` depuis l’hôte ; `mongodb:27017` depuis PHP |
 
-### Norme de Commits (Conventional Commits)
+MailHog capture les emails localement : ils ne sont pas distribués aux véritables
+boîtes des destinataires. Cette configuration est destinée au développement.
 
-* `feat(scope): description` : Nouvelle fonctionnalité.
-* `fix(scope): description` : Correction d'anomalie.
-* `refactor(scope): description` : Réorganisation du code à comportement constant.
-* `docs(scope): description` : Rédaction ou mise à jour documentaire.
-* `test(scope): description` : Ajout ou révision de tests automatisés.
+**Comptes du jeu d’essai**
 
-### Pilotage Kanban
+Les mots de passe ci-dessous ont été vérifiés avec `password_verify()` sur les
+hashes de [scripts/initialise.sql](scripts/initialise.sql).
 
-Le projet suit un tableau Kanban partagé en 5 colonnes :
+| Rôle | Email | Mot de passe du jeu d’essai |
+| --- | --- | --- |
+| Administratrice — Chloé | `chloe@innovevents.fr` | `Password123!` |
+| Employé — José | `jose@innovevents.fr` | `Password123!` |
+| Cliente — Alice | `client@luxe.com` | `Password123!` |
+| Cliente — Amandine | `a.legrand@nextgen.io` | `Password123!` |
 
-1. Fonctionnalités prévues (ordonnées par priorité).
-2. Fonctionnalités prévues dans le sprint en cours.
-3. En cours de développement.
-4. Terminées et testées sur la branche `dev`.
-5. Mergées dans la branche `main` (Production).
+Ces identifiants concernent une base alimentée avec ce jeu d’essai. Une base
+existante peut contenir des mots de passe modifiés. Le jeu d’essai contient
+uniquement ces quatre comptes : un administrateur, un employé et deux clientes.
+Alice et Amandine ont chacune leurs dossiers, pour tester notamment l’interdiction
+d’accès aux devis d’une autre cliente.
 
----
+`Password123!` respecte la règle de l’ECF (p. 5) : au moins 8 caractères,
+une majuscule, une minuscule, un chiffre et un caractère spécial. Il est stocké
+sous forme de hash bcrypt, avec un sel distinct pour chaque compte.
 
-## 📋 Matrice de Couverture des Exigences ECF
+Ces quatre comptes sont préconfigurés pour la démonstration. Les mots de passe
+temporaires issus d’un oubli (p. 6) ou de la création automatique d’un compte
+client (p. 10) imposent un changement à la première connexion, via
+`must_change_password = 1`. Le jeu d’essai utilise `0` pour les comptes déjà prêts.
 
-### AT1 - Développer une Application Sécurisée
+**État des fonctionnalités et livrables**
 
-* [x] Conteneurisation Docker multi-services et gestion de configuration par environnement.
-* [x] Gestion de version GitFlow (`main`, `dev`, `feature/*`) avec commits sémantiques.
-* [x] Authentification sécurisée (Bcrypt, sessions régénérées, mot de passe oublié temporaire).
-* [x] Formulaire public de devis avec insertion en table `prospects` (statut `à contacter`) et notification mail.
-* [x] Back-Office Chloé : badge dynamique d'indicateurs de devis en attente et édition des prestations.
-* [x] Espace Client B2B : arbitrage des devis (`accepté`, `refusé`, `modification` avec motif obligatoire).
-* [ ] Vitrine publique des événements avec filtres multicritères (dates, type, thème) sans affichage des prix.
-* [ ] Application Mobile Dockerisée pour Chloé et José (fiches concises, appels/mails/itinéraires en un clic, notes rapides).
-* [ ] Pages légales : Mentions légales, CGU et CGV.
-* [ ] Respect des règles d'accessibilité RGAA (navigation clavier, sémantique HTML, attributs ARIA).
+| Domaine | État vérifié / travail restant |
+| --- | --- |
+| Docker local | Cinq services démarrés lors de l’audit ; build de production et configuration par environnement à finaliser |
+| SQL | Création manuelle, données de démonstration et mises à jour alignées sur l’export du 09/09/2026 ; tests de migration réussis |
+| Événements publics | Liste, détail, filtres dates/type/thème ; brouillons exclus et montants commerciaux non affichés |
+| Inscription et connexion | Connexion des quatre comptes, session régénérée, redirection et journal MongoDB vérifiés ; inscription et mot de passe temporaire présents, contrôles de sécurité et retour à l’action initiale à compléter |
+| Demande de devis | Formulaire et insertion présents, appel de journalisation corrigé ; le PHP force encore `en attente` et ignore certaines validations |
+| Conversion | Bloquée par l’utilisation de `events.event_date` au lieu de `start_date` |
+| Devis et PDF | Prestations, calcul et génération présents ; droits d’accès, envois et route de téléchargement client à corriger |
+| Réponse client | Acceptation/refus/modification présents ; motif non imposé côté serveur, transitions et notifications à fiabiliser |
+| Clients, événements et notes | Listes, fiches, indicateurs et certaines mutations présents ; CRUD, droits employé, profil et notes globales à compléter |
+| Journalisation et sécurité | Appels de logs et affichage alignés sur le modèle MongoDB ; couverture des actions à compléter, permissions, accès aux PDF et protections CSRF à corriger |
+| Mobile, tâches, avis, contact | Parcours dédiés non réalisés ; le dossier mobile est vide |
+| Mentions légales, CGU et CGV | Pages manquantes ; les liens légaux existants ne suffisent pas |
+| Accessibilité | Éléments sémantiques et responsive présents ; recette clavier/visuelle et corrections encore nécessaires, conformité RGAA non établie |
+| Conception | Charte, trois wireframes et trois mockups web, MCD et diagrammes présents ; modèles à actualiser, maquettes mobile et schéma d’architecture complet à fournir |
+| Tests applicatifs | Contrôles SQL, politique des mots de passe et connexion/journalisation disponibles ; couverture du parcours commercial aux trois niveaux et rapport de couverture encore à réaliser |
+| CI/CD et production | Aucun pipeline ni déploiement en ligne documenté dans le dépôt ; hébergeur à choisir/configurer |
+| Documentation utilisateur et veille | À compléter |
 
-### AT2 - Concevoir et Développer une Application Sécurisée Organisée en Couches
+Les tests et la présence de mécanismes de sécurité ne constituent pas une
+certification globale de conformité OWASP, RGPD ou RGAA.
 
-* [x] Modélisation relationnelle 3NF découpant Prospects, Devis, Prestations, Événements et Notes.
-* [x] Journalisation NoSQL MongoDB (`logs`) des opérations sensibles (connexions, CRUD client, statut devis).
-* [x] Prévention des vulnérabilités OWASP Top 10 (requêtes préparées PDO anti-injections SQL, assainissement XSS, CSRF tokens).
-* [ ] Rédaction du script SQL de création des tables écrit manuellement (non exporté de phpMyAdmin).
-* [ ] Modèle Conceptuel de Données (MCD textuel et graphique).
-* [ ] Dossier d'architecture multicouche avec schémas techniques détaillant chaque brique logicielle.
-* [ ] Diagrammes UML : Diagramme de Cas d'Utilisation global et Diagramme de Séquence du tunnel commercial.
-* [ ] 3 Wireframes et 3 Mockups pour le Web, 3 Wireframes et 3 Mockups pour le Mobile avec charte graphique.
+**Vérifications disponibles**
 
-### AT3 - Préparer le Déploiement d'une Application Sécurisée
+Vérification des règles de mot de passe et des hashes du jeu d’essai (sans base) :
 
-* [ ] Suite de tests automatisés (Tests unitaires, fonctionnels et E2E sur le parcours commercial).
-* [ ] Rapport de couverture de code chiffré (`docs/coverage`).
-* [ ] Pipeline CI/CD automatisé (GitHub Actions ou GitLab CI) validant le code avant merge.
-* [ ] Procédure de déploiement continu automatisée vers l'hébergeur en ligne (Fly.io).
-* [ ] Rédaction des guides d'installation détaillés, reproductibles et de la documentation utilisateur finale.
+```bash
+docker compose exec -T app php tests/password_policy.php
+```
+
+Vérification SQL :
+
+```bash
+python tests/sql_migrations.py
+```
+
+Ce contrôle utilise un MySQL Docker temporaire sans connexion à la base de travail.
+Il vérifie l’installation vierge, le refus de réinitialisation, deux passages des
+migrations, la conservation des données et les contraintes. Une option `--export`
+permet de vérifier une sauvegarde locale ; voir [le guide SQL](scripts/README.md).
+Ces tests ne calculent pas la couverture PHP et ne remplacent pas les tests E2E.
+
+Vérification HTTP des quatre connexions et de leurs journaux MongoDB, sur le Docker
+local démarré et les comptes de démonstration :
+
+```bash
+python tests/login_logging.py
+```
+
+Ce contrôle ouvre puis ferme ses sessions, vérifie les redirections et lit les
+journaux dans MongoDB et l’interface admin. Il ne modifie pas les données SQL,
+mais conserve les journaux de connexion normaux produits pendant le test.
+
+**Git et suivi du projet**
+
+Les branches `main`, `dev` et `feature/*` sont présentes. Le workflow visé est de
+partir de `dev`, développer et tester une fonctionnalité, puis intégrer vers `dev`
+et ensuite `main`. La présence d’une branche `main` ne prouve pas un déploiement
+ou une validation automatique : la CI/CD reste à mettre en place.
+
+Conventions de messages utilisées : `feat`, `fix`, `refactor`, `docs` et `test`.
+Des captures Trello existent dans `docs/element_graphique/`. Le lien partagé et
+l’état actuel du Kanban restent à documenter. Les colonnes prévues sont Backlog,
+Sprint, En cours, Terminé sur dev et, facultativement, Intégré à main.
+
+**Documents**
+
+- [Guide SQL : installation, migrations et tests](scripts/README.md)
+
+Les documents Word et les visuels de conception se trouvent dans `docs/`.
+Ils doivent être synchronisés avec la version finale de l’application.
