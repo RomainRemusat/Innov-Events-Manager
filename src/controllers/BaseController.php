@@ -9,17 +9,21 @@
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    1.0.0
+ * @version    1.1.0
  */
 abstract class BaseController
 {
     /**
-     * Démarre la session PHP si aucune n'est active.
+     * Démarre la session PHP si aucune n'est active et génère le jeton CSRF si absent.
      */
     protected function startSession(): void
     {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
+        }
+
+        if (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
     }
 

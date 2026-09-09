@@ -10,7 +10,7 @@
  * @package    InnovEventsManager
  * @subpackage Core
  * @author     Romain Remusat
- * @version    1.3.0
+ * @version    1.4.0
  */
 
 // Chargement des dépendances métiers (Contrôleurs)
@@ -30,6 +30,10 @@ require_once __DIR__ . '/../src/controllers/AdminEventController.php';
 // Initialisation sécurisée du contexte utilisateur (Session)
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+}
+
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 // Récupération de la route demandée (Fallback sur 'home' si non spécifiée)

@@ -15,16 +15,17 @@
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    1.4.0
+ * @version    1.5.0
  */
 
-// Chargement des dépendances métiers de la couche d'accès aux données (DAL) et des services
+// Chargement du contrôleur de base et des dépendances métiers
+require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
 
 
-class AuthController
+class AuthController extends BaseController
 {
     /**
      * Affiche l'interface du formulaire de connexion (Front-Office / Back-Office).
@@ -59,11 +60,7 @@ class AuthController
      */
     public function register(array $postData): void
     {
-        // Initialisation de la session pour véhiculer les états d'erreurs et les anciennes saisies
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
+        $this->startSession();
         $this->validateCsrf($postData);
 
         // ---------------------------------------------------------------------
@@ -182,10 +179,7 @@ class AuthController
      */
     public function login(array $postData): void
     {
-
-        if (empty($postData['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $postData['csrf_token'])) {
-            die("Erreur de sécurité : Jeton CSRF invalide ou expiré.");
-        }
+        $this->validateCsrf($postData);
 
         $email = filter_var($postData['email'] ?? '', FILTER_VALIDATE_EMAIL);
         $password = $postData['password'] ?? '';
@@ -200,9 +194,7 @@ class AuthController
         $user = $userModel->findByEmail($email);
 
         if ($user && password_verify($password, $user['password'])) {
-            if (session_status() === PHP_SESSION_NONE) {
-                session_start();
-            }
+            $this->startSession();
 
             // PROTECTION FIXATION DE SESSION (AT1)
             // Régénère l'ID de session et supprime l'ancien fichier de session
@@ -246,6 +238,7 @@ class AuthController
             $this->showLoginForm();
         }
     }
+
     /**
      * Clôture de manière hermétique la session active de l'utilisateur (Déconnexion).
      *
@@ -258,9 +251,7 @@ class AuthController
      */
     public function logout(): void
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+        $this->startSession();
 
         // 1. Vidage total des données stockées en mémoire volatile
         $_SESSION = array();
@@ -324,10 +315,7 @@ class AuthController
      */
     public function resetPasswordRequest(array $postData): void
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
+        $this->startSession();
         $this->validateCsrf($postData);
 
         $email = filter_var($postData['email'] ?? '', FILTER_VALIDATE_EMAIL);
@@ -386,10 +374,7 @@ class AuthController
      */
     public function updateForcedPassword(array $postData): void
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
+        $this->startSession();
         $this->validateCsrf($postData);
 
         // Vérification que l'utilisateur est bien dans le processus de changement

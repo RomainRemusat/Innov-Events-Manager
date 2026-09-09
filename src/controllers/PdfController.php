@@ -13,15 +13,16 @@
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    3.1.0
+ * @version    3.2.0
  */
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
+require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../config/Database.php';
 
-class PdfController
+class PdfController extends BaseController
 {
     /**
      * Génère le flux binaire (string) du document PDF.
@@ -93,14 +94,15 @@ class PdfController
     }
 
     /**
-     * Affiche le PDF pour l'administrateur ou le client propriétaire du devis.
+     * Gère l'affichage ou l'aperçu PDF pour l'administrateur ou le client propriétaire du devis.
      *
      * @param  int $devisId Identifiant du devis.
      * @return void
      */
     public function generatePdf(int $devisId): void
     {
-        if (session_status() === PHP_SESSION_NONE) session_start();
+        $this->startSession();
+
         if (empty($_SESSION['user_id'])) {
             header('Location: index.php?action=login');
             exit();
@@ -123,8 +125,7 @@ class PdfController
             $stmt->execute([$devisId]);
             $client = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // Même réponse pour un devis absent ou appartenant à un autre client.
-            // Le rôle employé ne donne pas accès aux documents commerciaux.
+            // Même réponse pour un devis absent ou appartenant à un autre client (404)
             if (!$client || ($role === 'CLIENT' && (int)$client['user_id'] !== (int)$_SESSION['user_id'])) {
                 http_response_code(404);
                 exit('Document introuvable.');
@@ -158,21 +159,14 @@ class PdfController
      */
     public function sendQuoteToClient(int $devisId): void
     {
-        if (session_status() === PHP_SESSION_NONE) session_start();
-
-        if (empty($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'ADMIN') {
-            header('Location: index.php?action=login');
-            exit;
-        }
+        $this->checkAuth(['ADMIN']);
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: index.php?action=edit_devis&id=' . $devisId);
             exit;
         }
 
-        if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
-            die("Erreur de sécurité : Jeton CSRF invalide ou expiré.");
-        }
+        $this->validateCsrf($_POST);
 
         try {
             $db = Database::getInstance();
@@ -248,7 +242,7 @@ class PdfController
      */
     public function downloadPdf(string $fileName): void
     {
-        if (session_status() === PHP_SESSION_NONE) session_start();
+        $this->startSession();
 
         if (empty($_SESSION['user_id'])) {
             header('Location: index.php?action=login');

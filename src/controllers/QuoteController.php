@@ -8,7 +8,7 @@
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    2.3.0
+ * @version    2.4.0
  */
 
 // 1. Héritage du contrôleur de base (Sécurité centralisée)
@@ -24,7 +24,7 @@ require_once __DIR__ . '/../services/MailService.php';
 class QuoteController extends BaseController
 {
     // =========================================================================
-    // 1. ESPACE PUBLIC : DEMANDE DE DEVIS (Ton code d'origine intact)
+    // 1. ESPACE PUBLIC : DEMANDE DE DEVIS
     // =========================================================================
 
     /**
@@ -48,9 +48,7 @@ class QuoteController extends BaseController
         $this->startSession();
 
         // 1. Validation de sécurité CSRF (AT1)
-        if (empty($data['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $data['csrf_token'])) {
-            die("Erreur de sécurité : Jeton CSRF invalide ou expiré.");
-        }
+        $this->validateCsrf($data);
 
         // 2. Validation des champs obligatoires du cahier des charges
         if (
@@ -123,7 +121,7 @@ class QuoteController extends BaseController
 
 
     // =========================================================================
-    // 2. ESPACE ADMINISTRATION : GESTION DES DEVIS (Nouvelles méthodes)
+    // 2. ESPACE ADMINISTRATION : GESTION DES DEVIS
     // =========================================================================
 
     public function showDevisList(): void

@@ -15,7 +15,7 @@ require_once __DIR__ . '/../services/FileUploadService.php';
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    1.2.0
+ * @version    1.3.0
  */
 class AdminEventController extends BaseController
 {
@@ -154,10 +154,7 @@ class AdminEventController extends BaseController
         }
 
         // Vérification du Token CSRF (Sécurité AT1 / OWASP)
-        if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
-            header('Location: index.php?action=admin_events&error=invalid_csrf');
-            exit();
-        }
+        $this->validateCsrf($_POST);
 
         $eventId = (int)($_POST['event_id'] ?? 0);
         $eventModel = new Event();
@@ -194,4 +191,5 @@ class AdminEventController extends BaseController
 
         header("Location: index.php?action=admin_event_detail&id={$eventId}&error=upload_failed");
         exit();
-    }}
+    }
+}
