@@ -32,7 +32,7 @@ class AdminClientController extends BaseController
         $userModel = new User();
         $client = $userModel->findById($clientId);
 
-        if (!$client || $client['role'] !== 'CLIENT') {
+        if (!$client || $client['role'] !== 'CLIENT' || !empty($client['is_deleted'])) {
             header('Location: index.php?action=admin_clients');
             exit;
         }
@@ -54,7 +54,7 @@ class AdminClientController extends BaseController
         $userModel = new User();
         $client = $userModel->findById($clientId);
 
-        if (!$client || $client['role'] !== 'CLIENT') {
+        if (!$client || $client['role'] !== 'CLIENT' || !empty($client['is_deleted'])) {
             header('Location: index.php?action=admin_clients');
             exit;
         }

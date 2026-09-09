@@ -9,7 +9,7 @@
  * @package    InnovEventsManager
  * @subpackage Models\SQL
  * @author     Romain Remusat
- * @version    1.1.0
+ * @version    1.2.0
  */
 
 require_once __DIR__ . '/../../config/Database.php';
@@ -90,6 +90,7 @@ class User
             return null;
         }
     }
+
     /**
      * Supprime définitivement un compte utilisateur (Conformité RGPD - Droit à l'oubli).
      * Grâce à la contrainte ON DELETE CASCADE, les prospects et devis associés
@@ -109,7 +110,6 @@ class User
             return false;
         }
     }
-
 
     /**
      * Met à jour le mot de passe d'un utilisateur.
@@ -144,16 +144,15 @@ class User
     }
 
     /**
-     * Récupère la liste de tous les clients finaux.
+     * Récupère la liste de tous les clients finaux actifs.
      *
-     * Exclut les administrateurs et employés grâce à la clause WHERE role = 'CLIENT'.
+     * Exclut les administrateurs, employés et clients supprimés logiquement.
      *
      * @return array Tableau associatif des clients
      */
     public function findAllClients(): array
     {
         try {
-
             $req = "
                 SELECT u.*, c.name AS company_name
                 FROM users u
@@ -170,7 +169,6 @@ class User
         }
     }
 
-
     /**
      * Effectue une suppression logique (Soft Delete) du client.
      * Conserve l'intégrité référentielle des devis et événements liés.
@@ -181,8 +179,6 @@ class User
     public function softDeleteClient(int $id): bool
     {
         try {
-            // On part du principe que tu as ajouté une colonne 'is_deleted' (TINYINT par défaut à 0)
-            // ou que tu gères un statut de compte.
             $sql = "UPDATE users SET is_deleted = 1 WHERE id = :id AND role = 'CLIENT'";
             $stmt = $this->db->prepare($sql);
             return $stmt->execute([':id' => $id]);
@@ -191,7 +187,6 @@ class User
             return false;
         }
     }
-
 
     /**
      * Met à jour les informations d'un utilisateur (Client).
@@ -229,7 +224,6 @@ class User
     public function findById(int $id)
     {
         try {
-
             $query = "SELECT u.*, 
                              c.name AS company_name, 
                              c.siren, 
@@ -252,7 +246,6 @@ class User
         }
     }
 
-
     /**
      * Compte le nombre de clients distincts ayant un événement actif.
      * Répond à l'exigence des KPIs du tableau de bord (AT2).
@@ -266,6 +259,7 @@ class User
                     FROM users u 
                     JOIN events e ON u.id = e.client_id 
                     WHERE u.role = 'CLIENT' 
+                    AND u.is_deleted = 0
                     AND e.status IN ('accepté', 'en cours')";
 
             $stmt = $this->db->prepare($sql);
@@ -278,7 +272,4 @@ class User
             return 0;
         }
     }
-
 }
-
-

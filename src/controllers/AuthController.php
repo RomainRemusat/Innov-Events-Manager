@@ -15,7 +15,7 @@
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    1.5.0
+ * @version    1.6.0
  */
 
 // Chargement du contrôleur de base et des dépendances métiers
@@ -119,62 +119,64 @@ class AuthController extends BaseController
         // Hachage du mot de passe via l'algorithme Bcrypt (sécurité native PHP adaptative)
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
-        $userData = [
+        // Insertion du nouveau profil client
+        $userId = $userModel->create([
             'email'     => $email,
             'password'  => $hashedPassword,
             'firstname' => $firstname,
             'lastname'  => $lastname,
-            'role'      => 'CLIENT' // Attribution stricte côté serveur pour empêcher l'élection de privilèges via HTTP
-        ];
+            'role'      => 'CLIENT'
+        ]);
 
-        $userId = $userModel->create($userData);
-
+        // ---------------------------------------------------------------------
+        // 4. GESTION DES RÉSULTATS, AUDIT NOSQL ET EXPÉDITION D'EMAIL
+        // ---------------------------------------------------------------------
         if ($userId) {
+            // Traçabilité NoSQL de l'opération critique d'inscription (Audit Trail AT2)
+            try {
+                $logModel = new Log();
+                $logModel->addLog("INSCRIPTION_CLIENT", (int)$userId, [
+                    'message' => "Création de compte réussie pour : $email",
+                    'user_id' => $userId,
+                    'email'   => $email,
+                    'role'    => 'CLIENT'
+                ]);
+            } catch (\Exception $e) {
+                // Dégradation gracieuse : l'indisponibilité du log n'interrompt pas le parcours utilisateur
+                error_log("Alerte NoSQL : Échec de journalisation inscription (User ID $userId) : " . $e->getMessage());
+            }
 
-            // ---------------------------------------------------------------------
-            // 4. DÉLÉGATION DE L'ENVOI DE MAIL (Architecture de Services)
-            // ---------------------------------------------------------------------
+            // Notification asynchrone / transactionnelle par courriel (Service Layer)
             $mailService = new MailService();
             $mailService->sendRegisterConfirmation($email, $firstname);
 
-            // ---------------------------------------------------------------------
-            // 5. JOURNALISATION COMPLIANCE NOSQL (Audit & Traçabilité MongoDB)
-            // ---------------------------------------------------------------------
-            try {
-                $logModel = new Log();
-                $logModel->addLog(
-                    "CREATION_CLIENT",
-                    (int)$userId,
-                    [
-                        'message' => "Nouvelle inscription d'un client : $firstname $lastname ($email)",
-                        'client_id' => (int)$userId,
-                        'client_name' => "$firstname $lastname",
-                        'username' => $username
-                    ]
-                );
-            } catch (\Exception $e) {
-                // Stratégie de résilience : une panne du service de log n'interrompt pas l'inscription
-                error_log("Erreur lors de la journalisation NoSQL de l'inscription : " . $e->getMessage());
-            }
+            // Message de succès stocké en session pour notification au rechargement (Flash Pattern)
+            $_SESSION['global_success'] = "Votre compte client a été créé avec succès ! Vous pouvez maintenant vous connecter.";
+            header('Location: index.php?action=login');
+            exit();
 
-            echo "<div class='container mt-5'><div class='alert alert-success text-center'>Votre compte a été créé avec succès ! Un e-mail de confirmation vous a été envoyé.</div></div>";
-            $this->showLoginForm();
         } else {
-            $_SESSION['register_error'] = "Une erreur technique est survenue. Veuillez réessayer ultérieurement.";
+            // Rétention des données saisies pour épargner une nouvelle saisie complète à l'utilisateur
+            $_SESSION['old_inputs'] = $oldInputs;
+            $_SESSION['register_error'] = "Une anomalie technique interne est survenue lors de votre enregistrement. Veuillez réessayer.";
             header('Location: index.php?action=show_register');
             exit();
         }
     }
 
     /**
-     * Traite, valide et authentifie la tentative de connexion d'un utilisateur (Login).
+     * Authentifie un utilisateur et initialise son environnement de session.
      *
-     * Mesures de sécurité appliquées :
-     * - Protection contre l'énumération d'utilisateurs par l'usage d'un message d'erreur générique.
-     * - Comparaison temporelle constante via password_verify() pour neutraliser les attaques par canal auxiliaire (Timing Attacks).
-     * - Isolation et traçabilité NoSQL distincte des succès de connexion et des tentatives suspectes.
+     * Orchestration du contrôle d'accès :
+     * 1. Nettoyage strict et validation syntaxique des entrées utilisateur.
+     * 2. Recherche et vérification de la concordance de l'empreinte de passe (Bcrypt).
+     * 3. Contrôle de suspension/suppression du compte.
+     * 4. Régénération de l'identifiant de session (Contre-mesure Fixation de Session - AT1).
+     * 5. Interception obligatoire si mot de passe temporaire actif.
+     * 6. Traçabilité complète de l'accès au sein du cluster NoSQL MongoDB (AT2).
+     * 7. Aiguillage dynamique vers l'espace applicatif autorisé (RBAC).
      *
-     * @param array $postData Données transmises via le formulaire de connexion.
+     * @param array $postData Payload brut issu du tableau superglobal $_POST.
      * @return void
      */
     public function login(array $postData): void
@@ -194,6 +196,22 @@ class AuthController extends BaseController
         $user = $userModel->findByEmail($email);
 
         if ($user && password_verify($password, $user['password'])) {
+            // CONTRÔLE DE SUSPENSION / SUPPRESSION DU COMPTE
+            if (!empty($user['is_deleted'])) {
+                try {
+                    $logModel = new Log();
+                    $logModel->addLog("TENTATIVE_CONNEXION_REFUSEE", (int)$user['id'], [
+                        'message' => "Tentative de connexion sur un compte suspendu ou supprimé : $email"
+                    ]);
+                } catch (\Exception $e) {
+                    error_log("Erreur NoSQL : " . $e->getMessage());
+                }
+
+                echo "<div class='container mt-5'><div class='alert alert-danger text-center'>Ce compte a été suspendu ou supprimé. Veuillez contacter le support.</div></div>";
+                $this->showLoginForm();
+                return;
+            }
+
             $this->startSession();
 
             // PROTECTION FIXATION DE SESSION (AT1)
@@ -233,7 +251,6 @@ class AuthController extends BaseController
             exit();
 
         } else {
-            // Échec de connexion... (Garder ton code d'erreur actuel)
             echo "<div class='container mt-5'><div class='alert alert-danger text-center'>Email ou mot de passe incorrect.</div></div>";
             $this->showLoginForm();
         }
@@ -299,19 +316,16 @@ class AuthController extends BaseController
     }
 
     /**
-     * Affiche le formulaire de mot de passe oublié.
+     * Affiche le formulaire de demande de réinitialisation de mot de passe.
      */
     public function showForgotPasswordForm(): void
     {
+        $this->startSession();
         require __DIR__ . '/../views/public/forgot_password.php';
     }
 
     /**
-     * Traite la demande de réinitialisation de mot de passe.
-     * Génère un mot de passe temporaire robuste, le hache, l'enregistre
-     * et l'envoie par e-mail via MailHog.
-     *
-     * @param array $postData
+     * Traite la demande de réinitialisation (envoi du mot de passe temporaire).
      */
     public function resetPasswordRequest(array $postData): void
     {
@@ -333,7 +347,7 @@ class AuthController extends BaseController
         // On affiche TOUJOURS le même message, que l'email existe ou non en base.
         $_SESSION['auth_message'] = "Si cette adresse existe, un mot de passe temporaire vient de vous être envoyé.";
 
-        if ($user) {
+        if ($user && empty($user['is_deleted'])) {
             // 1. Génération d'un mot de passe temporaire respectant la Regex (Maj, Min, Chiffre, Spécial, 8+ car)
             // Le chiffre fixe garantit la règle même si le tirage hexadécimal ne contient que des lettres.
             $tempPassword = 'Temp_' . bin2hex(random_bytes(4)) . '!1Z';
@@ -383,6 +397,16 @@ class AuthController extends BaseController
             exit();
         }
 
+        $userId = (int)$_SESSION['temp_user_id'];
+        $userModel = new User();
+        $user = $userModel->findById($userId);
+
+        if (!$user || !empty($user['is_deleted'])) {
+            unset($_SESSION['temp_user_id']);
+            header('Location: index.php?action=login');
+            exit();
+        }
+
         $newPassword = $postData['new_password'] ?? '';
         $confirmPassword = $postData['confirm_password'] ?? '';
 
@@ -400,9 +424,7 @@ class AuthController extends BaseController
 
         // Hachage et mise à jour en BDD (must_change passe à false/0)
         $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
-        $userModel = new User();
 
-        $userId = (int)$_SESSION['temp_user_id'];
         if ($userModel->updatePassword($userId, $hashedPassword, false)) {
             unset($_SESSION['temp_user_id']); // On nettoie la session temporaire
             $_SESSION['auth_message'] = "Votre mot de passe a été mis à jour avec succès. Vous pouvez maintenant vous connecter.";

@@ -22,7 +22,7 @@ require_once __DIR__ . '/../services/MailService.php';
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    2.2.0
+ * @version    2.3.0
  */
 class ClientController extends BaseController
 {
@@ -33,18 +33,7 @@ class ClientController extends BaseController
      */
     private function checkClientPermission(): void
     {
-        $this->startSession();
-
-        if (empty($_SESSION['user_id'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-
-        if (($_SESSION['user_role'] ?? '') !== 'CLIENT') {
-            $_SESSION['access_error'] = "Accès refusé. Cet espace est réservé aux clients.";
-            header('Location: index.php');
-            exit();
-        }
+        $this->checkAuth(['CLIENT']);
     }
 
     /**
@@ -167,6 +156,7 @@ class ClientController extends BaseController
         header('Location: index.php?action=client_dashboard');
         exit();
     }
+
     /**
      * Alias de routage vers handleQuoteResponse pour la compatibilité d'action URL.
      *
