@@ -11,7 +11,7 @@ declare(strict_types=1);
  * @package    InnovEventsManager
  * @subpackage Services
  * @author     Romain Remusat
- * @version    1.1.0
+ * @version    1.2.0
  */
 class FileUploadService
 {
@@ -84,7 +84,7 @@ class FileUploadService
 
         $destination = rtrim($targetDirectory, '/') . '/' . $newFilename;
 
-        if (move_uploaded_file($file['tmp_name'], $destination)) {
+        if (move_uploaded_file($file['tmp_name'], $destination) || (php_sapi_name() === 'cli' && copy($file['tmp_name'], $destination))) {
             return $newFilename;
         }
 

@@ -14,8 +14,12 @@
  * @package    InnovEventsManager
  * @subpackage Services
  * @author     Romain Remusat
- * @version    1.1.0
+ * @version    1.3.0
  */
+
+if (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
+    require_once __DIR__ . '/../../vendor/autoload.php';
+}
 
 // Utilisation des classes officielles issues de la dépendance PHPMailer (installée via Composer)
 use PHPMailer\PHPMailer\PHPMailer;
@@ -99,104 +103,110 @@ class MailService
     }
 
     /**
-     * Envoie une alerte d'administration interne à Chloé lors du dépôt d'une nouvelle demande de devis.
+     * Envoie l'e-mail de réinitialisation avec mot de passe temporaire suite à demande "Mot de passe oublié".
      *
-     * Permet le suivi en temps réel du tunnel de conversion commercial (Notification B2B).
-     *
-     * @param array $prospectData Tableau associatif contenant les attributs assainis du lead (company_name, contact_name, email, phone, event_type).
-     * @return bool Vrai en cas de transmission SMTP réussie.
+     * @param string $email        Adresse email du destinataire.
+     * @param string $firstname    Prénom du destinataire.
+     * @param string $tempPassword Mot de passe temporaire en clair à transmettre de façon sécurisée.
+     * @return bool Vrai en cas d'émission SMTP validée.
      */
-    public function sendNewQuoteNotificationToAdmin(array $prospectData): bool
+    public function sendResetPasswordEmail(string $email, string $firstname, string $tempPassword): bool
     {
         try {
             $mail = $this->createMailer();
-
-            // Routage interne vers la boîte professionnelle d'administration de l'agence
-            $mail->addAddress('contact@innovevents.com', 'Chloé - Direction Commerciale');
+            $mail->addAddress($email, $firstname);
             $mail->isHTML(true);
-            $mail->Subject = "⚠️ Alerte Business : Nouvelle demande de devis - " . $prospectData['company_name'];
-
-            $mail->Body = "
-                <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #fee2e2; border-radius: 8px; background-color: #ffff8;'>
-                    <h2 style='color: #991b1b; font-size: 20px; margin-top: 0;'>Nouvelle opportunité à qualifier !</h2>
-                    <p>Un nouveau formulaire de demande de devis vient d'être complété sur le site public.</p>
-                    <div style='background-color: #ffffff; padding: 15px; border-radius: 6px; border: 1px solid #f3f4f6; margin: 20px 0;'>
-                        <h3 style='margin-top:0; font-size:14px; color:#6b7280; text-transform:uppercase;'>Fiche de qualification</h3>
-                        <table style='width: 100%; font-size: 14px;'>
-                            <tr><td style='padding: 5px 0; font-weight: bold; width: 40%;'>Raison Sociale :</td><td>{$prospectData['company_name']}</td></tr>
-                            <tr><td style='padding: 5px 0; font-weight: bold;'>Responsable :</td><td>{$prospectData['contact_name']}</td></tr>
-                            <tr><td style='padding: 5px 0; font-weight: bold;'>Courriel :</td><td><a href='mailto:{$prospectData['email']}'>{$prospectData['email']}</a></td></tr>
-                            <tr><td style='padding: 5px 0; font-weight: bold;'>Téléphone :</td><td>{$prospectData['phone']}</td></tr>
-                            <tr><td style='padding: 5px 0; font-weight: bold;'>Typologie :</td><td><span style='background-color:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-size:12px;'>{$prospectData['event_type']}</span></td></tr>
-                        </table>
-                    </div>
-                    <p style='font-size: 13px; color: #6b7280;'>Veuillez vous connecter à la console d'administration (Back-Office) pour étudier et convertir ce prospect.</p>
-                </div>
-            ";
-
-            return $mail->send();
-
-        } catch (Exception $e) {
-            error_log("Défaut MailService lors de la notification d'administration : " . $e->getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * Envoie un e-mail contenant un jeton d'accès ou mot de passe temporaire suite à un oubli.
-     *
-     * Répond aux exigences de gestion sécurisée du cycle de vie des informations secrètes (Habilitations).
-     *
-     * @param string $email        Adresse email du compte utilisateur à réinitialiser.
-     * @param string $tempPassword Chaîne de caractères alphanumérique aléatoire générée par le contrôleur.
-     * @return bool Vrai en cas de distribution réussie.
-     */
-
-    public function sendTemporaryPassword(string $email, string $tempPassword): bool
-    {
-        try {
-            $mail = $this->createMailer();
-            $mail->addAddress($email);
-            $mail->isHTML(true);
-            $mail->Subject = "Procédure de récupération : Votre mot de passe temporaire - Innov'Events";
-
-            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
-            $host = $_SERVER['HTTP_HOST'] ?? 'localhost:8081';
-            $loginUrl = $protocol . $host . dirname($_SERVER['PHP_SELF']) . '/index.php?action=login';
+            $mail->Subject = "Réinitialisation de votre mot de passe - Innov'Events";
 
             $mail->Body = "
                 <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;'>
-                    <h2 style='color: #0F172A; font-size: 20px; margin-top: 0;'>Réinitialisation de vos accès de sécurité</h2>
-                    <p style='line-height: 1.6;'>Une demande de récupération de mot de passe a été initiée pour votre espace de gestion.</p>
-                    <p style='line-height: 1.6;'>Voici vos identifiants temporaires générés automatiquement par le système :</p>
-                    
-                    <div style='text-align: center; margin: 25px 0; background-color: #f8fafc; padding: 15px; border-radius: 6px; border: 1px dashed #cbd5e1;'>
-                        <a href=''><span style='font-family: monospace; font-size: 22px; font-weight: bold; color: #3B82F6; letter-spacing: 2px;'>{$tempPassword}</span></a>
+                    <div style='text-align: center; margin-bottom: 25px;'>
+                        <h1 style='color: #0F172A; font-size: 24px; font-weight: bold; margin: 0;'>INNOV'EVENTS</h1>
                     </div>
-                    
-                    <div style='text-align: center; margin: 30px 0;'>
-                        <a href='{$loginUrl}' style='background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>
-                            Se connecter à mon espace
-                        </a>
+                    <h2 style='color: #0F172A; font-size: 18px;'>Bonjour {$firstname},</h2>
+                    <p style='line-height: 1.6;'>Une demande de réinitialisation de vos identifiants a été enregistrée.</p>
+                    <p style='line-height: 1.6;'>Voici votre mot de passe temporaire pour vous reconnecter :</p>
+                    <div style='background: #f8fafc; border: 1px dashed #cbd5e1; padding: 15px; text-align: center; margin: 20px 0; border-radius: 6px;'>
+                        <span style='font-family: monospace; font-size: 20px; font-weight: bold; color: #2563EB;'>{$tempPassword}</span>
                     </div>
-                    
-                    <p style='line-height: 1.6; color: #b91c1c; font-weight: bold;'>🚨 Directive de Sécurité Obligatoire :</p>
-                    <p style='line-height: 1.6; font-size: 13px; color: #6b7280;'>Ce code est à usage unique. Pour des raisons strictes de confidentialité et de conformité avec notre politique de sécurité interne, vous serez contraint et forcé de redéfinir un mot de passe personnel hautement sécurisé dès votre prochaine connexion.</p>
-                    <hr style='border: 0; border-top: 1px solid #f1f5f9; margin: 20px 0;'>
-                    <p style='font-size: 12px; color: #94a3b8; text-align: center;'>Si vous n'êtes pas à l'origine de cette demande, veuillez ignorer ce message ou contacter immédiatement l'assistance.</p>
+                    <p style='line-height: 1.6; color: #dc2626; font-size: 13px;'><strong>Consigne de sécurité :</strong> Il vous sera expressément demandé de définir un nouveau mot de passe personnel dès votre accès à la plateforme.</p>
+                    <div style='text-align: center; margin: 25px 0;'>
+                        <a href='http://localhost:8081/index.php?action=login' style='background-color: #3B82F6; color: #ffffff; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>Se connecter</a>
+                    </div>
                 </div>
             ";
 
             return $mail->send();
 
         } catch (Exception $e) {
-            error_log("Défaut MailService lors du processus de réinitialisation de mot de passe : " . $e->getMessage());
+            error_log("Défaut MailService lors du reset de mot de passe : " . $e->getMessage());
             return false;
         }
     }
 
     /**
-     * Envoie un e-mail contenant les identifiants initiaux suite à la conversion d'un prospect.
+     * Alias pour l'envoi de mot de passe temporaire (compatibilité AuthController).
+     */
+    public function sendTemporaryPassword(string $email, string $tempPassword): bool
+    {
+        return $this->sendResetPasswordEmail($email, 'Client', $tempPassword);
+    }
+
+    /**
+     * Notifie l'administration (Chloé) de la réception d'une nouvelle demande de devis prospect.
+     *
+     * @param array $quoteData Données brutes du prospect saisies sur le formulaire public.
+     * @return bool Vrai si la notification administrateur est acceptée.
+     */
+    public function sendNewQuoteAdminNotification(array $quoteData): bool
+    {
+        try {
+            $mail = $this->createMailer();
+            
+            // Notification routée vers la boîte de gestion de Chloé
+            $mail->addAddress('chloe@innovevents.fr', 'Chloé (Direction)');
+            $mail->isHTML(true);
+            $mail->Subject = "Nouvelle demande de devis reçue - " . htmlspecialchars($quoteData['company_name'] ?? 'B2B');
+
+            $company      = htmlspecialchars($quoteData['company_name'] ?? 'N/A');
+            $contact      = htmlspecialchars($quoteData['contact_name'] ?? 'N/A');
+            $email        = htmlspecialchars($quoteData['email'] ?? 'N/A');
+            $phone        = htmlspecialchars($quoteData['phone'] ?? 'N/A');
+            $eventType    = htmlspecialchars($quoteData['event_type'] ?? 'N/A');
+            $eventDate    = htmlspecialchars($quoteData['event_date'] ?? 'N/A');
+            $location     = htmlspecialchars($quoteData['location'] ?? 'N/A');
+            $participants = htmlspecialchars((string)($quoteData['estimated_participants'] ?? 'N/A'));
+            $description  = nl2br(htmlspecialchars($quoteData['description'] ?? 'Aucun détail fourni.'));
+
+            $mail->Body = "
+                <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 8px;'>
+                    <h2 style='color: #0F172A; border-bottom: 2px solid #3B82F6; padding-bottom: 8px; margin-top: 0;'>Nouvelle opportunité commerciale</h2>
+                    <p>Un prospect vient de soumettre une demande de projet sur le portail public :</p>
+                    <table style='width: 100%; border-collapse: collapse; margin: 20px 0;'>
+                        <tr style='background-color: #f8fafc;'><td style='padding: 8px; font-weight: bold;'>Société :</td><td style='padding: 8px;'>{$company}</td></tr>
+                        <tr><td style='padding: 8px; font-weight: bold;'>Contact :</td><td style='padding: 8px;'>{$contact} ({$email} / {$phone})</td></tr>
+                        <tr style='background-color: #f8fafc;'><td style='padding: 8px; font-weight: bold;'>Type d'événement :</td><td style='padding: 8px;'>{$eventType}</td></tr>
+                        <tr><td style='padding: 8px; font-weight: bold;'>Date souhaitée :</td><td style='padding: 8px;'>{$eventDate} à {$location}</td></tr>
+                        <tr style='background-color: #f8fafc;'><td style='padding: 8px; font-weight: bold;'>Participants estimés :</td><td style='padding: 8px;'>{$participants} personnes</td></tr>
+                    </table>
+                    <p><strong>Détails du besoin :</strong></p>
+                    <div style='background-color: #f1f5f9; padding: 12px; border-radius: 6px; font-style: italic;'>{$description}</div>
+                    <div style='text-align: center; margin-top: 25px;'>
+                        <a href='http://localhost:8081/index.php?action=admin_prospects' style='background-color: #0F172A; color: #ffffff; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>Traiter la demande sur le tableau de bord</a>
+                    </div>
+                </div>
+            ";
+
+            return $mail->send();
+
+        } catch (Exception $e) {
+            error_log("Défaut MailService lors de l'alerte admin prospect : " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Transmet au nouveau client son mot de passe temporaire lors de la conversion administrative d'un prospect (AT2).
      *
      * @param string $email        Adresse email du nouveau compte client.
      * @param string $firstname    Prénom du client pour personnalisation.
@@ -211,9 +221,9 @@ class MailService
             $mail->isHTML(true);
             $mail->Subject = "Vos accès à l'espace client Innov'Events";
 
-            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || ($_SERVER['SERVER_PORT'] ?? null) == 443) ? "https://" : "http://";
             $host = $_SERVER['HTTP_HOST'] ?? 'localhost:8081';
-            $loginUrl = $protocol . $host . dirname($_SERVER['PHP_SELF']) . '/index.php?action=login';
+            $loginUrl = $protocol . $host . dirname($_SERVER['PHP_SELF'] ?? '') . '/index.php?action=login';
 
             $mail->Body = "
                 <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;'>
@@ -258,112 +268,73 @@ class MailService
             // Attachement du document PDF physique
             if (file_exists($filePath)) {
                 $mail->addAttachment($filePath);
-            } else {
-                error_log("Fichier introuvable pour l'attachement : " . $filePath);
             }
 
             return $mail->send();
+
         } catch (Exception $e) {
-            error_log("Erreur MailService (Envoi Devis) : " . $e->getMessage());
+            error_log("Défaut MailService lors de l'envoi du devis : " . $e->getMessage());
             return false;
         }
     }
 
-    public function sendRejectionEmail(string $toEmail, string $contactName): bool
-    {
-        $subject = "Information concernant votre demande de devis - Innov'Events";
-        $message = "Bonjour " . htmlspecialchars($contactName, ENT_QUOTES, 'UTF-8') . ",\n\n"
-            . "Nous vous remercions pour l'intérêt porté à Innov'Events.\n"
-            . "Après étude de votre demande, nous avons le regret de vous informer que nous ne serons pas en mesure d'y donner une suite favorable pour la date souhaitée.\n\n"
-            . "Bien cordialement,\nL'équipe Innov'Events";
-
-        $headers = "From: contact@innovevents.fr\r\n" .
-            "Reply-To: contact@innovevents.fr\r\n" .
-            "X-Mailer: PHP/" . phpversion();
-
-        return mail($toEmail, $subject, $message, $headers);
-    }
-
-    /**
-     * Alerte l'administration lorsqu'un client demande un ajustement sur son devis.
-     *
-     * @param string $companyName Raison sociale du client.
-     * @param int    $devisId     Identifiant du devis concerné.
-     * @param string $reason      Motif de la modification saisi par le client.
-     * @return bool
-     */
-    public function sendModificationRequestEmail(string $companyName, int $devisId, string $reason): bool
-    {
-        $adminEmail = 'contact@innovevents.fr'; // Adresse interne de l'agence
-        $subject    = " Demande de modification — Devis #{$devisId} ({$companyName})";
-
-        $message = "
-        <h2>Nouvelle demande de modification de devis</h2>
-        <p>Le client <strong>" . htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8') . "</strong> souhaite modifier le devis <strong>#{$devisId}</strong>.</p>
-        <p><strong>Motif indiqué :</strong></p>
-        <blockquote style='background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 10px 0;'>
-            « " . nl2br(htmlspecialchars($reason, ENT_QUOTES, 'UTF-8')) . " »
-        </blockquote>
-        <p>Rendez-vous dans votre back-office pour ajuster les prestations et renvoyer le devis au client.</p>
-    ";
-
-        $headers  = "MIME-Version: 1.0\r\n";
-        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-        $headers .= "From: Innov'Events <no-reply@innovevents.fr>\r\n";
-
-        return @mail($adminEmail, $subject, $message, $headers);
-    }
-
-
-    /**
-     * Alerte l'administration lorsqu'un devis est accepté par un client.
-     *
-     * @param string $companyName Raison sociale de l'entreprise client.
-     * @param int    $devisId     Identifiant du devis validé.
-     * @return bool
-     */
     public function sendQuoteAcceptedEmail(string $companyName, int $devisId): bool
     {
-        $adminEmail = 'contact@innovevents.fr';
-        $subject    = " Devis #{$devisId} ACCEPTÉ — {$companyName}";
-
-        $message = "
-        <h2>Excellente nouvelle ! Devis accepté</h2>
-        <p>Le client <strong>" . htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8') . "</strong> vient de valider le devis <strong>#{$devisId}</strong>.</p>
-        <p>Le projet événementiel peut désormais passer en phase d'organisation.</p>
-        <p><a href='http://localhost:8081/index.php?action=edit_devis&id={$devisId}'>Accéder au dossier dans le Back-Office</a></p>
-    ";
-
-        $headers  = "MIME-Version: 1.0\r\n";
-        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-        $headers .= "From: Innov'Events <no-reply@innovevents.fr>\r\n";
-
-        return @mail($adminEmail, $subject, $message, $headers);
+        try {
+            $mail = $this->createMailer();
+            $mail->addAddress('chloe@innovevents.fr', 'Chloé (Direction)');
+            $mail->isHTML(true);
+            $mail->Subject = "Devis #{$devisId} ACCEPTÉ par {$companyName}";
+            $mail->Body = "<p>Bonjour Chloé,</p><p>Excellente nouvelle ! L'entreprise <strong>" . htmlspecialchars($companyName) . "</strong> a accepté le devis <strong>#{$devisId}</strong>.</p>";
+            return $mail->send();
+        } catch (Exception $e) {
+            error_log("Défaut MailService (Devis accepté) : " . $e->getMessage());
+            return false;
+        }
     }
 
-    /**
-     * Alerte l'administration lorsqu'un devis est refusé par un client.
-     *
-     * @param string $companyName Raison sociale du client.
-     * @param int    $devisId     Identifiant du devis refusé.
-     * @return bool
-     */
+    public function sendModificationRequestEmail(string $companyName, int $devisId, string $reason): bool
+    {
+        try {
+            $mail = $this->createMailer();
+            $mail->addAddress('chloe@innovevents.fr', 'Chloé (Direction)');
+            $mail->isHTML(true);
+            $mail->Subject = "Demande de modification pour le devis #{$devisId} - {$companyName}";
+            $mail->Body = "<p>Bonjour Chloé,</p><p>L'entreprise <strong>" . htmlspecialchars($companyName) . "</strong> souhaite modifier le devis <strong>#{$devisId}</strong>.</p><p><strong>Motif indiqué :</strong> " . nl2br(htmlspecialchars($reason)) . "</p>";
+            return $mail->send();
+        } catch (Exception $e) {
+            error_log("Défaut MailService (Demande modif devis) : " . $e->getMessage());
+            return false;
+        }
+    }
+
     public function sendQuoteRejectedEmail(string $companyName, int $devisId): bool
     {
-        $adminEmail = 'contact@innovevents.fr';
-        $subject    = " Devis #{$devisId} REFUSÉ — {$companyName}";
-
-        $message = "
-        <h2>Devis refusé par le client</h2>
-        <p>Le client <strong>" . htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8') . "</strong> a décliné la proposition commerciale pour le devis <strong>#{$devisId}</strong>.</p>
-        <p>Pensez à le contacter pour analyser le motif du refus ou à clôturer le dossier dans le Back-Office.</p>
-    ";
-
-        $headers  = "MIME-Version: 1.0\r\n";
-        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-        $headers .= "From: Innov'Events <no-reply@innovevents.fr>\r\n";
-
-        return @mail($adminEmail, $subject, $message, $headers);
+        try {
+            $mail = $this->createMailer();
+            $mail->addAddress('chloe@innovevents.fr', 'Chloé (Direction)');
+            $mail->isHTML(true);
+            $mail->Subject = "Devis #{$devisId} REFUSÉ par {$companyName}";
+            $mail->Body = "<p>Bonjour Chloé,</p><p>L'entreprise <strong>" . htmlspecialchars($companyName) . "</strong> a décliné la proposition pour le devis <strong>#{$devisId}</strong>.</p>";
+            return $mail->send();
+        } catch (Exception $e) {
+            error_log("Défaut MailService (Devis refusé) : " . $e->getMessage());
+            return false;
+        }
     }
 
+    public function sendQuoteRefusal(string $email, string $clientName, string $reason): bool
+    {
+        try {
+            $mail = $this->createMailer();
+            $mail->addAddress($email, $clientName);
+            $mail->isHTML(true);
+            $mail->Subject = "Information concernant votre demande d'événement - Innov'Events";
+            $mail->Body = "<p>Bonjour " . htmlspecialchars($clientName) . ",</p><p>Nous ne pouvons malheureusement pas donner suite à votre demande pour la raison suivante :</p><p>" . nl2br(htmlspecialchars($reason)) . "</p><p>Cordialement,<br>L'équipe Innov'Events</p>";
+            return $mail->send();
+        } catch (Exception $e) {
+            error_log("Défaut MailService (sendQuoteRefusal) : " . $e->getMessage());
+            return false;
+        }
+    }
 }

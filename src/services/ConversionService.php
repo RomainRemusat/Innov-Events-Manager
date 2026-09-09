@@ -5,6 +5,7 @@ require_once __DIR__ . '/../models/sql/Company.php';
 require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
+require_once __DIR__ . '/../services/FileUploadService.php';
 
 /**
  * Service métier : ConversionService
@@ -19,7 +20,7 @@ require_once __DIR__ . '/../services/MailService.php';
  * @package    InnovEventsManager
  * @subpackage Services
  * @author     Romain Remusat
- * @version    2.2.0
+ * @version    2.3.0
  */
 class ConversionService
 {
@@ -45,7 +46,7 @@ class ConversionService
      * 1. Nettoyage et validation des invariants fonctionnels.
      * 2. Création ou enrichissement de l'entreprise morale B2B (`companies`).
      * 3. Création du compte utilisateur client avec identifiants temporaires (`users`).
-     * 4. Téléversement et enregistrement de l'image d'illustration de l'événement.
+     * 4. Téléversement et enregistrement de l'image d'illustration de l'événement via FileUploadService.
      * 5. Création du projet événementiel au statut initial (`events`).
      * 6. Passage du prospect au statut 'converti' (`prospects`).
      * 7. Génération de la coquille financière initiale au statut 'brouillon' (`devis`).
@@ -133,24 +134,18 @@ class ConversionService
                 }
             }
 
-            // C. Traitement du téléversement de l'image d'illustration (AT2)
+            // C. Traitement du téléversement sécurisé de l'image d'illustration (OWASP CWE-434)
             $imagePath = null;
             if ($file && isset($file['error']) && $file['error'] === UPLOAD_ERR_OK) {
-                $allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
-                $finfo = new finfo(FILEINFO_MIME_TYPE);
-                $mimeType = $finfo->file($file['tmp_name']);
-
-                if (in_array($mimeType, $allowedMimes, true)) {
+                try {
+                    $uploadService = new FileUploadService(5 * 1024 * 1024);
                     $uploadDir = __DIR__ . '/../../public/uploads/events/';
-                    if (!is_dir($uploadDir)) {
-                        mkdir($uploadDir, 0777, true);
-                    }
-                    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-                    $fileName  = 'event_' . uniqid('', true) . '.' . strtolower($extension);
-
-                    if (move_uploaded_file($file['tmp_name'], $uploadDir . $fileName)) {
+                    $fileName = $uploadService->uploadImage($file, $uploadDir, 'event_');
+                    if ($fileName !== null) {
                         $imagePath = 'uploads/events/' . $fileName;
                     }
+                } catch (\InvalidArgumentException $e) {
+                    error_log("Avertissement FileUploadService : " . $e->getMessage());
                 }
             }
 
@@ -253,7 +248,7 @@ class ConversionService
                 ], $context)
             );
         } catch (Exception $e) {
-            error_log("Erreur Log MongoDB (ConversionProspect) : " . $e->getMessage());
+            error_log("Avertissement Log (MongoDB) : " . $e->getMessage());
         }
     }
 }
