@@ -337,8 +337,8 @@ class AuthController
 
         if ($user) {
             // 1. Génération d'un mot de passe temporaire respectant la Regex (Maj, Min, Chiffre, Spécial, 8+ car)
-            // Ex: "Temp_9f8a!Z"
-            $tempPassword = 'Temp_' . bin2hex(random_bytes(4)) . '!Z';
+            // Le chiffre fixe garantit la règle même si le tirage hexadécimal ne contient que des lettres.
+            $tempPassword = 'Temp_' . bin2hex(random_bytes(4)) . '!1Z';
 
             // 2. Hachage du mot de passe
             $hashedPassword = password_hash($tempPassword, PASSWORD_BCRYPT);
