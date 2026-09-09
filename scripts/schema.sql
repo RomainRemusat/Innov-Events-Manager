@@ -1,18 +1,13 @@
 -- =====================================================================
 -- PROJET : INNOV'EVENTS MANAGER (ECF Titre CDA - Studi)
 -- FICHIER : scripts/schema.sql
--- OBJECTIF : DDL - Schéma relationnel en 3NF (Création manuelle des tables)
+-- OBJECTIF : DDL - Création manuelle du schéma relationnel courant
+-- USAGE : uniquement sur une base vide (voir scripts/README.md).
+-- Une table déjà présente provoque une erreur : aucune table n'est supprimée.
+-- Pour la base exportée le 09/09/2026, utiliser les update_*.sql.
 -- =====================================================================
 
-SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS notes;
-DROP TABLE IF EXISTS prestations;
-DROP TABLE IF EXISTS devis;
-DROP TABLE IF EXISTS events;
-DROP TABLE IF EXISTS prospects;
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS companies;
-SET FOREIGN_KEY_CHECKS = 1;
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
 -- 1. TABLE : COMPANIES (Entités morales B2B)

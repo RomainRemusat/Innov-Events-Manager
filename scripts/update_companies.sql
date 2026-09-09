@@ -1,27 +1,9 @@
--- 1. Table des Entreprises clientes (B2B)
-CREATE TABLE IF NOT EXISTS companies (
-id INT AUTO_INCREMENT PRIMARY KEY,
-name VARCHAR(150) NOT NULL,
-siren VARCHAR(9) NULL,
-address VARCHAR(255) NULL,
-postal_code VARCHAR(10) NULL,
-city VARCHAR(100) NULL,
-created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- MySQL 8.0 : alignement de companies depuis l'export du 09/09/2026.
+-- Les company_id et leurs clés étrangères existent déjà dans users,
+-- prospects et events. Leurs noms et règles de cascade sont conservés.
+-- La largeur du nom est identique à celle de schema.sql (255 caractères).
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
+SET SESSION sql_mode = CONCAT_WS(',', NULLIF(@@SESSION.sql_mode, ''), 'STRICT_ALL_TABLES');
 
--- 2. Mise à jour de la table USERS pour rattachement
-ALTER TABLE users
-ADD COLUMN company_id INT NULL AFTER role,
-ADD CONSTRAINT fk_users_companies
-FOREIGN KEY (company_id) REFERENCES companies(id)
-ON DELETE SET NULL
-ON UPDATE CASCADE;
-
--- 3. Mise à jour de la table PROSPECTS pour lier la société identifiée
-ALTER TABLE prospects
-ADD COLUMN company_id INT NULL AFTER user_id,
-ADD CONSTRAINT fk_prospects_companies
-FOREIGN KEY (company_id) REFERENCES companies(id)
-ON DELETE SET NULL
-ON UPDATE CASCADE;
+ALTER TABLE companies
+    MODIFY COLUMN name VARCHAR(255) NOT NULL;
