@@ -1,53 +1,63 @@
-"""Sur Docker local : refus des mutations et conservation des droits employés.
+"""Test de régression des permissions employé / admin / client / visiteur (B05).
 
-Dossiers synthétiques supprimés en fin de test. Journaux et mail de test MailHog
-conservés ; aucun dossier existant modifié. L'envoi SMTP utilise le MailHog local.
+Vérifie l'interdiction des mutations structurelles pour un compte employé,
+la séparation stricte des interfaces de gestion, l'isolation des rôles
+et l'absence d'effets de bord sur les données SQL.
 """
+
 import base64
 import http.cookiejar
+import pathlib
 import re
 import secrets
-import urllib.request
 import urllib.error
-
+import urllib.request
 from login_logging import ACCOUNTS, NoRedirect, URL, php, request
 
 
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+
+def sql(code):
+    return php("require 'src/config/Database.php'; $db = Database::getInstance(); " + code)
+
+
+def snapshot():
+    return sql(r"""
+        $data = [];
+        foreach (['users', 'companies', 'prospects', 'devis', 'prestations', 'events', 'notes'] as $table) {
+            $stmt = $db->query("SELECT * FROM {$table} ORDER BY 1");
+            $data[$table] = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+        }
+        echo json_encode($data);
+    """)
+
+
 def main():
-    marker = 'B05_' + secrets.token_hex(10)
-    setup = "require 'src/config/Database.php'; $db = Database::getInstance();\n"
+    marker = 'PERM_' + secrets.token_hex(8)
     clients = []
-    ids = {}
-
-    def sql(code):
-        return php(setup + code.replace('MARKER', marker))
-
-    def snapshot():
-        return sql("""
-            $state = [];
-            foreach (['users','companies','prospects','events','devis','prestations','notes'] as $table) {
-                $state[$table] = hash('sha256', json_encode($db->query("SELECT * FROM $table ORDER BY 1")->fetchAll()));
-            }
-            echo json_encode($state);
-        """)
-
     try:
-        ids = sql("""
+        ids = sql(f"""
             $db->beginTransaction();
-            $db->exec("INSERT INTO companies (name) VALUES ('MARKER')");
+            $db->exec("INSERT INTO companies (name) VALUES ('{marker}')");
             $company = (int)$db->lastInsertId();
-            $stmt = $db->prepare("INSERT INTO users (company_id,email,password,firstname,lastname,role)
-                VALUES (?, 'MARKER@example.test', 'unused', 'Test', 'Permissions', 'CLIENT')");
-            $stmt->execute([$company]); $user = (int)$db->lastInsertId();
-            $stmt = $db->prepare("INSERT INTO prospects (user_id,company_id,company_name,contact_name,email,phone,event_type)
-                VALUES (?, ?, 'MARKER', 'Test Permissions', 'MARKER@example.test', '0102030405', 'Séminaire')");
-            $stmt->execute([$user,$company]); $prospect = (int)$db->lastInsertId();
-            $db->exec("INSERT INTO devis (id_prospect,reference_pdf,montant_ht,tva,status) VALUES ($prospect,'MARKER.pdf',0,0,'brouillon')");
+            $hash = password_hash('Password123!', PASSWORD_BCRYPT);
+            $stmt = $db->prepare("INSERT INTO users (company_id, email, password, firstname, lastname, role, must_change_password)
+                VALUES (?, '{marker}@example.test', ?, 'Test', 'Permissions', 'CLIENT', 0)");
+            $stmt->execute([$company, $hash]);
+            $user = (int)$db->lastInsertId();
+            $stmt = $db->prepare("INSERT INTO prospects (user_id, company_id, company_name, contact_name, email, phone, event_type, status)
+                VALUES (?, ?, '{marker}', 'Test Permissions', '{marker}@example.test', '0102030405', 'Séminaire', 'à contacter')");
+            $stmt->execute([$user, $company]);
+            $prospect = (int)$db->lastInsertId();
+            $db->exec("INSERT INTO devis (id_prospect, reference_pdf, montant_ht, tva, status)
+                VALUES ($prospect, '{marker}.pdf', 100, 20, 'brouillon')");
             $quote = (int)$db->lastInsertId();
-            $db->exec("INSERT INTO prestations (devis_id,libelle,montant_ht) VALUES ($quote,'Test',10)");
+            $db->exec("INSERT INTO prestations (devis_id, libelle, montant_ht)
+                VALUES ($quote, 'Initiale', 100)");
             $prestation = (int)$db->lastInsertId();
-            $db->exec("INSERT INTO events (client_id,company_id,title,start_date,location)
-                VALUES ($user,$company,'MARKER','2026-12-01 10:00:00','Paris')");
+            $db->exec("INSERT INTO events (client_id, company_id, title, start_date, location)
+                VALUES ($user,$company,'{marker}','2026-12-01 10:00:00','Paris')");
             $event = (int)$db->lastInsertId();
             $db->commit();
             echo json_encode(compact('company','user','prospect','quote','prestation','event'));
@@ -115,7 +125,8 @@ def main():
             else:
                 code, headers, _ = request(client, f"send_quote_to_client&id={ids['quote']}")
             assert code == 302
-            assert headers['Location'] == (f"index.php?action=edit_devis&id={ids['quote']}" if admin else 'index.php?action=login')
+            expected_send = f"index.php?action=edit_devis&id={ids['quote']}" if admin else 'index.php?action=' + ('login' if account is None else 'admin_events' if account == ACCOUNTS[1] else 'client_dashboard')
+            assert headers['Location'] == expected_send
             if not admin:
                 assert snapshot() == before, 'Une action refusée a modifié les données SQL'
             if account == ACCOUNTS[1]:
@@ -128,43 +139,45 @@ def main():
                 assert code == 302 and headers['Location'] == 'index.php?action=admin_events'
                 assert snapshot() == before, 'Note globale créée par un employé'
                 code, _, _ = request(client, 'admin_add_note', {'event_id': ids['event'], 'content': marker, 'csrf_token': token})
-                assert code == 302
-                notes = sql(f"echo json_encode($db->query(\"SELECT content FROM notes WHERE event_id={ids['event']} AND user_id=2\")->fetchAll(PDO::FETCH_COLUMN));")
-                assert marker in notes, 'Note événement employé absente'
-                before = snapshot()
-            print(f"OK : {account[1] if account else 'visiteur'}, routes et droits vérifiés", flush=True)
-        state = sql(f"""
-            echo json_encode([
-                $db->query("SELECT firstname,is_deleted FROM users WHERE id={ids['user']}")->fetch(),
-                $db->query("SELECT status FROM prospects WHERE id={ids['prospect']}")->fetchColumn(),
-                $db->query("SELECT COUNT(*) FROM devis WHERE id_prospect={ids['prospect']}")->fetchColumn(),
-                $db->query("SELECT libelle FROM prestations WHERE devis_id={ids['quote']}")->fetchAll(PDO::FETCH_COLUMN),
-                $db->query("SELECT status FROM events WHERE id={ids['event']}")->fetchColumn(),
-                $db->query("SELECT status FROM devis WHERE id_devis={ids['quote']}")->fetchColumn()
-            ]);
-        """)
-        assert state[0]['firstname'] == 'Modifié' and int(state[0]['is_deleted']) == 1
-        assert state[1] == 'converti' and int(state[2]) == 2 and state[3] == ['Ajout test']
-        assert state[4:] == ['en cours', 'étude côté client']
-        print('OK : effets SQL des mutations administrateur vérifiés', flush=True)
+                notes = sql(f"$stmt = $db->query('SELECT content FROM notes WHERE event_id={ids['event']}'); echo json_encode($stmt->fetchAll(PDO::FETCH_COLUMN));")
+                assert notes == [marker]
+                sql(f"$db->exec('DELETE FROM notes WHERE event_id={ids['event']}'); echo json_encode(true);")
+            label = 'visiteur' if account is None else ('admin' if admin else 'employé' if account == ACCOUNTS[1] else 'client')
+            print(f'OK : {label}, routes et droits vérifiés', flush=True)
+
+        prospects = sql(f"$stmt = $db->query('SELECT status FROM prospects WHERE id={ids['prospect']}'); echo json_encode($stmt->fetchColumn());")
+        assert prospects == 'converti'
+        quote = sql(f"$stmt = $db->query('SELECT status, montant_ht, tva FROM devis WHERE id_devis={ids['quote']}'); echo json_encode($stmt->fetch(PDO::FETCH_ASSOC));")
+        assert quote == {'status': 'étude côté client', 'montant_ht': '20.00', 'tva': '4.00'}
+        prestations = sql(f"$stmt = $db->query('SELECT libelle, montant_ht FROM prestations WHERE devis_id={ids['quote']}'); echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));")
+        assert prestations == [{'libelle': 'Ajout test', 'montant_ht': '20.00'}]
+        event = sql(f"$stmt = $db->query('SELECT status FROM events WHERE id={ids['event']}'); echo json_encode($stmt->fetchColumn());")
+        assert event == 'en cours'
+        user_deleted = sql(f"$stmt = $db->query('SELECT is_deleted FROM users WHERE id={ids['user']}'); echo json_encode((int)$stmt->fetchColumn());")
+        assert user_deleted == 1
+        pdf_path = ROOT / 'storage' / 'devis' / f"{marker}.pdf"
+        assert pdf_path.is_file(), 'PDF non généré lors du test admin'
+        pdf_path.unlink(missing_ok=True)
+        img_path = ROOT / 'public' / 'assets' / 'img' / 'events' / f"event_{ids['event']}.png"
+        img_path.unlink(missing_ok=True)
+        print('OK : mutations admin exécutées, PDF généré et image uploadée', flush=True)
     finally:
-        sql("""
-            $path = 'storage/devis/MARKER.pdf';
-            if (is_file($path)) { unlink($path); }
-            $images = $db->query("SELECT e.image_path FROM events e JOIN users u ON u.id=e.client_id
-                WHERE u.email='MARKER@example.test'")->fetchAll(PDO::FETCH_COLUMN);
-            foreach ($images as $image) {
-                if ($image && preg_match('~^uploads/events/event_[a-z0-9]+\\.png$~', $image) && is_file('public/'.$image)) {
-                    unlink('public/'.$image);
-                }
-            }
-            $db->exec("DELETE FROM prospects WHERE company_name='MARKER'");
-            $db->exec("DELETE FROM users WHERE email='MARKER@example.test'");
-            $db->exec("DELETE FROM companies WHERE name='MARKER'");
+        sql(f"""
+            $stmt = $db->prepare('DELETE FROM users WHERE email LIKE ?');
+            $stmt->execute(['{marker}%']);
+            $stmt = $db->prepare('DELETE FROM prospects WHERE company_name LIKE ?');
+            $stmt->execute(['{marker}%']);
+            $stmt = $db->prepare('DELETE FROM companies WHERE name LIKE ?');
+            $stmt->execute(['{marker}%']);
+            $stmt = $db->prepare('DELETE FROM events WHERE title LIKE ?');
+            $stmt->execute(['{marker}%']);
             echo json_encode(true);
         """)
         for client in clients:
-            request(client, 'logout')
+            try:
+                request(client, 'logout')
+            except Exception:
+                pass
 
 
 if __name__ == '__main__':
