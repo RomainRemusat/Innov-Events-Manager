@@ -93,7 +93,7 @@ class PdfController
     }
 
     /**
-     * Déclenche l'aperçu ou le téléchargement immédiat du PDF (Espace Admin).
+     * Affiche le PDF pour l'administrateur ou le client propriétaire du devis.
      *
      * @param  int $devisId Identifiant du devis.
      * @return void
@@ -106,23 +106,31 @@ class PdfController
             exit();
         }
 
-        if ($devisId <= 0) {
-            header('Location: index.php?action=dashboard');
-            exit();
+        $role = $_SESSION['user_role'] ?? '';
+        if (!in_array($role, ['ADMIN', 'CLIENT'], true)) {
+            http_response_code(403);
+            exit('Accès refusé.');
         }
 
         try {
-            $pdfOutput = $this->buildPdfContent($devisId);
-
             $db = Database::getInstance();
             $stmt = $db->prepare("
-                SELECT p.company_name 
+                SELECT p.company_name, p.user_id
                 FROM devis d 
                 JOIN prospects p ON d.id_prospect = p.id 
                 WHERE d.id_devis = ?
             ");
             $stmt->execute([$devisId]);
             $client = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // Même réponse pour un devis absent ou appartenant à un autre client.
+            // Le rôle employé ne donne pas accès aux documents commerciaux.
+            if (!$client || ($role === 'CLIENT' && (int)$client['user_id'] !== (int)$_SESSION['user_id'])) {
+                http_response_code(404);
+                exit('Document introuvable.');
+            }
+
+            $pdfOutput = $this->buildPdfContent($devisId);
 
             $safeCompanyName = preg_replace('/[^a-zA-Z0-9]/', '_', $client['company_name'] ?? 'Client');
             $fileName = "Devis_InnovEvents_{$safeCompanyName}.pdf";

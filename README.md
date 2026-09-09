@@ -168,10 +168,10 @@ client (p. 10) imposent un changement à la première connexion, via
 | Inscription et connexion | Connexion des quatre comptes, session régénérée, redirection et journal MongoDB vérifiés ; inscription et mot de passe temporaire présents, contrôles de sécurité et retour à l’action initiale à compléter |
 | Demande de devis | Formulaire et insertion présents, appel de journalisation corrigé ; le PHP force encore `en attente` et ignore certaines validations |
 | Conversion | Colonne `start_date` corrigée ; conversion avec compte existant et rollback vérifiés sur bases temporaires. Parcours HTTP, nouveau compte et image à compléter |
-| Devis et PDF | Prestations, calcul et génération présents ; droits d’accès, envois et route de téléchargement client à corriger |
+| Devis et PDF | Génération réservée à ADMIN et au client propriétaire, testée sur Docker ; envois et téléchargement client restent à corriger |
 | Réponse client | Acceptation/refus/modification présents ; motif non imposé côté serveur, transitions et notifications à fiabiliser |
 | Clients, événements et notes | Listes, fiches, indicateurs et certaines mutations présents ; CRUD, droits employé, profil et notes globales à compléter |
-| Journalisation et sécurité | Appels de logs et affichage alignés sur le modèle MongoDB ; couverture des actions à compléter, permissions, accès aux PDF et protections CSRF à corriger |
+| Journalisation et sécurité | Appels de logs et affichage alignés sur le modèle MongoDB ; couverture des actions à compléter, autres permissions, téléchargement des PDF stockés et protections CSRF à corriger |
 | Mobile, tâches, avis, contact | Parcours dédiés non réalisés ; le dossier mobile est vide |
 | Mentions légales, CGU et CGV | Pages manquantes ; les liens légaux existants ne suffisent pas |
 | Accessibilité | Éléments sémantiques et responsive présents ; recette clavier/visuelle et corrections encore nécessaires, conformité RGAA non établie |
@@ -234,6 +234,17 @@ Sur Docker local avec les quatre comptes de démonstration, ce test vérifie les
 lectures et POST des visiteurs, clients, employé et administrateur. Il crée puis
 supprime deux prospects synthétiques ; les dossiers existants restent inchangés.
 Les journaux normaux produits par le test sont conservés. Aucun mail n’est envoyé.
+
+Vérification des autorisations de génération PDF :
+
+```bash
+python -B tests/pdf_access.py
+```
+
+Le test utilise les quatre comptes de démonstration et un devis existant par cliente.
+Il vérifie les PDF autorisés et le refus des accès directs aux devis d’autrui, ainsi
+que les accès visiteur, employé et administrateur. Aucune écriture SQL, aucun mail
+ni sauvegarde de PDF ; les journaux de connexion sont conservés.
 
 **Git et suivi du projet**
 
