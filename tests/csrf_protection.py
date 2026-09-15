@@ -370,6 +370,7 @@ def main():
         match_client_csrf = re.search(r'name="csrf_token"\s+value="([^"]+)"', body)
         assert match_client_csrf, f"Formulaire de réponse au devis non trouvé sur client_dashboard : {body[:400]}"
         client_csrf = match_client_csrf.group(1)
+        quote_revision = php(setup + f"echo json_encode((int)$db->query('SELECT revision FROM devis WHERE id_devis={ids['quote']}')->fetchColumn());")
 
         # 5.a Tentative en GET
         code, headers, _ = request(
@@ -394,7 +395,7 @@ def main():
         code, headers, _ = request(
             c_client,
             "respond_to_quote",
-            {"devis_id": ids["quote"], "quote_action": "accept", "csrf_token": client_csrf},
+            {"devis_id": ids["quote"], "quote_action": "accept", "csrf_token": client_csrf, "revision": quote_revision},
         )
         assert code == 302 and "client_dashboard" in headers["Location"]
         quote_status_accepted = php(

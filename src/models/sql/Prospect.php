@@ -273,6 +273,7 @@ class Prospect
             $stmt = $this->db->prepare("
             SELECT 
                 d.id_devis,
+                d.revision,
                 d.status,
                 d.reference_pdf,
                 d.montant_ht,

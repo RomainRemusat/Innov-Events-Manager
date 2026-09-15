@@ -30,6 +30,11 @@ def main():
         $quotes = $db->query('SELECT p.user_id, MIN(d.id_devis) AS id
             FROM devis d JOIN prospects p ON p.id = d.id_prospect
             WHERE p.user_id IN (3, 4) GROUP BY p.user_id')->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($quotes as &$quote) {
+            $row = $db->query('SELECT status, reference_pdf FROM devis WHERE id_devis = ' . (int)$quote['id'])->fetch();
+            $quote['available'] = $row['status'] !== 'brouillon' && is_file('storage/devis/' . basename($row['reference_pdf']));
+        }
+        unset($quote);
         echo json_encode($quotes);
     """)
     assert {int(q['user_id']) for q in quotes} == {3, 4}, 'Un devis par cliente de démonstration est nécessaire'
@@ -55,6 +60,10 @@ def main():
                     account == ACCOUNTS[0] or account[0] == int(quote['user_id'])
                 )
                 if allowed:
+                    if account != ACCOUNTS[0] and not quote['available']:
+                        assert code == 302 and headers['Location'] == 'index.php?action=client_dashboard'
+                        assert b'%PDF-' not in body
+                        continue
                     assert code == 200 and headers.get_content_type() == 'application/pdf'
                     assert body.startswith(b'%PDF-') and b'%%EOF' in body[-100:], 'PDF invalide'
                 else:

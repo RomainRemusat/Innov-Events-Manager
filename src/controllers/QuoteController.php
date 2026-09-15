@@ -205,7 +205,7 @@ class QuoteController extends BaseController
 
         // Extraction de la remarque client depuis MongoDB si statut en modification
         $lastChangeReason = null;
-        if (strtolower($devis['status'] ?? '') === 'modification') {
+        if (in_array(strtolower($devis['status'] ?? ''), ['modification', 'brouillon'], true)) {
             try {
                 $logModel = new Log();
                 $lastChangeReason = $logModel->getLatestChangeReason($devisId);
@@ -247,10 +247,9 @@ class QuoteController extends BaseController
             }
 
             $prestationModel = new Prestation();
-            $prestationModel->create($devisId, $libelle, $montantHt);
-
-            // Recalcul automatique des totaux en BDD
-            $devisModel->recalculateTotals($devisId);
+            if (!$prestationModel->create($devisId, $libelle, $montantHt)) {
+                $_SESSION['flash_error'] = "Prestation non ajoutée : devis verrouillé, introuvable ou erreur d'enregistrement.";
+            }
         }
 
         header("Location: index.php?action=edit_devis&id=" . $devisId);
@@ -282,10 +281,9 @@ class QuoteController extends BaseController
             }
 
             $prestationModel = new Prestation();
-            $prestationModel->delete($prestationId, $devisId);
-
-            // Recalcul automatique des totaux en BDD
-            $devisModel->recalculateTotals($devisId);
+            if (!$prestationModel->delete($prestationId, $devisId)) {
+                $_SESSION['flash_error'] = "Prestation non supprimée : devis verrouillé, ligne introuvable ou erreur d'enregistrement.";
+            }
         }
 
         header("Location: index.php?action=edit_devis&id=" . $devisId);

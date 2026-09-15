@@ -165,6 +165,7 @@ require __DIR__ . '/../partials/header.php';
                                                         <form action="index.php?action=respond_to_quote" method="POST" class="d-inline">
                                                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                                                             <input type="hidden" name="devis_id" value="<?= $quoteUniqueId; ?>">
+                                                            <input type="hidden" name="revision" value="<?= (int)$quote['revision'] ?>">
                                                             <button type="submit" name="quote_action" value="accept" class="btn btn-success btn-sm"
                                                                     onclick="return confirm('En acceptant ce devis, vous validez la prestation et engagez le projet. Confirmer ?');">
                                                                 <i class="bi bi-check-lg" aria-hidden="true"></i> Accepter
@@ -184,6 +185,7 @@ require __DIR__ . '/../partials/header.php';
                                                         <form action="index.php?action=respond_to_quote" method="POST" class="d-inline">
                                                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                                                             <input type="hidden" name="devis_id" value="<?= $quoteUniqueId; ?>">
+                                                            <input type="hidden" name="revision" value="<?= (int)$quote['revision'] ?>">
                                                             <button type="submit" name="quote_action" value="reject" class="btn btn-danger btn-sm"
                                                                     onclick="return confirm('Confirmez-vous le refus définitif de ce devis ?');">
                                                                 <i class="bi bi-x-lg" aria-hidden="true"></i> Refuser
@@ -197,6 +199,7 @@ require __DIR__ . '/../partials/header.php';
                                                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                                                             <input type="hidden" name="devis_id" value="<?= $quoteUniqueId; ?>">
                                                             <input type="hidden" name="quote_action" value="request_change">
+                                                            <input type="hidden" name="revision" value="<?= (int)$quote['revision'] ?>">
 
                                                             <label for="change_reason_<?= $quoteUniqueId; ?>" class="form-label small fw-bold mb-1">Motif des modifications souhaitées :</label>
                                                             <textarea id="change_reason_<?= $quoteUniqueId; ?>" name="change_reason" class="form-control form-control-sm mb-2" rows="2" required placeholder="Précisez les prestations ou les dates à ajuster..."></textarea>

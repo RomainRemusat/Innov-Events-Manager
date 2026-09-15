@@ -45,6 +45,7 @@ class Devis
         try {
             $stmt = $this->db->prepare("
                 SELECT d.id_devis,
+                       d.revision,
                        d.id_prospect,
                        d.reference_pdf,
                        d.montant_ht,
@@ -156,68 +157,37 @@ class Devis
     }
 
     /**
-     * Recalcule et synchronise les agrégats financiers d'un devis
-     * à partir de la somme réelle de ses lignes de prestations associées.
-     *
-     * Applique le taux de TVA normalisé légal (20.00%).
-     *
-     * @param int $devisId Identifiant du devis à recalculer.
-     * @return bool Vrai si la synchronisation a réussi.
-     */
-    public function recalculateTotals(int $devisId): bool
-    {
-        try {
-            // 1. Sommation directe des lignes de prestations actives
-            $sumStmt = $this->db->prepare("
-                SELECT COALESCE(SUM(montant_ht), 0.00) AS total_ht
-                FROM prestations
-                WHERE devis_id = :devis_id
-            ");
-            $sumStmt->execute([':devis_id' => $devisId]);
-            $totalHt = (float)$sumStmt->fetchColumn();
-
-            // 2. Calcul de la TVA collectée (20 %)
-            $tva = round($totalHt * 0.20, 2);
-
-            // 3. Mise à jour atomique de l'en-tête devis
-            $updateStmt = $this->db->prepare("
-                UPDATE devis
-                SET montant_ht = :montant_ht,
-                    tva = :tva
-                WHERE id_devis = :devis_id
-            ");
-
-            return $updateStmt->execute([
-                ':montant_ht' => $totalHt,
-                ':tva'        => $tva,
-                ':devis_id'   => $devisId
-            ]);
-        } catch (PDOException $e) {
-            error_log("Défaut SQL recalculateTotals sur devis #{$devisId} : " . $e->getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * Met à jour le statut du cycle de vie d'un devis.
+     * Enregistre atomiquement une décision sur la version de l'offre consultée.
+     * Le filtre SQL empêche une réponse sur un brouillon, une autre version ou
+     * un devis déjà accepté, même si deux requêtes arrivent simultanément.
      *
      * @param int    $devisId   Identifiant unique du devis.
-     * @param string $newStatus Nouvel état ('brouillon', 'étude côté client', 'accepté', 'refusé', 'modification').
+     * @param string $newStatus Décision client : 'accepté', 'refusé' ou 'modification'.
+     * @param int $userId Propriétaire authentifié de la demande.
+     * @param int $revision Version transmise par le formulaire client.
      * @return bool Vrai en cas de succès.
      */
-    public function updateStatus(int $devisId, string $newStatus): bool
+    public function updateStatus(int $devisId, string $newStatus, int $userId, int $revision): bool
     {
+        if (!in_array($newStatus, ['accepté', 'refusé', 'modification'], true) || $revision < 1) {
+            return false;
+        }
         try {
             $stmt = $this->db->prepare("
                 UPDATE devis
                 SET status = :status
-                WHERE id_devis = :devis_id
+                WHERE id_devis = :devis_id AND revision = :revision
+                  AND status IN ('étude côté client', 'devis envoyé')
+                  AND EXISTS (SELECT 1 FROM prospects p WHERE p.id = devis.id_prospect AND p.user_id = :user_id)
             ");
 
-            return $stmt->execute([
+            $stmt->execute([
                 ':status'   => $newStatus,
-                ':devis_id' => $devisId
+                ':devis_id' => $devisId,
+                ':user_id' => $userId,
+                ':revision' => $revision,
             ]);
+            return $stmt->rowCount() === 1;
         } catch (PDOException $e) {
             error_log("Défaut SQL updateStatus sur devis #{$devisId} : " . $e->getMessage());
             return false;

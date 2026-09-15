@@ -96,35 +96,40 @@ class ClientController extends BaseController
 
         // 4. Invariant de cycle de vie : Seuls les devis en cours d'examen peuvent recevoir une décision
         $currentStatus = strtolower($devis['status'] ?? '');
-        if (!in_array($currentStatus, ['étude côté client', 'devis envoyé', 'brouillon'], true)) {
+        if (!in_array($currentStatus, ['étude côté client', 'devis envoyé'], true)) {
             $_SESSION['client_error'] = "Ce devis ne peut plus être modifié (statut actuel : " . htmlspecialchars($currentStatus) . ").";
             header('Location: index.php?action=client_dashboard');
             exit();
         }
 
         // 5. Exécution de la transition d'état et règles métiers
+        if ($action === 'request_change' && (empty($reason) || mb_strlen($reason) < 5)) {
+            $_SESSION['client_error'] = "Veuillez préciser le motif de votre demande d'ajustement (au moins 5 caractères).";
+            header('Location: index.php?action=client_dashboard');
+            exit();
+        }
+        $newStatus = match ($action) {
+            'accept' => 'accepté', 'reject' => 'refusé', 'request_change' => 'modification',
+        };
+        // La version vient de l'écran consulté, pas d'une relecture de la version courante.
+        if (!$devisModel->updateStatus($devisId, $newStatus, $userId, (int)($postData['revision'] ?? 0))) {
+            $_SESSION['client_error'] = "Cette proposition a changé ou a déjà reçu une réponse. Rechargez la page et consultez le devis actuel.";
+            header('Location: index.php?action=client_dashboard');
+            exit();
+        }
         $mailService = new MailService();
         $companyName = $devis['company_name'] ?? 'Client B2B';
 
         switch ($action) {
             case 'accept':
-                $devisModel->updateStatus($devisId, 'accepté');
                 $mailService->sendQuoteAcceptedEmail($companyName, $devisId);
                 break;
 
             case 'reject':
-                $devisModel->updateStatus($devisId, 'refusé');
                 $mailService->sendQuoteRejectedEmail($companyName, $devisId);
                 break;
 
             case 'request_change':
-                if (empty($reason) || mb_strlen($reason) < 5) {
-                    $_SESSION['client_error'] = "Veuillez préciser le motif de votre demande d'ajustement (au moins 5 caractères).";
-                    header('Location: index.php?action=client_dashboard');
-                    exit();
-                }
-
-                $devisModel->updateStatus($devisId, 'modification');
                 $mailService->sendModificationRequestEmail($companyName, $devisId, $reason);
                 break;
         }
@@ -136,6 +141,7 @@ class ClientController extends BaseController
             $logModel->addLog("REPONSE_DEVIS_CLIENT", $userId, [
                 'message'       => "Décision client enregistrée sur le devis #{$devisId} : {$action}",
                 'devis_id'      => $devisId,
+                'revision'      => (int)$postData['revision'],
                 'action'        => $action,
                 'change_reason' => $reason,
                 'client_action' => $action,

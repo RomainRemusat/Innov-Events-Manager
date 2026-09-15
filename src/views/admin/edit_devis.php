@@ -81,6 +81,7 @@ $totalTTC = $totalHT + $totalTVA;
 
                 <!-- Boutons d'action : Expédition, Génération PDF et Navigation -->
                 <div class="d-flex gap-2">
+                    <?php if ($status !== 'accepté'): ?>
                     <form action="index.php?action=send_quote_to_client" method="POST" class="d-inline"
                           onsubmit="return confirm('Confirmez-vous l\'envoi direct du devis au client par courriel ?');">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
@@ -89,6 +90,7 @@ $totalTTC = $totalHT + $totalTVA;
                             <i class="bi bi-send me-2" aria-hidden="true"></i>Envoyer au client
                         </button>
                     </form>
+                    <?php endif; ?>
                     <a href="index.php?action=generate_pdf&id=<?= (int)$devis['id_devis'] ?>"
                        target="_blank"
                        rel="noopener noreferrer"

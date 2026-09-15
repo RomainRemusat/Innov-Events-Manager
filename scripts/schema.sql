@@ -75,6 +75,7 @@ ON DELETE CASCADE ON UPDATE CASCADE
 -- ---------------------------------------------------------------------
 CREATE TABLE devis (
 id_devis INT AUTO_INCREMENT PRIMARY KEY,
+revision INT NOT NULL DEFAULT 1,
 id_prospect INT NOT NULL,
 event_id INT NULL,
 reference_pdf VARCHAR(255) NOT NULL,

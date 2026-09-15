@@ -116,7 +116,25 @@ Une acceptation par le serveur SMTP ne garantit pas la livraison au destinataire
 temporaires et des emails capturés par MailHog local. Il nettoie ses dossiers,
 ses journaux et uniquement ses propres messages après exécution.
 
-**Exécution des vérifications**
+**Versions des propositions commerciales**
+
+Importer `update_quote_revision.sql` après sauvegarde et avant le code du cycle
+commercial. Les devis existants commencent à la version 1. Une modification des
+prestations les remet en brouillon et invalide les anciens formulaires client.
+Le PDF stocké reste inaccessible au client pendant cette préparation ; le prochain
+envoi le remplace par un document à jour et publie une nouvelle version.
+Un devis accepté ne peut être ni modifié ni renvoyé par l'action commerciale.
+Les anciens formulaires ouverts avant déploiement doivent être rechargés.
+
+Le verrou SQL par devis couvre la génération et l'envoi SMTP afin de sérialiser
+les opérations commerciales. Il peut donc retarder une requête sur le même devis.
+SQL et SMTP ne forment pas une transaction distribuée : en cas d'erreur après
+acceptation du message par SMTP, vérifier l'état du devis et l'envoi avant de réessayer.
+
+`python -B tests/quote_lifecycle.py` vérifie le cycle complet et une concurrence
+modification/acceptation sur des bases temporaires, avec des emails capturés localement.
+
+**Tests SQL**
 
 Python 3 et Docker sont nécessaires. Le test utilise l'image `mysql:8.0`, un
 conteneur sans réseau ni port exposé, et un stockage temporaire. Il ne se connecte
