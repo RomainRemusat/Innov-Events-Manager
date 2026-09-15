@@ -1,68 +1,76 @@
 <?php
 /**
- * Routeur Central / Point d'entrée unique de l'application (Front Controller)
+ * Point d'entrée unique de l'application (Front Controller).
  *
- * Ce fichier agit comme le point d'entrée unique de l'application (pattern Front Controller).
- * Il intercepte toutes les requêtes HTTP entrantes, initialise le contexte global
- * (comme les sessions sécurisées), et délègue le traitement métier et l'affichage
- * au contrôleur approprié en fonction du paramètre 'action' passé dans l'URL.
+ * Toutes les requêtes HTTP passent par ce fichier. Il initialise l'environnement,
+ * démarre la session utilisateur, et dispatche la requête vers le contrôleur approprié.
  *
  * @package    InnovEventsManager
- * @subpackage Core
  * @author     Romain Remusat
- * @version    1.6.0
+ * @version    3.3.0 (Intégration ECF - AT1 & AT2)
  */
 
-// Chargement des dépendances métiers (Contrôleurs)
-require_once __DIR__ . '/../vendor/autoload.php';
+declare(strict_types=1);
 
-// Chargement de l'ensemble des contrôleurs applicatifs
-require_once __DIR__ . '/../src/controllers/AuthController.php';
-require_once __DIR__ . '/../src/controllers/DashboardController.php';
-require_once __DIR__ . '/../src/controllers/ClientController.php';
-require_once __DIR__ . '/../src/controllers/AdminClientController.php';
-require_once __DIR__ . '/../src/controllers/QuoteController.php';
-require_once __DIR__ . '/../src/controllers/LogController.php';
-require_once __DIR__ . '/../src/controllers/PdfController.php';
-require_once __DIR__ . '/../src/controllers/EventController.php';
-require_once __DIR__ . '/../src/controllers/AdminEventController.php';
-
-// Initialisation sécurisée du contexte utilisateur (Session)
+// -----------------------------------------------------------------------------
+// 1. GESTION STRICTE DES SESSIONS (Conformité OWASP & RGPD)
+// -----------------------------------------------------------------------------
 if (session_status() === PHP_SESSION_NONE) {
+    ini_set('session.cookie_httponly', '1');
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.cookie_samesite', 'Lax');
     session_start();
 }
 
+// -----------------------------------------------------------------------------
+// 2. GÉNÉRATION DU JETON ANTI-CSRF (Conformité AT1 - Sécurité des flux)
+// -----------------------------------------------------------------------------
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-// Récupération de la route demandée (Fallback sur 'home' si non spécifiée)
-$action = $_GET['action'] ?? 'home';
+// -----------------------------------------------------------------------------
+// 3. CHARGEMENT DES CONTRÔLEURS
+// -----------------------------------------------------------------------------
+require_once __DIR__ . '/../src/controllers/AuthController.php';
+require_once __DIR__ . '/../src/controllers/EventController.php';
+require_once __DIR__ . '/../src/controllers/QuoteController.php';
+require_once __DIR__ . '/../src/controllers/PdfController.php';
+require_once __DIR__ . '/../src/controllers/ClientController.php';
+require_once __DIR__ . '/../src/controllers/AdminClientController.php';
+require_once __DIR__ . '/../src/controllers/AdminEventController.php';
+require_once __DIR__ . '/../src/controllers/DashboardController.php';
 
-// Système de routage principal (Délégation MVC)
+// -----------------------------------------------------------------------------
+// 4. RÉSOLUTION DE L'ACTION ET ROUTAGE (White-list Pattern)
+// -----------------------------------------------------------------------------
+$action = filter_input(INPUT_GET, 'action', FILTER_DEFAULT) ?? 'home';
+
 switch (true) {
-
     // -------------------------------------------------------------------
-    // ROUTE : DEMANDE DE DEVIS (Espace Public)
+    // ROUTES : AUTHENTIFICATION & COMPTE (AuthController)
     // -------------------------------------------------------------------
-    case ($action === 'devis'):
-        $quoteController = new QuoteController();
+    case ($action === 'login'):
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $quoteController->submitQuote($_POST);
+            (new AuthController())->login($_POST);
         } else {
-            $quoteController->showForm();
+            (new AuthController())->showLoginForm();
         }
         break;
 
-    // -------------------------------------------------------------------
-    // ROUTES : AUTHENTIFICATION & COMPTE (Espace Public / Securisé)
-    // -------------------------------------------------------------------
-    case ($action === 'login'):
-        $authController = new AuthController();
+    case ($action === 'login_process'):
+        (new AuthController())->login($_POST);
+        break;
+
+    case ($action === 'logout'):
+        (new AuthController())->logout();
+        break;
+
+    case ($action === 'register'):
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $authController->login($_POST);
+            (new AuthController())->register($_POST);
         } else {
-            $authController->showLoginForm();
+            (new AuthController())->showRegisterForm();
         }
         break;
 
@@ -70,54 +78,72 @@ switch (true) {
         (new AuthController())->showRegisterForm();
         break;
 
-    case ($action === 'register'):
-        $authController = new AuthController();
+    case ($action === 'reset_password_request' || $action === 'forgot_password'):
+        (new AuthController())->resetPasswordRequest();
+        break;
+
+    case ($action === 'force_password_change' || $action === 'update_forced_password'):
+        (new AuthController())->updateForcedPassword();
+        break;
+
+    // -------------------------------------------------------------------
+    // ROUTES : VITRINE PUBLIQUE & PROSPECTS (Event / Quote)
+    // -------------------------------------------------------------------
+    case ($action === 'home'):
+        (new EventController())->showHome();
+        break;
+
+    case ($action === 'events'):
+        (new EventController())->listPublicEvents();
+        break;
+
+    case ($action === 'catalog'):
+        (new EventController())->showCatalog();
+        break;
+
+    case ($action === 'event_detail'):
+        (new EventController())->showPublicDetail();
+        break;
+
+    case ($action === 'devis'):
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $authController->register($_POST);
+            (new QuoteController())->submitQuote($_POST);
         } else {
-            $authController->showRegisterForm();
+            (new QuoteController())->showForm();
         }
         break;
 
-    case ($action === 'logout'):
-        (new AuthController())->logout();
+    case ($action === 'submit_quote' || $action === 'process_quote'):
+        (new QuoteController())->submitQuote($_POST);
         break;
 
     // -------------------------------------------------------------------
-    // WORKFLOW MOT DE PASSE OUBLIÉ ET FORCÉ
+    // ROUTES : ESPACE CLIENT B2B (ClientController)
     // -------------------------------------------------------------------
-    case ($action === 'forgot_password'):
-        (new AuthController())->showForgotPasswordForm();
+    case ($action === 'client_dashboard'):
+        (new ClientController())->showDashboard();
         break;
 
-    case ($action === 'reset_password_request'):
-        (new AuthController())->resetPasswordRequest($_POST);
+    case ($action === 'respond_to_quote'):
+        (new ClientController())->handleQuoteResponse($_POST);
         break;
 
-    case ($action === 'force_password_change'):
-        if (session_status() === PHP_SESSION_NONE) session_start();
-        if (empty($_SESSION['temp_user_id'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-        $pageTitle = "Définition de votre mot de passe - Innov'Events";
-        require __DIR__ . '/../src/views/partials/header.php';
-        require __DIR__ . '/../src/views/public/force_password_change.php';
-        require __DIR__ . '/../src/views/partials/footer.php';
+    case ($action === 'client_profile'):
+        (new ClientController())->showProfile();
         break;
 
-    case ($action === 'update_forced_password'):
-        (new AuthController())->updateForcedPassword($_POST);
+    case ($action === 'client_delete_account'):
+        (new ClientController())->deleteAccount();
         break;
 
     // -------------------------------------------------------------------
-    // ROUTES : TABLEAU DE BORD ADMINISTRATION (DashboardController)
+    // ROUTES : TABLEAU DE BORD & PIPELINE PROSPECTS (DashboardController)
     // -------------------------------------------------------------------
     case ($action === 'dashboard'):
         (new DashboardController())->showDashboard();
         break;
 
-    case ($action === 'prospects'):
+    case ($action === 'prospects' || $action === 'admin_prospects' || $action === 'list_prospects'):
         (new DashboardController())->showProspectsList();
         break;
 
@@ -144,7 +170,7 @@ switch (true) {
         break;
 
     // -------------------------------------------------------------------
-    // ROUTES : GESTION DES DEVIS BACK-OFFICE (QuoteController)
+    // ROUTES : GESTION DES DEVIS BACK-OFFICE (QuoteController & PdfController)
     // -------------------------------------------------------------------
     case ($action === 'admin_devis'):
         (new QuoteController())->showDevisList();
@@ -163,6 +189,19 @@ switch (true) {
         (new QuoteController())->deletePrestation($_POST);
         break;
 
+    case ($action === 'send_quote_to_client'):
+        $id = (int)($_POST['id'] ?? $_POST['devis_id'] ?? $_GET['id'] ?? 0);
+        (new PdfController())->sendQuoteToClient($id);
+        break;
+
+    case ($action === 'download_devis' || $action === 'download_pdf'):
+        (new PdfController())->downloadDevis();
+        break;
+
+    case ($action === 'generate_pdf'):
+        (new PdfController())->generatePdfAction();
+        break;
+
     // -------------------------------------------------------------------
     // ROUTES : GESTION DES ÉVÉNEMENTS BACK-OFFICE (AdminEventController)
     // -------------------------------------------------------------------
@@ -174,7 +213,7 @@ switch (true) {
         (new AdminEventController())->showEventDetail();
         break;
 
-    case ($action === 'admin_event_update_status'):
+    case ($action === 'admin_event_update_status' || $action === 'admin_update_event_status'):
         (new AdminEventController())->updateStatus();
         break;
 
@@ -182,25 +221,31 @@ switch (true) {
         (new AdminEventController())->togglePublish();
         break;
 
-    case ($action === 'admin_event_add_note' || $action === 'admin_add_note'):
+    case ($action === 'admin_add_note'):
         (new AdminEventController())->addNote();
+        break;
+
+    case ($action === 'admin_upload_image'):
+        (new AdminEventController())->uploadImage();
         break;
 
     // -------------------------------------------------------------------
     // ROUTES : GESTION DES CLIENTS BACK-OFFICE (AdminClientController)
     // -------------------------------------------------------------------
-    case ($action === 'admin_clients'):
+    case ($action === 'admin_clients' || $action === 'clients'):
         (new AdminClientController())->showClientsList();
         break;
 
     case ($action === 'view_client'):
-        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-        (new AdminClientController())->showClientDetails($id);
+        (new AdminClientController())->showClientDetails((int)($_GET['id'] ?? 0));
         break;
 
     case ($action === 'edit_client'):
-        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-        (new AdminClientController())->showEditClientForm($id);
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            (new AdminClientController())->updateClient($_POST);
+        } else {
+            (new AdminClientController())->showEditClientForm((int)($_GET['id'] ?? 0));
+        }
         break;
 
     case ($action === 'update_client'):
@@ -212,73 +257,17 @@ switch (true) {
         break;
 
     // -------------------------------------------------------------------
-    // ROUTES : ESPACE CLIENT PRIVÉ (ClientController - Front-Office)
-    // -------------------------------------------------------------------
-    case ($action === 'client_dashboard'):
-        (new ClientController())->showDashboard();
-        break;
-
-    case ($action === 'respond_to_quote'):
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            (new ClientController())->handleQuoteResponse($_POST);
-        } else {
-            header('Location: index.php?action=client_dashboard');
-        }
-        break;
-
-    case ($action === 'client_profile'):
-        (new ClientController())->showProfile();
-        break;
-
-    case ($action === 'delete_account'):
-        (new ClientController())->deleteAccount();
-        break;
-
-    // -------------------------------------------------------------------
-    // ROUTES : SERVICES COMPLÉMENTAIRES (PDF & AUDIT)
+    // ROUTES : LOGS D'AUDIT NOSQL BACK-OFFICE
     // -------------------------------------------------------------------
     case ($action === 'mongo_logs'):
+        require_once __DIR__ . '/../src/controllers/LogController.php';
         (new LogController())->showMongoLogs();
         break;
 
-    case ($action === 'generate_pdf'):
-        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-        (new PdfController())->generatePdf($id);
-        break;
-
-    case ($action === 'download_pdf'):
-        $file = trim($_GET['file'] ?? '');
-        (new PdfController())->downloadPdf($file);
-        break;
-
-    case ($action === 'send_quote_to_client'):
-        $id = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
-        if ($id > 0) {
-            (new PdfController())->sendQuoteToClient($id);
-        } else {
-            header('Location: index.php?action=admin_devis');
-        }
-        break;
-
     // -------------------------------------------------------------------
-    // ROUTES : VITRINE ÉVÉNEMENTS (Espace Public)
-    // -------------------------------------------------------------------
-    case ($action === 'events'):
-        (new EventController())->listPublicEvents();
-        break;
-
-    case ($action === 'event_detail'):
-        (new EventController())->showPublicDetail();
-        break;
-
-    // -------------------------------------------------------------------
-    // ROUTE PAR DÉFAUT : PAGE D'ACCUEIL (Espace Public)
+    // ROUTE PAR DÉFAUT / 404 (Redirection d'étanchéité)
     // -------------------------------------------------------------------
     default:
-        $isLoggedIn = isset($_SESSION['user_id']);
-        $userName = $_SESSION['user_name'] ?? '';
-        $userRole = $_SESSION['user_role'] ?? '';
-
-        require_once __DIR__ . '/../src/views/public/home.php';
+        (new EventController())->listPublicEvents();
         break;
 }
