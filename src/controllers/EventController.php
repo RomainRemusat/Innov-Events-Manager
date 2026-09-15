@@ -17,6 +17,19 @@ require_once __DIR__ . '/../models/sql/Event.php';
  */
 class EventController extends BaseController
 {
+    public function showHome(): void
+    {
+        $this->startSession();
+        require __DIR__ . '/../views/public/home.php';
+    }
+
+    public function showCatalog(): void
+    {
+        $query = http_build_query(array_replace($_GET, ['action' => 'events']));
+        header('Location: index.php?' . $query);
+        exit();
+    }
+
     /**
      * Affiche la liste des événements publiés avec moteur de recherche multicritère.
      */
