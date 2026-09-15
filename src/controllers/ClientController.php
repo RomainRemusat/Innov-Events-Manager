@@ -42,6 +42,14 @@ class ClientController extends BaseController
 
         $prospectModel = new Prospect();
         $myQuotes = $prospectModel->findClientRequests($clientId);
+        foreach ($myQuotes as &$quote) {
+            $fileName = $quote['reference_pdf'] ?? '';
+            $quote['is_pdf_available'] = $fileName !== ''
+                && $fileName === basename($fileName)
+                && strtolower($quote['status'] ?? 'brouillon') !== 'brouillon'
+                && is_file(__DIR__ . '/../../storage/devis/' . $fileName);
+        }
+        unset($quote);
 
         require __DIR__ . '/../views/client/dashboard.php';
     }

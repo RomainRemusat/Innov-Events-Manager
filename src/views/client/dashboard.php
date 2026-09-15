@@ -149,12 +149,7 @@ require __DIR__ . '/../partials/header.php';
                                             <!-- Actions : Téléchargement PDF et Tunnel décisionnel -->
                                             <td class="text-end pe-4">
 
-                                                <?php
-                                                $pdfPhysicalPath = __DIR__ . '/../../storage/devis/' . ($quote['reference_pdf'] ?? '');
-                                                $isPdfAvailable = !empty($quote['reference_pdf']) && $st !== 'brouillon' && file_exists($pdfPhysicalPath);
-                                                ?>
-
-                                                <?php if ($isPdfAvailable): ?>
+                                                <?php if ($quote['is_pdf_available']): ?>
                                                     <a href="index.php?action=download_pdf&file=<?= urlencode($quote['reference_pdf']); ?>"
                                                        class="btn btn-outline-primary btn-sm rounded-2 mb-1"
                                                        aria-label="Télécharger le PDF du devis #<?= $quoteUniqueId; ?>">
