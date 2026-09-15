@@ -114,7 +114,7 @@
 
                                         <!-- Visibilité publique (Accord client CDC p. 7) -->
                                         <td>
-                                            <?php if ((int)$ev['is_published'] === 1): ?>
+                                            <?php if ((int)$ev['is_published'] === 1 && !empty($ev['publication_consent_at']) && $ev['status'] !== 'brouillon'): ?>
                                                 <span class="badge bg-success-subtle text-success border border-success-subtle">
                                                     <i class="fa-solid fa-eye me-1" aria-hidden="true"></i>Publié
                                                 </span>

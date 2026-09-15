@@ -221,10 +221,16 @@
                             </div>
                             <div class="col-md-6 d-flex align-items-end">
                                 <div class="form-check form-switch mb-2">
-                                    <input class="form-check-input" type="checkbox" role="switch" id="is_visible" name="is_visible" checked>
-                                    <label class="form-check-label small" for="is_visible">Visible sur la galerie publique (une fois validé)</label>
+                                    <input class="form-check-input" type="checkbox" role="switch" id="is_visible" name="is_visible" value="1">
+                                    <label class="form-check-label small" for="is_visible">Publier sur la galerie (hors brouillon)</label>
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" id="publication_consent" name="publication_consent" value="1">
+                            <label class="form-check-label" for="publication_consent">Je confirme avoir recueilli l'accord du client pour la publication de cet événement et de son illustration.</label>
+                            <div class="form-text">Obligatoire si la publication est demandée. La confirmation sera datée et rattachée à votre compte.</div>
                         </div>
 
                         <hr class="text-muted opacity-25">

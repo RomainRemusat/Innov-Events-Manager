@@ -40,6 +40,8 @@ INSERT INTO events (id, client_id, company_id, title, description, start_date, e
     (4, 4, 3, 'Séminaire - NextGen Software', 'Séminaire de rentrée annuel.', '2026-09-15 08:00:00', '2026-09-15 12:00:00', 'Éco-Lodge, Fontainebleau', 'Séminaire', NULL, 150, NULL, 'brouillon', 0);
 
 -- Associations explicites du jeu de démonstration uniquement (pas une migration).
+-- Accords fictifs des deux exemples publics ; ne jamais appliquer aux dossiers réels.
+UPDATE events SET publication_consent_at = '2026-09-15 09:00:00', publication_consent_by = 1 WHERE id IN (1, 2);
 UPDATE devis SET event_id = 1 WHERE id_devis = 1;
 UPDATE devis SET event_id = 2 WHERE id_devis = 2;
 UPDATE devis SET event_id = 3 WHERE id_devis = 3;

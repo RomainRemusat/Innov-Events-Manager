@@ -89,6 +89,10 @@ class ConversionService
         $description  = trim($data['description'] ?? '');
         $eventStatus  = Event::normalizeStatus($data['event_status'] ?? 'brouillon');
         $isPublished  = !empty($data['is_visible']) ? 1 : 0;
+        $consentConfirmed = ($data['publication_consent'] ?? '') === '1';
+        if ($isPublished && (!$consentConfirmed || !$actorUserId)) {
+            throw new InvalidArgumentException("La publication nécessite la confirmation explicite de l'accord client par un administrateur.");
+        }
 
         // Le devis créé par cette transaction est un brouillon : le projet ne peut
         // pas démarrer avant son acceptation commerciale (ECF, p. 12).
@@ -192,9 +196,13 @@ class ConversionService
                 $participants,
                 $imagePath,
                 $eventStatus,
-                $isPublished
+                0
             ]);
             $eventId = (int)$this->db->lastInsertId();
+            // L'accord et la visibilité sont enregistrés dans la même transaction que le projet.
+            if ($isPublished && !(new Event())->setPublication($eventId, true, $consentConfirmed, $actorUserId)) {
+                throw new InvalidArgumentException("L'accord de publication n'a pas pu être enregistré.");
+            }
 
             // E. Mise à jour des coordonnées et passage du prospect au statut 'converti'
             $stmtProspect = $this->db->prepare("
@@ -258,7 +266,9 @@ class ConversionService
                 'company_name'           => $companyName,
                 'location'               => $location,
                 'estimated_participants' => $participants,
-                'image_path'             => $imagePath
+                'image_path'             => $imagePath,
+                'publication_requested'  => (bool)$isPublished,
+                'publication_consent_confirmed' => (bool)$isPublished && $consentConfirmed
             ]);
 
             return $devisId;

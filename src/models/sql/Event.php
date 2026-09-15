@@ -62,7 +62,7 @@ class Event
     /**
      * Recherche les événements publics publiés selon les filtres multicritères.
      *
-     * Spécifications CDC (Page 7) : Accord client obligatoire (is_published = 1),
+     * Spécifications CDC (Page 7) : publication demandée et accord client confirmé,
      * statut != 'brouillon', et STRICTEMENT AUCUNE DONNÉE FINANCIÈRE extraite.
      *
      * @param string|null $dateStart Date minimale (format Y-m-d).
@@ -93,6 +93,7 @@ class Event
                 FROM events e
                 LEFT JOIN companies c ON e.company_id = c.id
                 WHERE e.is_published = 1 
+                  AND e.publication_consent_at IS NOT NULL
                   AND e.status != 'brouillon'
             ";
 
@@ -155,6 +156,7 @@ class Event
                 LEFT JOIN companies c ON e.company_id = c.id
                 WHERE e.id = :id 
                   AND e.is_published = 1 
+                  AND e.publication_consent_at IS NOT NULL
                   AND e.status != 'brouillon'
                 LIMIT 1
             ");
@@ -179,14 +181,14 @@ class Event
             $types = $this->db->query("
                 SELECT DISTINCT event_type 
                 FROM events 
-                WHERE is_published = 1 AND status != 'brouillon' AND event_type IS NOT NULL
+                WHERE is_published = 1 AND publication_consent_at IS NOT NULL AND status != 'brouillon' AND event_type IS NOT NULL
                 ORDER BY event_type ASC
             ")->fetchAll(\PDO::FETCH_COLUMN);
 
             $themes = $this->db->query("
                 SELECT DISTINCT theme 
                 FROM events 
-                WHERE is_published = 1 AND status != 'brouillon' AND theme IS NOT NULL AND theme != ''
+                WHERE is_published = 1 AND publication_consent_at IS NOT NULL AND status != 'brouillon' AND theme IS NOT NULL AND theme != ''
                 ORDER BY theme ASC
             ")->fetchAll(\PDO::FETCH_COLUMN);
 
@@ -288,6 +290,7 @@ class Event
                        e.location,
                        e.status,
                        e.is_published,
+                       e.publication_consent_at,
                        e.event_type,
                        e.theme,
                        e.estimated_participants,
@@ -395,19 +398,38 @@ class Event
     }
 
     /**
-     * Bascule la visibilité publique d'un événement.
+     * Enregistre une intention explicite de publication et l'attestation de l'administrateur.
+     * L'accord est recueilli hors application ; cette trace ne vaut pas signature du client.
+     * Le retrait efface l'accord actif : toute republication exige une nouvelle confirmation.
+     * Un brouillon peut être préparé, mais reste exclu des lectures publiques.
+     *
+     * @param int $id Identifiant de l'événement.
+     * @param bool $publish Visibilité demandée, jamais une bascule implicite.
+     * @param bool $consentConfirmed Confirmation volontaire de l'accord client.
+     * @param int $actorUserId Administrateur authentifié ayant recueilli l'accord.
+     * @return bool Une ligne a effectivement été modifiée.
      */
-    public function togglePublish(int $id): bool
+    public function setPublication(int $id, bool $publish, bool $consentConfirmed, int $actorUserId): bool
     {
+        if ($publish && !$consentConfirmed) {
+            return false;
+        }
         try {
-            $stmt = $this->db->prepare("
-                UPDATE events 
-                SET is_published = IF(is_published = 1, 0, 1)
-                WHERE id = :id
-            ");
-            return $stmt->execute([':id' => $id]);
+            $sql = $publish
+                ? 'UPDATE events SET is_published = 1, publication_consent_at = NOW(), publication_consent_by = :actor
+                   WHERE id = :id AND (is_published = 0 OR publication_consent_at IS NULL)'
+                : 'UPDATE events SET is_published = 0, publication_consent_at = NULL, publication_consent_by = NULL
+                   WHERE id = :id AND (is_published = 1 OR publication_consent_at IS NOT NULL)';
+            $sql .= " AND EXISTS (SELECT 1 FROM users WHERE id = :admin AND role = 'ADMIN' AND is_deleted = 0 AND must_change_password = 0)";
+            $params = [':id' => $id, ':admin' => $actorUserId];
+            if ($publish) {
+                $params[':actor'] = $actorUserId;
+            }
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            return $stmt->rowCount() === 1;
         } catch (\PDOException $e) {
-            error_log(sprintf("[Event::togglePublish] Erreur SQL event #%d : %s", $id, $e->getMessage()));
+            error_log(sprintf("[Event::setPublication] Erreur SQL event #%d : %s", $id, $e->getMessage()));
             return false;
         }
     }

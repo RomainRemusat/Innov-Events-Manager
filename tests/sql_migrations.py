@@ -56,7 +56,8 @@ def main():
                 '`' + name + '`' for name in rows(database,
                     f"SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{database}' "
                     f"AND TABLE_NAME = '{table}' AND NOT (TABLE_NAME = 'devis' AND COLUMN_NAME IN ('event_id', 'revision')) "
-                    "AND NOT (TABLE_NAME = 'prospects' AND COLUMN_NAME = 'rejection_reason') ORDER BY ORDINAL_POSITION")
+                    "AND NOT (TABLE_NAME = 'prospects' AND COLUMN_NAME = 'rejection_reason') "
+                    "AND NOT (TABLE_NAME = 'events' AND COLUMN_NAME IN ('publication_consent_at', 'publication_consent_by')) ORDER BY ORDINAL_POSITION")
             ) + f" FROM {table} ORDER BY 1").stdout).hexdigest()
             for table in TABLES
         }
@@ -146,6 +147,7 @@ def main():
                     ALTER montant_ht DROP DEFAULT, ALTER tva DROP DEFAULT;
                 ALTER TABLE devis DROP FOREIGN KEY fk_devis_event, DROP COLUMN event_id;
                 ALTER TABLE devis DROP COLUMN revision;
+                ALTER TABLE events DROP COLUMN publication_consent_at, DROP COLUMN publication_consent_by;
                 ALTER TABLE prospects DROP COLUMN rejection_reason;
             """)
 
@@ -158,8 +160,10 @@ def main():
                 assert structure(database) == expected, f"Schéma divergent dans {database}, passage {pass_number}"
                 if database == 'migrated':
                     assert rows(database, 'SELECT COUNT(*) FROM devis WHERE event_id IS NOT NULL') == ['0'], 'Lien historique deviné'
+                    assert rows(database, 'SELECT COUNT(*) FROM events WHERE publication_consent_at IS NOT NULL OR publication_consent_by IS NOT NULL') == ['0'], 'Accord historique inventé'
                 else:
                     assert rows(database, 'SELECT event_id FROM devis ORDER BY id_devis') == ['1', '2', '3', '4', '4'], 'Liens existants modifiés'
+                    assert rows(database, 'SELECT id FROM events WHERE publication_consent_at IS NOT NULL AND publication_consent_by = 1 ORDER BY id') == ['1', '2'], 'Accords de démonstration modifiés'
             print(f"OK : {database}, deux passages des {len(migrations)} migrations, données et contraintes préservées", flush=True)
 
         sql("invalid", schema)

@@ -124,7 +124,8 @@ class AdminEventController extends BaseController
     }
 
     /**
-     * Bascule la visibilité publique d'un événement (ADMIN uniquement).
+     * Applique la visibilité demandée avec attestation explicite de l'accord client.
+     * Le nom de la route historique est conservé ; aucune bascule implicite n'est effectuée.
      */
     public function togglePublish(): void
     {
@@ -139,9 +140,23 @@ class AdminEventController extends BaseController
 
         $eventId = (int)($_POST['event_id'] ?? 0);
 
-        if ($eventId > 0) {
-            $eventModel = new Event();
-            $eventModel->togglePublish($eventId);
+        $publication = $_POST['publish'] ?? '';
+        $confirmed = ($_POST['publication_consent'] ?? '') === '1';
+        if ($eventId <= 0 || !in_array($publication, ['0', '1'], true)) {
+            $_SESSION['flash_error'] = 'Événement ou action de publication invalide.';
+        } elseif ($publication === '1' && !$confirmed) {
+            $_SESSION['flash_error'] = "Confirmez l'accord du client avant de demander la publication.";
+        } elseif ((new Event())->setPublication($eventId, $publication === '1', $confirmed, (int)$_SESSION['user_id'])) {
+            (new Log())->addLog('MODIFICATION_PUBLICATION_EVENEMENT', (int)$_SESSION['user_id'], [
+                'event_id' => $eventId,
+                'is_published' => $publication === '1',
+                'publication_consent_confirmed' => $publication === '1' && $confirmed,
+            ]);
+            $_SESSION['flash_success'] = $publication === '1'
+                ? 'Accord enregistré. La publication est activée uniquement hors brouillon.'
+                : 'Événement masqué. Une republication nécessitera une nouvelle confirmation.';
+        } else {
+            $_SESSION['flash_error'] = 'Publication non modifiée : événement introuvable, déjà à jour ou erreur de sauvegarde. Rechargez la page.';
         }
 
         header("Location: index.php?action=admin_event_detail&id={$eventId}");

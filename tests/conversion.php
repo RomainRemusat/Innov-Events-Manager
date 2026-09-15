@@ -51,8 +51,19 @@ try {
         'description' => 'Projet ajusté pendant la conversion',
     ];
     $service = new ConversionService();
+    foreach ([['is_visible' => '1'], ['is_visible' => '1', 'publication_consent' => 'on']] as $publication) {
+        try {
+            $service->convertProspectToClient(array_merge($data, $publication), null, 1);
+            throw new RuntimeException('Publication sans accord acceptée');
+        } catch (InvalidArgumentException $e) {
+            verify($pdo->query("SELECT status FROM prospects WHERE id = $prospectId")->fetchColumn() === 'à contacter',
+                'La publication refusée ne doit pas convertir le prospect');
+        }
+    }
     $devisId = $service->convertProspectToClient($data, null, 1);
     $event = $pdo->query('SELECT * FROM events ORDER BY id DESC LIMIT 1')->fetch();
+    verify((int)$event['is_published'] === 0 && $event['publication_consent_at'] === null,
+        'Un nouveau projet doit être privé par défaut');
     verify($event['start_date'] === '2026-10-12 14:30:00', 'Date de début incorrecte');
     verify($event['title'] === $data['event_title'] && (int)$event['client_id'] === 4
         && (int)$event['company_id'] === 3 && $event['status'] === 'brouillon', 'Événement incorrect');
@@ -81,8 +92,14 @@ try {
     $data['prospect_id'] = (int)$pdo->lastInsertId();
     $data['event_title'] = 'Deuxième projet du même client';
     $data['event_status'] = 'planifié';
+    $data['is_visible'] = '1';
+    $data['publication_consent'] = '1';
     $secondQuote = $service->convertProspectToClient($data, null, 1);
+    unset($data['is_visible'], $data['publication_consent']);
     $secondEvent = (int)$pdo->query("SELECT event_id FROM devis WHERE id_devis = $secondQuote")->fetchColumn();
+    verify((new Event())->findPublishedById($secondEvent) !== null, 'Projet confirmé non publié');
+    verify((int)$pdo->query("SELECT publication_consent_by FROM events WHERE id = $secondEvent")->fetchColumn() === 1,
+        'Auteur de la confirmation absent');
     verify($pdo->query("SELECT status FROM events WHERE id = $secondEvent")->fetchColumn() === 'planifié',
         'Le statut initial planifié doit être conservé');
     $first = $devisModel->findByEventIdWithPrestations((int)$event['id']);
@@ -101,6 +118,31 @@ try {
 
     $eventModel = new Event();
     $eventId = (int)$event['id'];
+    verify(!$eventModel->setPublication($eventId, true, false, 1), 'Publication sans accord autorisée');
+    verify(!$eventModel->setPublication($eventId, true, true, 2), 'Employé autorisé à publier');
+    verify(!$eventModel->setPublication($eventId, true, true, 3), 'Client autorisé à publier');
+    verify(!$eventModel->setPublication(2147483647, true, true, 1), 'Événement inexistant publié');
+    verify($eventModel->setPublication($eventId, true, true, 1), 'Confirmation refusée');
+    verify($eventModel->findPublishedById($eventId) === null, 'Brouillon exposé malgré son statut');
+    $pdo->exec("UPDATE events SET status = 'planifié', event_type = 'PublicationTest', theme = 'ConsentTest' WHERE id = $eventId");
+    verify($eventModel->findPublishedById($eventId) !== null, 'Événement confirmé non accessible');
+    verify(count($eventModel->findPublishedEvents(null, null, 'PublicationTest', 'ConsentTest')) === 1,
+        'Catalogue confirmé incorrect');
+    verify(in_array('PublicationTest', $eventModel->getFilterCriteria()['types'], true), 'Type confirmé absent');
+    verify(!$eventModel->setPublication($eventId, true, true, 1), 'Une requête répétée ne doit pas réécrire la confirmation');
+    verify($eventModel->setPublication($eventId, false, false, 1), 'Retrait refusé');
+    verify($eventModel->findPublishedById($eventId) === null, 'Fiche encore publique après retrait');
+    verify($eventModel->findPublishedEvents(null, null, 'PublicationTest') === [], 'Catalogue exposé après retrait');
+    verify(!in_array('ConsentTest', $eventModel->getFilterCriteria()['themes'], true), 'Filtre exposé après retrait');
+    verify(!$eventModel->setPublication($eventId, true, false, 1), 'Republication sans nouvel accord');
+    $pdo->exec("UPDATE events SET is_published = 1 WHERE id = $eventId");
+    verify($eventModel->findPublishedById($eventId) === null, 'Ancien événement publié sans accord exposé');
+    verify($eventModel->findPublishedEvents(null, null, 'PublicationTest') === [], 'Ancien événement dans le catalogue');
+    verify(!in_array('PublicationTest', $eventModel->getFilterCriteria()['types'], true), 'Ancien type exposé');
+    verify($eventModel->setPublication($eventId, true, true, 1), 'Reconfirmation historique refusée');
+    verify($eventModel->setPublication($eventId, false, false, 1), 'Second retrait refusé');
+    $pdo->exec("UPDATE events SET status = 'brouillon' WHERE id = $eventId");
+    echo "OK : accord explicite, auteur, droits, brouillon, catalogue, fiche, filtres, historique et retrait.\n";
     verify(!$eventModel->updateStatus($eventId, 'inconnu', 'brouillon'), 'Statut inconnu accepté');
     verify(!$eventModel->updateStatus($eventId, 'en cours', 'brouillon'), 'Démarrage sans devis accepté');
     $pdo->exec("UPDATE devis SET status = 'accepté' WHERE id_devis = $devisId");

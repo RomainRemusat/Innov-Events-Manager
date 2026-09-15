@@ -106,6 +106,8 @@ estimated_participants INT NULL,
 image_path VARCHAR(255) NULL,
 status VARCHAR(50) NOT NULL DEFAULT 'brouillon',
 is_published TINYINT(1) NOT NULL DEFAULT 0,
+publication_consent_at DATETIME NULL,
+publication_consent_by INT NULL COMMENT 'Identifiant historique de l administrateur attestant l accord client',
 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 CONSTRAINT fk_events_client
 FOREIGN KEY (client_id) REFERENCES users(id)

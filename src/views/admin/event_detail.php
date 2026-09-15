@@ -128,7 +128,7 @@
                                 </li>
                                 <li>
                                     <strong>Visibilité publique :</strong>
-                                    <?= (!empty($event['is_published']))
+                                    <?= (!empty($event['is_published']) && !empty($event['publication_consent_at']) && $event['status'] !== 'brouillon')
                                         ? '<span class="badge bg-success-subtle text-success border border-success-subtle">Publié sur la vitrine</span>'
                                         : '<span class="badge bg-warning-subtle text-dark border border-warning-subtle">Masqué (Privé)</span>' ?>
                                 </li>
@@ -137,6 +137,32 @@
                     </div>
 
                     <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
+                    <section class="card shadow-sm border-0" aria-labelledby="publication-title">
+                        <div class="card-header fw-bold" id="publication-title">Publication et accord client</div>
+                        <div class="card-body">
+                            <?php if (!empty($event['publication_consent_at'])): ?>
+                                <p class="small">Accord confirmé le <?= htmlspecialchars($event['publication_consent_at'], ENT_QUOTES, 'UTF-8') ?> par l'administrateur #<?= (int)$event['publication_consent_by'] ?>.</p>
+                            <?php else: ?>
+                                <p class="small">Aucun accord de publication confirmé. L'événement reste masqué.</p>
+                            <?php endif; ?>
+                            <p class="small text-muted">Un brouillon reste masqué même lorsque sa publication est préparée.</p>
+                            <form method="POST" action="index.php?action=admin_event_toggle_publish">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="event_id" value="<?= (int)$event['id'] ?>">
+                                <?php if (empty($event['is_published']) || empty($event['publication_consent_at'])): ?>
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" id="publication_consent" name="publication_consent" value="1" required>
+                                        <label class="form-check-label" for="publication_consent">Je confirme avoir recueilli l'accord du client pour la publication de cet événement et de son illustration.</label>
+                                    </div>
+                                    <button class="btn btn-primary btn-sm" name="publish" value="1">Confirmer l'accord et activer la publication</button>
+                                <?php endif; ?>
+                                <?php if (!empty($event['is_published'])): ?>
+                                    <button class="btn btn-outline-secondary btn-sm" name="publish" value="0" formnovalidate>Retirer la publication et l'accord actif</button>
+                                <?php endif; ?>
+                            </form>
+                        </div>
+                    </section>
+
                     <!-- Carte de téléversement média -->
                     <div class="card shadow-sm border-0">
                         <div class="card-header bg-light fw-bold py-3">
