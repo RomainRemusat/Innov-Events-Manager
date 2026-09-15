@@ -10,7 +10,7 @@
  * @package    InnovEventsManager
  * @subpackage Core
  * @author     Romain Remusat
- * @version    1.4.0
+ * @version    1.6.0
  */
 
 // Chargement des dépendances métiers (Contrôleurs)
@@ -100,7 +100,10 @@ switch (true) {
             header('Location: index.php?action=login');
             exit();
         }
+        $pageTitle = "Définition de votre mot de passe - Innov'Events";
+        require __DIR__ . '/../src/views/partials/header.php';
         require __DIR__ . '/../src/views/public/force_password_change.php';
+        require __DIR__ . '/../src/views/partials/footer.php';
         break;
 
     case ($action === 'update_forced_password'):
@@ -108,7 +111,7 @@ switch (true) {
         break;
 
     // -------------------------------------------------------------------
-    // ROUTES : TABLEAU DE BORD & PROSPECTS (Espace Admin / Staff)
+    // ROUTES : TABLEAU DE BORD ADMINISTRATION (DashboardController)
     // -------------------------------------------------------------------
     case ($action === 'dashboard'):
         (new DashboardController())->showDashboard();
@@ -123,12 +126,13 @@ switch (true) {
         (new DashboardController())->showProspectDetails($id);
         break;
 
+    case ($action === 'update_prospect_status'):
+        (new DashboardController())->updateProspectStatus();
+        break;
+
     case ($action === 'show_convert_form'):
-        if (isset($_GET['id']) && is_numeric($_GET['id'])) {
-            (new DashboardController())->showConvertForm((int)$_GET['id']);
-        } else {
-            header('Location: index.php?action=dashboard');
-        }
+        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        (new DashboardController())->showConvertForm($id);
         break;
 
     case ($action === 'process_conversion'):
@@ -139,24 +143,8 @@ switch (true) {
         }
         break;
 
-    case ($action === 'update_prospect_status'):
-        (new DashboardController())->updateProspectStatus();
-        break;
-
-    case ($action === 'admin_events'):
-        (new AdminEventController())->listEvents();
-        break;
-
-    case ($action === 'admin_event_update_status'):
-        (new AdminEventController())->updateStatus();
-        break;
-
-    case ($action === 'admin_event_detail'):
-        (new AdminEventController())->showEventDetail();
-        break;
-
     // -------------------------------------------------------------------
-    // ROUTES : GESTION DES DEVIS & PRESTATIONS (QuoteController - Back-Office)
+    // ROUTES : GESTION DES DEVIS BACK-OFFICE (QuoteController)
     // -------------------------------------------------------------------
     case ($action === 'admin_devis'):
         (new QuoteController())->showDevisList();
@@ -164,57 +152,62 @@ switch (true) {
 
     case ($action === 'edit_devis'):
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-        if ($id > 0) {
-            (new QuoteController())->editDevis($id);
-        } else {
-            header('Location: index.php?action=admin_devis');
-        }
+        (new QuoteController())->editDevis($id);
         break;
 
     case ($action === 'add_prestation'):
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            (new QuoteController())->addPrestation($_POST);
-        } else {
-            header('Location: index.php?action=admin_devis');
-        }
+        (new QuoteController())->addPrestation($_POST);
         break;
 
     case ($action === 'delete_prestation'):
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            (new QuoteController())->deletePrestation($_POST);
-        } else {
-            header('Location: index.php?action=admin_devis');
-        }
-        break;
-
-    case ($action === 'admin_add_note'):
-        (new AdminEventController())->addNote();
-        break;
-
-    case ($action === 'admin_upload_image'):
-        (new AdminEventController())->uploadImage();
+        (new QuoteController())->deletePrestation($_POST);
         break;
 
     // -------------------------------------------------------------------
-    // ROUTES : ADMINISTRER LES CLIENTS (AdminClientController - Back-Office)
+    // ROUTES : GESTION DES ÉVÉNEMENTS BACK-OFFICE (AdminEventController)
+    // -------------------------------------------------------------------
+    case ($action === 'admin_events'):
+        (new AdminEventController())->listEvents();
+        break;
+
+    case ($action === 'admin_event_detail'):
+        (new AdminEventController())->showEventDetail();
+        break;
+
+    case ($action === 'admin_event_update_status'):
+        (new AdminEventController())->updateStatus();
+        break;
+
+    case ($action === 'admin_event_toggle_publish'):
+        (new AdminEventController())->togglePublish();
+        break;
+
+    case ($action === 'admin_event_add_note' || $action === 'admin_add_note'):
+        (new AdminEventController())->addNote();
+        break;
+
+    // -------------------------------------------------------------------
+    // ROUTES : GESTION DES CLIENTS BACK-OFFICE (AdminClientController)
     // -------------------------------------------------------------------
     case ($action === 'admin_clients'):
         (new AdminClientController())->showClientsList();
         break;
 
-    case ($action === 'view_client' && isset($_GET['id'])):
-        (new AdminClientController())->showClientDetails((int)$_GET['id']);
+    case ($action === 'view_client'):
+        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        (new AdminClientController())->showClientDetails($id);
         break;
 
-    case ($action === 'edit_client' && isset($_GET['id'])):
-        (new AdminClientController())->showEditClientForm((int)$_GET['id']);
+    case ($action === 'edit_client'):
+        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        (new AdminClientController())->showEditClientForm($id);
         break;
 
-    case ($action === 'update_client' && $_SERVER['REQUEST_METHOD'] === 'POST'):
+    case ($action === 'update_client'):
         (new AdminClientController())->updateClient($_POST);
         break;
 
-    case ($action === 'delete_client' && $_SERVER['REQUEST_METHOD'] === 'POST'):
+    case ($action === 'delete_client'):
         (new AdminClientController())->deleteClient($_POST);
         break;
 
@@ -253,6 +246,11 @@ switch (true) {
         (new PdfController())->generatePdf($id);
         break;
 
+    case ($action === 'download_pdf'):
+        $file = trim($_GET['file'] ?? '');
+        (new PdfController())->downloadPdf($file);
+        break;
+
     case ($action === 'send_quote_to_client'):
         $id = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
         if ($id > 0) {
@@ -261,7 +259,6 @@ switch (true) {
             header('Location: index.php?action=admin_devis');
         }
         break;
-
 
     // -------------------------------------------------------------------
     // ROUTES : VITRINE ÉVÉNEMENTS (Espace Public)
@@ -273,7 +270,6 @@ switch (true) {
     case ($action === 'event_detail'):
         (new EventController())->showPublicDetail();
         break;
-
 
     // -------------------------------------------------------------------
     // ROUTE PAR DÉFAUT : PAGE D'ACCUEIL (Espace Public)

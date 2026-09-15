@@ -1,51 +1,44 @@
 <?php
+/**
+ * Contrôleur : ClientController (Espace Personnel & Suivi Commercial B2B)
+ *
+ * Ce contrôleur orchestre le parcours utilisateur au sein de l'espace client dédié :
+ * - Consultation de l'état d'avancement des devis.
+ * - Réponse contractuelle (Validation, Refus, Demande de modification).
+ * - Traçabilité multi-bases (Mise à jour MySQL et flux d'audit MongoDB).
+ * - Notifications e-mail transactionnelles vers l'équipe commerciale (Chloé).
+ * - Gestion du profil et droit à l'oubli RGPD (Suppression définitive sécurisée).
+ *
+ * @package    InnovEventsManager
+ * @subpackage Controllers
+ * @author     Romain Remusat
+ * @version    2.5.0
+ */
 
+// 1. Héritage du contrôleur de base (Sécurité centralisée)
 require_once __DIR__ . '/BaseController.php';
+
+// 2. Modèles et Services nécessaires
 require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/sql/Prospect.php';
 require_once __DIR__ . '/../models/sql/Devis.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
 
-
-/**
- * Contrôleur : ClientController (Front-Office)
- *
- * Gère l'espace privé réservé aux utilisateurs ayant le rôle CLIENT :
- * consultation du tableau de bord, arbitrage des devis (Acceptation / Refus / Modification),
- * gestion du profil et suppression du compte (RGPD).
- *
- * Exigences respectées (ECF) :
- * - AT1 : Contrôle d'accès par rôle (RBAC), validation Anti-CSRF.
- * - AT2 : Mise à jour des statuts de devis et journalisation NoSQL (MongoDB).
- *
- * @package    InnovEventsManager
- * @subpackage Controllers
- * @author     Romain Remusat
- * @version    2.3.0
- */
 class ClientController extends BaseController
 {
     /**
-     * Vérification stricte de l'authentification et du rôle CLIENT.
-     *
-     * @return void
-     */
-    private function checkClientPermission(): void
-    {
-        $this->checkAuth(['CLIENT']);
-    }
-
-    /**
-     * Affiche le tableau de bord client avec la liste des devis et projets.
+     * Point d'entrée principal : Affiche le tableau de bord client avec la liste des devis.
      *
      * @return void
      */
     public function showDashboard(): void
     {
-        $this->checkClientPermission();
+        $this->checkAuth(['CLIENT']);
+
         $clientId = (int)$_SESSION['user_id'];
-        $clientName = $_SESSION['user_name'] ?? 'Client';
+        $clientName = trim(($_SESSION['user_firstname'] ?? '') . ' ' . ($_SESSION['user_lastname'] ?? ''));
+        $clientEmail = $_SESSION['user_email'] ?? '';
 
         $prospectModel = new Prospect();
         $myQuotes = $prospectModel->findClientRequests($clientId);
@@ -56,92 +49,88 @@ class ClientController extends BaseController
     /**
      * Traite l'arbitrage du client sur un devis (Accepter / Refuser / Demande de modification).
      *
-     * @param  array $postData Données soumises via le formulaire POST.
+     * @param array $postData Payload soumis via formulaire POST
      * @return void
      */
     public function handleQuoteResponse(array $postData): void
     {
-        $this->checkClientPermission();
+        $this->checkAuth(['CLIENT']);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=client_dashboard');
+            exit();
+        }
+
+        // 1. Validation Anti-CSRF
         $this->validateCsrf($postData);
 
-        // Extraction de l'identifiant (compatibilité devis_id et prospect_id)
-        $devisId = (int)($postData['devis_id'] ?? $postData['prospect_id'] ?? 0);
+        // 2. Extraction et nettoyage des entrées
+        $devisId = (int)($postData['devis_id'] ?? 0);
         $action  = trim($postData['quote_action'] ?? '');
         $reason  = trim($postData['change_reason'] ?? '');
+        $userId  = (int)$_SESSION['user_id'];
 
-        // 1. Validation des actions autorisées par le cahier des charges (AT2)
         if ($devisId <= 0 || !in_array($action, ['accept', 'reject', 'request_change'], true)) {
-            $_SESSION['client_error'] = "Action non reconnue ou dossier invalide.";
+            $_SESSION['client_error'] = "Action non autorisée ou identifiant de devis manquant.";
             header('Location: index.php?action=client_dashboard');
             exit();
         }
 
-        $db = Database::getInstance();
+        // 3. Vérification de la propriété du devis (Contrôle d'accès IDOR)
+        $devisModel = new Devis();
+        $devis = $devisModel->findWithProspect($devisId);
 
-        // 2. Contrôle de propriété du devis + Récupération de company_name pour les notifications
-        $stmt = $db->prepare("
-            SELECT d.id_devis, d.id_prospect, p.user_id, p.company_name
-            FROM devis d
-            JOIN prospects p ON d.id_prospect = p.id
-            WHERE d.id_devis = ? AND p.user_id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$devisId, $_SESSION['user_id']]);
-        $devis = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$devis) {
-            $_SESSION['client_error'] = "Action non autorisée sur ce dossier.";
+        if (!$devis || (int)$devis['user_id'] !== $userId) {
+            $_SESSION['client_error'] = "Vous n'avez pas l'autorisation d'interagir avec ce devis.";
             header('Location: index.php?action=client_dashboard');
             exit();
         }
 
-        // 3. Mapping vers le statut commercial BDD
-        $newStatus = match ($action) {
-            'accept'         => 'accepté',
-            'reject'         => 'refusé',
-            'request_change' => 'modification',
-        };
+        // 4. Invariant de cycle de vie : Seuls les devis en cours d'examen peuvent recevoir une décision
+        $currentStatus = strtolower($devis['status'] ?? '');
+        if (!in_array($currentStatus, ['étude côté client', 'devis envoyé', 'brouillon'], true)) {
+            $_SESSION['client_error'] = "Ce devis ne peut plus être modifié (statut actuel : " . htmlspecialchars($currentStatus) . ").";
+            header('Location: index.php?action=client_dashboard');
+            exit();
+        }
 
-        // 4. Mise à jour du statut du devis dans MySQL
-        $stmtUpdate = $db->prepare("UPDATE devis SET status = ? WHERE id_devis = ?");
-        $stmtUpdate->execute([$newStatus, $devisId]);
+        // 5. Exécution de la transition d'état et règles métiers
+        $mailService = new MailService();
+        $companyName = $devis['company_name'] ?? 'Client B2B';
 
-        // 5. Notification par courriel centralisée à l'équipe commerciale
-        try {
-            $mailService = new MailService();
-            $companyName = !empty($devis['company_name']) ? $devis['company_name'] : 'Client';
-
-            if ($action === 'accept') {
+        switch ($action) {
+            case 'accept':
+                $devisModel->updateStatus($devisId, 'accepté');
                 $mailService->sendQuoteAcceptedEmail($companyName, $devisId);
-            } elseif ($action === 'request_change') {
-                $mailService->sendModificationRequestEmail($companyName, $devisId, $reason);
-            } elseif ($action === 'reject') {
-                $mailService->sendQuoteRejectedEmail($companyName, $devisId);
-            }
+                break;
 
-        } catch (\Exception $e) {
-            error_log("Erreur d'envoi du courriel de réponse devis : " . $e->getMessage());
+            case 'reject':
+                $devisModel->updateStatus($devisId, 'refusé');
+                $mailService->sendQuoteRejectedEmail($companyName, $devisId);
+                break;
+
+            case 'request_change':
+                if (empty($reason) || mb_strlen($reason) < 5) {
+                    $_SESSION['client_error'] = "Veuillez préciser le motif de votre demande d'ajustement (au moins 5 caractères).";
+                    header('Location: index.php?action=client_dashboard');
+                    exit();
+                }
+
+                $devisModel->updateStatus($devisId, 'modification');
+                $mailService->sendModificationRequestEmail($companyName, $devisId, $reason);
+                break;
         }
 
-        // 6. Journalisation d'audit dans MongoDB (AT2)
+        // 6. Double persistance & Audit NoSQL MongoDB
         try {
             $logModel = new Log();
-            $logMsg = match ($action) {
-                'accept'         => "Devis #{$devisId} ACCEPTÉ par le client.",
-                'reject'         => "Devis #{$devisId} REFUSÉ par le client.",
-                'request_change' => "Demande de MODIFICATION du devis #{$devisId} par le client : {$reason}",
-            };
-
-            $logModel->addLog(
-                "REPONSE_DEVIS_CLIENT",
-                (int)$_SESSION['user_id'],
-                [
-                    'message' => $logMsg,
-                    'devis_id'      => $devisId,
-                    'action'        => $action,
-                    'change_reason' => $reason
-                ]
-            );
+            $logModel->addLog("REPONSE_DEVIS_CLIENT", $userId, [
+                'message'       => "Décision client enregistrée sur le devis #{$devisId} : {$action}",
+                'devis_id'      => $devisId,
+                'client_action' => $action,
+                'reason'        => $reason,
+                'new_status'    => ($action === 'accept') ? 'accepté' : (($action === 'reject') ? 'refusé' : 'modification')
+            ]);
         } catch (\Exception $e) {
             error_log("Erreur Log MongoDB (handleQuoteResponse) : " . $e->getMessage());
         }
@@ -158,9 +147,9 @@ class ClientController extends BaseController
     }
 
     /**
-     * Alias de routage vers handleQuoteResponse pour la compatibilité d'action URL.
+     * Alias de routage vers handleQuoteResponse pour la rétro-compatibilité.
      *
-     * @param  array $postData
+     * @param array $postData
      * @return void
      */
     public function respondToQuote(array $postData): void
@@ -169,58 +158,69 @@ class ClientController extends BaseController
     }
 
     /**
-     * Affiche la page de profil du client connecté.
-     *
-     * @return void
+     * Affiche la page de profil du client (Gestion des données et RGPD).
      */
     public function showProfile(): void
     {
-        $this->checkClientPermission();
+        $this->checkAuth(['CLIENT']);
 
-        $clientName  = $_SESSION['user_name'] ?? '';
+        $clientName = trim(($_SESSION['user_firstname'] ?? '') . ' ' . ($_SESSION['user_lastname'] ?? ''));
         $clientEmail = $_SESSION['user_email'] ?? '';
 
         require __DIR__ . '/../views/client/profile.php';
     }
 
     /**
-     * Traite la suppression définitive du compte client (Conformité RGPD).
-     *
-     * @return void
+     * Traite la demande de suppression définitive du compte (Droit à l'oubli RGPD).
      */
     public function deleteAccount(): void
     {
-        $this->checkClientPermission();
+        $this->checkAuth(['CLIENT']);
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $this->validateCsrf($_POST);
-            $userId = (int)$_SESSION['user_id'];
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=client_profile');
+            exit();
+        }
+
+        $this->validateCsrf($_POST);
+
+        $userId = (int)($_SESSION['user_id'] ?? 0);
+        if ($userId > 0) {
             $userModel = new User();
+            $userModel->deleteAccount($userId);
 
-            if ($userModel->deleteAccount($userId)) {
-                try {
-                    $logModel = new Log();
-                    $logModel->addLog("SUPPRESSION_RGPD", $userId, [
-                        'message' => "L'utilisateur ID $userId a supprimé son compte."
-                    ]);
-                } catch (\Exception $e) {
-                    error_log("Erreur d'audit MongoDB (Suppression RGPD) : " . $e->getMessage());
-                }
-
-                session_unset();
-                session_destroy();
-
-                session_start();
-                $_SESSION['global_success'] = "Conformément au RGPD, votre compte et l'intégralité de vos données ont été définitivement supprimés de nos serveurs.";
-
-                header('Location: index.php');
-                exit();
-            } else {
-                $_SESSION['client_error'] = "Erreur technique lors de la suppression de vos données. Veuillez contacter le support.";
+            try {
+                $logModel = new Log();
+                $logModel->addLog("DELETE_ACCOUNT_RGPD", $userId, [
+                    'message' => "Suppression définitive du compte demandée par le client #{$userId} (Droit à l'oubli)",
+                    'user_id' => $userId
+                ]);
+            } catch (\Exception $e) {
+                error_log("Erreur MongoDB log deleteAccount : " . $e->getMessage());
             }
+
+            session_destroy();
+            header('Location: index.php?action=login');
+            exit();
         }
 
         header('Location: index.php?action=client_profile');
         exit();
+    }
+
+    /**
+     * Permet au client connecté de télécharger son devis PDF.
+     * Sécurisé contre l'IDOR en vérifiant l'appartenance du fichier.
+     *
+     * @param string $fileName Nom du fichier PDF demandé.
+     * @return void
+     */
+    public function downloadQuote(string $fileName): void
+    {
+        $this->checkAuth(['CLIENT']);
+
+        require_once __DIR__ . '/PdfController.php';
+        $pdfController = new PdfController();
+        $pdfController->downloadPdf($fileName);
     }
 }
