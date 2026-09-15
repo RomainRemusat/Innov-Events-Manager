@@ -15,7 +15,7 @@
  * @package    InnovEventsManager
  * @subpackage Views\Admin
  * @author     Innov'Events
- * @version    2.1.0
+ * @version    2.2.0
  *
  * @var array $devis       Données consolidées du devis et du prospect associé.
  * @var array $prestations Collection des lignes de prestations rattachées au devis.
@@ -101,6 +101,25 @@ $totalTTC = $totalHT + $totalTVA;
                 </div>
             </div>
 
+            <!-- Messages Flash -->
+            <?php if (!empty($_SESSION['flash_success'])): ?>
+                <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+                    <i class="bi bi-check-circle-fill me-2" aria-hidden="true"></i>
+                    <?= htmlspecialchars($_SESSION['flash_success'], ENT_QUOTES, 'UTF-8'); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+                </div>
+                <?php unset($_SESSION['flash_success']); ?>
+            <?php endif; ?>
+
+            <?php if (!empty($_SESSION['flash_error'])): ?>
+                <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>
+                    <?= htmlspecialchars($_SESSION['flash_error'], ENT_QUOTES, 'UTF-8'); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+                </div>
+                <?php unset($_SESSION['flash_error']); ?>
+            <?php endif; ?>
+
             <!-- Alerte explicite si le devis est en demande de modification -->
             <?php if (strtolower($devis['status'] ?? '') === 'modification'): ?>
                 <div class="alert alert-warning border-warning shadow-sm mb-4 p-3" role="alert">
@@ -124,167 +143,207 @@ $totalTTC = $totalHT + $totalTVA;
                 </div>
             <?php endif; ?>
 
-
-
             <!-- =============================================================== -->
-            <!-- SYNTHÈSE DU CAHIER DES CHARGES (BESOINS EXPRIMÉS ET BUDGET)     -->
+            <!-- CORPS PRINCIPAL : CAHIER DES CHARGES & GESTION DES PRESTATIONS -->
             <!-- =============================================================== -->
-            <div class="card border-0 shadow-sm mb-4" style="border-left: 4px solid #3B82F6 !important;">
-                <div class="card-body bg-white p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h2 class="h6 fw-bold mb-0 text-dark">
-                            <i class="bi bi-clipboard-check text-primary me-2" aria-hidden="true"></i>Spécifications du projet & Besoins exprimés
-                        </h2>
-                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-3 py-2 fw-bold">
-                            Budget indicatif : <?= number_format((float)($devis['budget'] ?? 0), 2, ',', ' ') ?> € HT
-                        </span>
+            <div class="row g-4">
+
+                <!-- ----------------------------------------------------------- -->
+                <!-- COLONNE GAUCHE : RECAPITULATIF DU PROJET ET CONTACT         -->
+                <!-- ----------------------------------------------------------- -->
+                <div class="col-lg-5">
+                    <div class="card border-0 shadow-sm rounded-3">
+                        <div class="card-header bg-white border-bottom border-light py-3">
+                            <h2 class="h6 fw-bold mb-0 text-dark">
+                                <i class="bi bi-card-text text-primary me-2" aria-hidden="true"></i>Cahier des Charges & Contact
+                            </h2>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row mb-0 small">
+                                <dt class="col-sm-5 text-muted">Interlocuteur :</dt>
+                                <dd class="col-sm-7 fw-bold text-dark">
+                                    <?= htmlspecialchars($devis['contact_name'] ?? 'Non renseigné', ENT_QUOTES, 'UTF-8') ?>
+                                </dd>
+
+                                <dt class="col-sm-5 text-muted">Courriel :</dt>
+                                <dd class="col-sm-7">
+                                    <a href="mailto:<?= htmlspecialchars($devis['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="text-decoration-none">
+                                        <?= htmlspecialchars($devis['email'] ?? 'Non renseigné', ENT_QUOTES, 'UTF-8') ?>
+                                    </a>
+                                </dd>
+
+                                <dt class="col-sm-5 text-muted">Téléphone :</dt>
+                                <dd class="col-sm-7">
+                                    <?= htmlspecialchars($devis['phone'] ?? 'Non renseigné', ENT_QUOTES, 'UTF-8') ?>
+                                </dd>
+
+                                <dt class="col-sm-5 text-muted">Type de projet :</dt>
+                                <dd class="col-sm-7">
+                                    <span class="badge bg-light text-dark border">
+                                        <?= htmlspecialchars($devis['event_type'] ?? 'Autre', ENT_QUOTES, 'UTF-8') ?>
+                                    </span>
+                                </dd>
+
+                                <dt class="col-sm-5 text-muted">Date projetée :</dt>
+                                <dd class="col-sm-7">
+                                    <?= !empty($devis['event_date']) ? date('d/m/Y', strtotime($devis['event_date'])) : 'À déterminer' ?>
+                                </dd>
+
+                                <dt class="col-sm-5 text-muted">Lieu envisagé :</dt>
+                                <dd class="col-sm-7">
+                                    <?= htmlspecialchars($devis['location'] ?? 'Non précisé', ENT_QUOTES, 'UTF-8') ?>
+                                </dd>
+
+                                <dt class="col-sm-5 text-muted">Participants :</dt>
+                                <dd class="col-sm-7">
+                                    <?= !empty($devis['estimated_participants']) ? number_format((int)$devis['estimated_participants'], 0, ',', ' ') . ' pers.' : 'Non précisé' ?>
+                                </dd>
+
+                                <dt class="col-sm-5 text-muted">Budget indicatif :</dt>
+                                <dd class="col-sm-7 fw-bold text-success">
+                                    <?= !empty($devis['budget']) ? number_format((float)$devis['budget'], 2, ',', ' ') . ' €' : 'Non précisé' ?>
+                                </dd>
+                            </dl>
+
+                            <hr class="my-3 text-muted opacity-25">
+
+                            <div>
+                                <h3 class="h6 fw-bold text-muted small mb-2">Description & Attentes du client :</h3>
+                                <div class="bg-light p-3 rounded-2 text-dark small" style="white-space: pre-line; line-height: 1.5;">
+                                    <?= htmlspecialchars($devis['description'] ?? 'Aucun descriptif fourni.', ENT_QUOTES, 'UTF-8') ?>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+                </div>
 
-                    <!-- Métriques clés du projet -->
-                    <div class="row g-3 text-muted small mb-3">
-                        <div class="col-sm-6 col-md-3">
-                            <span class="d-block text-uppercase fw-bold text-secondary" style="font-size:0.7rem;">Type d'événement</span>
-                            <span class="text-dark fw-semibold"><?= htmlspecialchars($devis['event_type'] ?? 'Non spécifié', ENT_QUOTES, 'UTF-8') ?></span>
-                        </div>
-                        <div class="col-sm-6 col-md-3">
-                            <span class="d-block text-uppercase fw-bold text-secondary" style="font-size:0.7rem;">Date souhaitée</span>
-                            <span class="text-dark fw-semibold"><?= !empty($devis['event_date']) ? date('d/m/Y', strtotime($devis['event_date'])) : 'Non définie' ?></span>
-                        </div>
-                        <div class="col-sm-6 col-md-3">
-                            <span class="d-block text-uppercase fw-bold text-secondary" style="font-size:0.7rem;">Lieu / Localisation</span>
-                            <span class="text-dark fw-semibold">
-                                <i class="bi bi-geo-alt text-danger me-1" aria-hidden="true"></i>
-                                <?= htmlspecialchars($devis['location'] ?? 'Non précisé', ENT_QUOTES, 'UTF-8') ?>
+                <!-- ----------------------------------------------------------- -->
+                <!-- COLONNE DROITE : LIGNES COMMERCIALES & CONSOLIDATION         -->
+                <!-- ----------------------------------------------------------- -->
+                <div class="col-lg-7">
+                    <div class="card border-0 shadow-sm rounded-3 mb-4">
+                        <div class="card-header bg-white border-bottom border-light py-3 d-flex justify-content-between align-items-center">
+                            <h2 class="h6 fw-bold mb-0 text-dark">
+                                <i class="bi bi-list-check text-primary me-2" aria-hidden="true"></i>Prestations du devis
+                            </h2>
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis">
+                                <?= count($prestations) ?> ligne(s)
                             </span>
                         </div>
-                        <div class="col-sm-6 col-md-3">
-                            <span class="d-block text-uppercase fw-bold text-secondary" style="font-size:0.7rem;">Participants prévus</span>
-                            <span class="text-dark fw-semibold"><?= (int)($devis['estimated_participants'] ?? 0) ?> personnes</span>
-                        </div>
-                    </div>
-
-                    <!-- Bloc textuel de description du besoin -->
-                    <div class="p-3 bg-light rounded text-dark small lh-base border-start border-primary border-2">
-                        <strong class="d-block mb-1 text-secondary">
-                            <i class="bi bi-quote me-1" aria-hidden="true"></i> Description du besoin :
-                        </strong>
-                        <?= nl2br(htmlspecialchars($devis['description'] ?? 'Aucune spécification enregistrée.', ENT_QUOTES, 'UTF-8')) ?>
-                    </div>
-                </div>
-            </div>
-
-            <!-- =============================================================== -->
-            <!-- FORMULAIRE D'AJOUT D'UNE LIGNE DE PRESTATION (CSRF PROTECTED)    -->
-            <!-- =============================================================== -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white border-bottom py-3">
-                    <h2 class="h6 mb-0 fw-bold" style="color: #0F172A;">
-                        <i class="bi bi-plus-circle text-primary me-2" aria-hidden="true"></i>Ajouter une ligne commerciale
-                    </h2>
-                </div>
-                <div class="card-body bg-light">
-                    <form action="index.php?action=add_prestation" method="POST" class="row align-items-end g-3">
-
-                        <!-- Jeton de sécurité Anti-CSRF -->
-                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
-                        <!-- Identifiant du devis cible -->
-                        <input type="hidden" name="devis_id" value="<?= (int)$devis['id_devis'] ?>">
-
-                        <div class="col-md-7">
-                            <label for="libelle" class="form-label small fw-bold text-muted">Désignation de la prestation *</label>
-                            <input type="text" class="form-control" id="libelle" name="libelle"
-                                   placeholder="Ex : Traiteur cocktail déjeunatoire 150 pax" required aria-required="true">
-                        </div>
-
-                        <div class="col-md-3">
-                            <label for="montant_ht" class="form-label small fw-bold text-muted">Montant HT (€) *</label>
-                            <input type="number" class="form-control" id="montant_ht" name="montant_ht"
-                                   step="0.01" min="0" placeholder="0.00" required aria-required="true">
-                        </div>
-
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary w-100 fw-bold" style="background-color: #3B82F6; border: none;">
-                                <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Ajouter
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- =============================================================== -->
-            <!-- BORDEREAU COMPTABLE ET TABLEAU DES PRESTATIONS                  -->
-            <!-- =============================================================== -->
-            <div class="card border-0 shadow-sm">
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0" aria-label="Bordereau des prestations enregistrées">
-                            <thead style="background-color: #0F172A; color: white;">
-                            <tr>
-                                <th scope="col" class="py-3 px-4">Désignation</th>
-                                <th scope="col" class="py-3 px-4 text-end" style="width: 200px;">Montant HT</th>
-                                <th scope="col" class="py-3 px-4 text-center" style="width: 120px;">Actions</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <?php if (empty($prestations)): ?>
-                                <tr>
-                                    <td colspan="3" class="text-center text-muted py-4">
-                                        Aucune prestation enregistrée sur ce bordereau. Utilisez le formulaire ci-dessus pour composer votre offre.
-                                    </td>
-                                </tr>
-                            <?php else: ?>
-                                <?php foreach ($prestations as $prest): ?>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0" aria-label="Détail des prestations du devis">
+                                    <thead class="table-light">
                                     <tr>
-                                        <td class="px-4 fw-semibold text-dark">
-                                            <?= htmlspecialchars($prest['libelle'], ENT_QUOTES, 'UTF-8') ?>
-                                        </td>
-                                        <td class="px-4 text-end fw-bold text-secondary">
-                                            <?= number_format((float)$prest['montant_ht'], 2, ',', ' ') ?> € HT
-                                        </td>
-                                        <td class="px-4 text-center">
-                                            <!-- Formulaire de suppression sécurisé (Pattern POST + CSRF) -->
-                                            <form action="index.php?action=delete_prestation" method="POST" class="d-inline"
-                                                  onsubmit="return confirm('Confirmez-vous la suppression de cette ligne ?');">
-                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
-                                                <input type="hidden" name="prestation_id" value="<?= (int)$prest['id'] ?>">
-                                                <input type="hidden" name="devis_id" value="<?= (int)$devis['id_devis'] ?>">
-
-                                                <button type="submit" class="btn btn-sm btn-outline-danger"
-                                                        title="Supprimer la prestation"
-                                                        aria-label="Supprimer <?= htmlspecialchars($prest['libelle'], ENT_QUOTES, 'UTF-8') ?>">
-                                                    <i class="bi bi-trash" aria-hidden="true"></i>
-                                                </button>
-                                            </form>
-                                        </td>
+                                        <th scope="col" class="py-2 px-3">Description de la prestation</th>
+                                        <th scope="col" class="py-2 px-3 text-end" style="width: 140px;">Montant HT</th>
+                                        <th scope="col" class="py-2 px-3 text-center" style="width: 80px;">Action</th>
                                     </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- =========================================================== -->
-                <!-- SYNTHÈSE DES AGRÉGATS FINANCIERS (HT / TVA / TTC)          -->
-                <!-- =========================================================== -->
-                <div class="card-footer bg-white border-top p-4">
-                    <div class="row justify-content-end">
-                        <div class="col-md-5 col-lg-4">
-                            <div class="d-flex justify-content-between mb-2 small">
-                                <span class="text-muted fw-bold">Total HT soumis à TVA</span>
-                                <span class="fw-bold text-dark"><?= number_format($totalHT, 2, ',', ' ') ?> €</span>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2 small">
-                                <span class="text-muted fw-bold">TVA légale (20 %)</span>
-                                <span class="fw-bold text-dark"><?= number_format($totalTVA, 2, ',', ' ') ?> €</span>
-                            </div>
-                            <hr class="my-2">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="text-dark fw-bold h6 mb-0">Total TTC</span>
-                                <span class="text-success fw-bold h5 mb-0"><?= number_format($totalTTC, 2, ',', ' ') ?> €</span>
+                                    </thead>
+                                    <tbody>
+                                    <?php if (empty($prestations)): ?>
+                                        <tr>
+                                            <td colspan="3" class="text-center py-4 text-muted small">
+                                                <i class="bi bi-inbox fs-3 d-block mb-2 opacity-50"></i>
+                                                Aucune prestation n'a encore été ajoutée à cette proposition.
+                                            </td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <?php foreach ($prestations as $prest): ?>
+                                            <tr>
+                                                <td class="py-2 px-3">
+                                                    <span class="fw-medium text-dark">
+                                                        <?= htmlspecialchars($prest['libelle'], ENT_QUOTES, 'UTF-8') ?>
+                                                    </span>
+                                                </td>
+                                                <td class="py-2 px-3 text-end fw-bold font-monospace">
+                                                    <?= number_format((float)$prest['montant_ht'], 2, ',', ' ') ?> €
+                                                </td>
+                                                <td class="py-2 px-3 text-center">
+                                                    <?php if (strtolower($devis['status'] ?? '') !== 'accepté'): ?>
+                                                        <form action="index.php?action=delete_prestation" method="POST" class="d-inline"
+                                                              onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cette prestation ?');">
+                                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                                                            <input type="hidden" name="prestation_id" value="<?= (int)$prest['id'] ?>">
+                                                            <input type="hidden" name="devis_id" value="<?= (int)$devis['id_devis'] ?>">
+                                                            <button type="submit" class="btn btn-outline-danger btn-sm p-1" title="Supprimer la prestation">
+                                                                <i class="bi bi-trash" aria-hidden="true"></i>
+                                                            </button>
+                                                        </form>
+                                                    <?php else: ?>
+                                                        <span class="badge text-bg-light border text-muted">Verrouillé</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                    </tbody>
+                                    <tfoot class="border-top-2">
+                                    <tr class="table-light">
+                                        <td class="text-end fw-bold py-2 px-3">Total Hors Taxes (HT) :</td>
+                                        <td class="text-end fw-bold font-monospace py-2 px-3">
+                                            <?= number_format($totalHT, 2, ',', ' ') ?> €
+                                        </td>
+                                        <td></td>
+                                    </tr>
+                                    <tr class="table-light">
+                                        <td class="text-end text-muted small py-1 px-3">TVA Collectée (20 %) :</td>
+                                        <td class="text-end font-monospace text-muted small py-1 px-3">
+                                            <?= number_format($totalTVA, 2, ',', ' ') ?> €
+                                        </td>
+                                        <td></td>
+                                    </tr>
+                                    <tr class="table-primary fw-bold fs-6">
+                                        <td class="text-end py-2 px-3" style="color: #0F172A;">Total Toutes Taxes Comprises (TTC) :</td>
+                                        <td class="text-end font-monospace py-2 px-3 text-primary">
+                                            <?= number_format($totalTTC, 2, ',', ' ') ?> €
+                                        </td>
+                                        <td></td>
+                                    </tr>
+                                    </tfoot>
+                                </table>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Formulaire d'ajout de prestation -->
+                    <?php if (strtolower($devis['status'] ?? '') !== 'accepté'): ?>
+                        <div class="card border-0 shadow-sm rounded-3">
+                            <div class="card-header bg-white border-bottom border-light py-3">
+                                <h3 class="h6 fw-bold mb-0 text-dark">
+                                    <i class="bi bi-plus-circle text-success me-2" aria-hidden="true"></i>Ajouter une ligne de prestation
+                                </h3>
+                            </div>
+                            <div class="card-body">
+                                <form action="index.php?action=add_prestation" method="POST" class="row g-3">
+                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="devis_id" value="<?= (int)$devis['id_devis'] ?>">
+
+                                    <div class="col-md-7">
+                                        <label for="libelle" class="form-label small fw-bold text-muted">Désignation / Intitulé *</label>
+                                        <input type="text" class="form-control" id="libelle" name="libelle"
+                                               placeholder="Ex: Scénographie & Éclairage architectural" required aria-required="true">
+                                    </div>
+
+                                    <div class="col-md-5">
+                                        <label for="montant_ht" class="form-label small fw-bold text-muted">Montant HT (€) *</label>
+                                        <div class="input-group">
+                                            <input type="number" step="0.01" min="0" class="form-control" id="montant_ht" name="montant_ht"
+                                                   placeholder="0.00" required aria-required="true">
+                                            <span class="input-group-text bg-light">€</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12 text-end">
+                                        <button type="submit" class="btn btn-primary px-3 shadow-sm">
+                                            <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Ajouter au devis
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
                 </div>
             </div>
 

@@ -14,7 +14,7 @@
  * @package    InnovEventsManager
  * @subpackage Services
  * @author     Romain Remusat
- * @version    1.3.0
+ * @version    1.4.0
  */
 
 if (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
@@ -67,15 +67,12 @@ class MailService
     public function sendRegisterConfirmation(string $email, string $firstname): bool
     {
         try {
-            // Initialisation de la pile d'infrastructure de messagerie
             $mail = $this->createMailer();
 
-            // Paramétrage des informations de routage
             $mail->addAddress($email, $firstname);
             $mail->isHTML(true);
             $mail->Subject = "Bienvenue chez Innov'Events - Activation de votre compte";
 
-            // Injection du gabarit visuel HTML calqué sur la charte graphique de la marque
             $mail->Body = "
                 <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;'>
                     <div style='text-align: center; margin-bottom: 25px;'>
@@ -96,7 +93,6 @@ class MailService
             return $mail->send();
 
         } catch (Exception $e) {
-            // Journalisation technique isolée : empêche un crash SMTP de paralyser le parcours d'inscription
             error_log("Défaut MailService critique lors de la confirmation d'inscription : " . $e->getMessage());
             return false;
         }
@@ -163,7 +159,6 @@ class MailService
         try {
             $mail = $this->createMailer();
             
-            // Notification routée vers la boîte de gestion de Chloé
             $mail->addAddress('chloe@innovevents.fr', 'Chloé (Direction)');
             $mail->isHTML(true);
             $mail->Subject = "Nouvelle demande de devis reçue - " . htmlspecialchars($quoteData['company_name'] ?? 'B2B');
@@ -203,6 +198,14 @@ class MailService
             error_log("Défaut MailService lors de l'alerte admin prospect : " . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * Alias de notification administrateur pour compatibilité.
+     */
+    public function sendNewQuoteNotificationToAdmin(array $quoteData): bool
+    {
+        return $this->sendNewQuoteAdminNotification($quoteData);
     }
 
     /**
@@ -323,18 +326,42 @@ class MailService
         }
     }
 
-    public function sendQuoteRefusal(string $email, string $clientName, string $reason): bool
+    /**
+     * Envoie un e-mail au prospect pour notifier que sa demande ne peut aboutir (avec motif personnalisable).
+     */
+    public function sendQuoteRefusal(string $email, string $clientName, string $reason = ''): bool
     {
         try {
             $mail = $this->createMailer();
             $mail->addAddress($email, $clientName);
             $mail->isHTML(true);
             $mail->Subject = "Information concernant votre demande d'événement - Innov'Events";
-            $mail->Body = "<p>Bonjour " . htmlspecialchars($clientName) . ",</p><p>Nous ne pouvons malheureusement pas donner suite à votre demande pour la raison suivante :</p><p>" . nl2br(htmlspecialchars($reason)) . "</p><p>Cordialement,<br>L'équipe Innov'Events</p>";
+
+            $reasonHtml = !empty($reason)
+                ? "<p><strong>Précision de notre équipe :</strong></p><blockquote style='background: #f8fafc; border-left: 4px solid #3b82f6; padding: 10px 15px; margin: 15px 0;'>" . nl2br(htmlspecialchars($reason)) . "</blockquote>"
+                : "<p>Après étude attentive de vos critères et de nos disponibilités, nous ne sommes malheureusement pas en mesure de donner suite à votre projet dans les conditions requises.</p>";
+
+            $mail->Body = "
+                <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 8px;'>
+                    <h2 style='color: #0F172A;'>Bonjour " . htmlspecialchars($clientName) . ",</h2>
+                    <p>Nous vous remercions pour l'intérêt que vous portez aux prestations Innov'Events.</p>
+                    {$reasonHtml}
+                    <p>Nous restons à votre entière disposition pour vos futurs projets événementiels.</p>
+                    <p style='margin-top: 25px;'>Bien cordialement,<br><strong>Chloé — Direction Innov'Events</strong></p>
+                </div>
+            ";
             return $mail->send();
         } catch (Exception $e) {
             error_log("Défaut MailService (sendQuoteRefusal) : " . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * Alias de sendQuoteRefusal pour compatibilité contrôleurs.
+     */
+    public function sendRejectionEmail(string $email, string $clientName, string $reason = ''): bool
+    {
+        return $this->sendQuoteRefusal($email, $clientName, $reason);
     }
 }
