@@ -203,8 +203,8 @@ class AuthController extends BaseController
             $_SESSION['user_firstname'] = $user['firstname'] ?? '';
             $_SESSION['user_name']      = $user['firstname'] ?? 'Utilisateur';
 
-            if (!empty($user['must_change_password']) || !empty($user['force_password_change'])) {
-                $_SESSION['force_password_change'] = true;
+            $_SESSION['force_password_change'] = !empty($user['must_change_password']);
+            if ($_SESSION['force_password_change']) {
                 header('Location: index.php?action=force_password_change');
                 exit();
             }
@@ -311,9 +311,14 @@ class AuthController extends BaseController
         require __DIR__ . '/../views/public/forgot_password.php';
     }
 
+    /**
+     * Remplace le mot de passe temporaire après validation du compte et du jeton CSRF.
+     * Seule cette action peut franchir la restriction de changement obligatoire.
+     * Une écriture SQL échouée conserve la restriction ; un succès impose une reconnexion.
+     */
     public function updateForcedPassword(): void
     {
-        $this->startSession();
+        $this->checkAuth([], true);
 
         if (!isset($_SESSION['user_id']) || empty($_SESSION['force_password_change'])) {
             header('Location: index.php?action=login');
@@ -327,13 +332,13 @@ class AuthController extends BaseController
             $confirmPassword = $_POST['confirm_password'] ?? '';
 
             if (empty($newPassword) || $newPassword !== $confirmPassword) {
-                $_SESSION['flash_error'] = "Les mots de passe ne correspondent pas ou sont vides.";
+                $_SESSION['auth_error'] = "Les mots de passe ne correspondent pas ou sont vides.";
                 header('Location: index.php?action=force_password_change');
                 exit();
             }
 
             if (!$this->isValidPassword($newPassword)) {
-                $_SESSION['flash_error'] = "Le nouveau mot de passe ne respecte pas les critères de sécurité requis.";
+                $_SESSION['auth_error'] = "Le nouveau mot de passe ne respecte pas les critères de sécurité requis.";
                 header('Location: index.php?action=force_password_change');
                 exit();
             }
@@ -341,9 +346,18 @@ class AuthController extends BaseController
             $userModel = new User();
             $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
             $userId = (int)$_SESSION['user_id'];
+            $user = $userModel->findById($userId);
+            if (!$user || password_verify($newPassword, $user['password'])) {
+                $_SESSION['auth_error'] = "Choisissez un mot de passe différent du mot de passe temporaire.";
+                header('Location: index.php?action=force_password_change');
+                exit();
+            }
 
-            $userModel->updatePassword($userId, $hashedPassword, false);
-            unset($_SESSION['force_password_change']);
+            if (!$userModel->updatePassword($userId, $hashedPassword, false)) {
+                $_SESSION['auth_error'] = "Le mot de passe n'a pas pu être enregistré. Veuillez réessayer.";
+                header('Location: index.php?action=force_password_change');
+                exit();
+            }
 
             try {
                 $logModel = new Log();
@@ -354,7 +368,10 @@ class AuthController extends BaseController
                 error_log("Erreur Log MongoDB update forced pwd : " . $e->getMessage());
             }
 
-            $_SESSION['global_success'] = "Votre mot de passe a été personnalisé avec succès ! Veuillez vous reconnecter.";
+            // Retirer l'identité authentifiée et renouveler la session avant la reconnexion.
+            $_SESSION = [];
+            session_regenerate_id(true);
+            $_SESSION['login_success'] = "Votre mot de passe a été personnalisé avec succès ! Veuillez vous reconnecter.";
             header('Location: index.php?action=login');
             exit();
         }

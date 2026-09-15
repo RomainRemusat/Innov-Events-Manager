@@ -35,6 +35,13 @@ require __DIR__ . '/../partials/header.php';
 
                 <div class="pt-4 border-top">
 
+                    <?php if (isset($_SESSION['login_success'])): ?>
+                        <div class="alert alert-success" role="status">
+                            <?= htmlspecialchars($_SESSION['login_success'], ENT_QUOTES, 'UTF-8'); ?>
+                            <?php unset($_SESSION['login_success']); ?>
+                        </div>
+                    <?php endif; ?>
+
                     <?php if (isset($_SESSION['login_error'])): ?>
                         <div class="alert alert-danger text-center small mb-4" role="alert">
                             <i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>

@@ -118,16 +118,13 @@ class PdfController extends BaseController
     }
 
     /**
-     * Action dédiée à la génération et au streaming direct d'un PDF (pour les tests & accès direct).
+     * Génère et transmet directement un devis PDF après contrôle du compte courant.
+     * Les autorisations métier ci-dessous complètent le contrôle de session centralisé :
+     * un client ne peut consulter que ses devis et un employé ne peut pas les générer.
      */
     public function generatePdfAction(): void
     {
-        $this->startSession();
-
-        if (empty($_SESSION['user_id'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
+        $this->checkAuth();
 
         $userRole = $_SESSION['user_role'] ?? '';
         $userId   = (int)$_SESSION['user_id'];
@@ -262,7 +259,7 @@ class PdfController extends BaseController
      */
     public function downloadDevis(mixed $param = null): void
     {
-        $this->startSession();
+        $this->checkAuth();
         $file = $_GET['file'] ?? $_GET['f'] ?? null;
         $id   = (int)($_GET['id'] ?? (is_numeric($param) ? $param : 0));
 
@@ -298,12 +295,7 @@ class PdfController extends BaseController
      */
     public function downloadPdf(string $fileName): void
     {
-        $this->startSession();
-
-        if (empty($_SESSION['user_id'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
+        $this->checkAuth();
 
         // Nettoyage contre les attaques par traversée de répertoire (Path Traversal)
         $safeFileName = basename($fileName);

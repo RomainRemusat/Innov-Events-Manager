@@ -32,10 +32,14 @@ abstract class BaseController
     /**
      * Vérifie l'authentification et le rôle de l'utilisateur.
      * Invalide la session et redirige si le compte est inexistant ou désactivé/supprimé.
+     * Le rôle et l'obligation de changement sont relus en SQL à chaque accès :
+     * une session ouverte ne doit pas conserver des droits devenus obsolètes.
      *
      * @param array $allowedRoles Liste des rôles autorisés (ex: ['ADMIN', 'EMPLOYEE']).
+     * @param bool $allowPasswordChange Réservé à l'action de changement obligatoire ;
+     *                                  ne doit jamais provenir des paramètres HTTP.
      */
-    protected function checkAuth(array $allowedRoles = []): void
+    protected function checkAuth(array $allowedRoles = [], bool $allowPasswordChange = false): void
     {
         $this->startSession();
 
@@ -63,6 +67,13 @@ abstract class BaseController
             }
             session_destroy();
             header('Location: index.php?action=login');
+            exit();
+        }
+
+        $_SESSION['user_role'] = $user['role'];
+        $_SESSION['force_password_change'] = !empty($user['must_change_password']);
+        if ($_SESSION['force_password_change'] && !$allowPasswordChange) {
+            header('Location: index.php?action=force_password_change');
             exit();
         }
 

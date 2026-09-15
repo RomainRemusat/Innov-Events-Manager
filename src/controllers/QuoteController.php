@@ -47,6 +47,10 @@ class QuoteController extends BaseController
     public function submitQuote(array $data): void
     {
         $this->startSession();
+        // Le formulaire est public, mais une demande liée à un compte exige une session valide.
+        if (!empty($_SESSION['user_id'])) {
+            $this->checkAuth();
+        }
 
         // 1. Validation de sécurité CSRF (AT1)
         $this->validateCsrf($data);
