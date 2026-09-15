@@ -14,7 +14,7 @@
  * @package    InnovEventsManager
  * @subpackage Views/Admin
  * @author     Romain Remusat
- * @version    1.3.0
+ * @version    2.3.0
  *
  * @var array $prospect Données brutes du prospect récupérées depuis MySQL
  */
@@ -28,14 +28,23 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h1 class="h3 fw-bold text-dark mb-1">
-                    <i class="bi bi-magic text-primary me-2" aria-hidden="true"></i>Convertir le Prospect
+                    <i class="bi bi-magic text-primary me-2" aria-hidden="true"></i>Convertir le Prospect #<?= (int)$prospect['id'] ?>
                 </h1>
                 <p class="text-muted small mb-0">Création du compte client B2B, enregistrement légal de la société et initialisation du projet.</p>
             </div>
-            <a href="index.php?action=dashboard" class="btn btn-outline-secondary btn-sm" aria-label="Retour au tableau de bord">
-                <i class="bi bi-arrow-left me-2" aria-hidden="true"></i>Retour au tableau de bord
+            <a href="index.php?action=view_prospect&id=<?= (int)$prospect['id'] ?>" class="btn btn-outline-secondary btn-sm" aria-label="Retour au prospect">
+                <i class="bi bi-arrow-left me-2" aria-hidden="true"></i>Retour à la qualification
             </a>
         </div>
+
+        <?php if (!empty($_SESSION['flash_error'])): ?>
+            <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>
+                <?= htmlspecialchars($_SESSION['flash_error'], ENT_QUOTES, 'UTF-8'); ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+            </div>
+            <?php unset($_SESSION['flash_error']); ?>
+        <?php endif; ?>
 
         <!-- =============================================================== -->
         <!-- FORMULAIRE DE CONVERSION (POST MULTIPART)                       -->
@@ -140,6 +149,24 @@
 
                         <div class="row mb-3">
                             <div class="col-md-6">
+                                <label for="event_type" class="form-label small fw-bold text-muted">Type d'événement</label>
+                                <select class="form-select" id="event_type" name="event_type">
+                                    <?php $selectedType = $prospect['event_type'] ?? 'Autre'; ?>
+                                    <option value="Séminaire" <?= $selectedType === 'Séminaire' ? 'selected' : '' ?>>Séminaire</option>
+                                    <option value="Soirée de Gala" <?= $selectedType === 'Soirée de Gala' ? 'selected' : '' ?>>Soirée de Gala</option>
+                                    <option value="Lancement de produit" <?= $selectedType === 'Lancement de produit' ? 'selected' : '' ?>>Lancement de produit</option>
+                                    <option value="Team Building" <?= $selectedType === 'Team Building' ? 'selected' : '' ?>>Team Building</option>
+                                    <option value="Autre" <?= !in_array($selectedType, ['Séminaire', 'Soirée de Gala', 'Lancement de produit', 'Team Building']) ? 'selected' : '' ?>>Autre</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="theme" class="form-label small fw-bold text-muted">Thématique / Style</label>
+                                <input type="text" class="form-control" id="theme" name="theme" placeholder="Ex: Futuriste, Nature & RSE, Gatsby...">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
                                 <label for="start_date" class="form-label small fw-bold text-muted">Date & Heure de début *</label>
                                 <input type="datetime-local" class="form-control" id="start_date" name="start_date"
                                        value="<?= !empty($prospect['event_date']) ? htmlspecialchars($prospect['event_date'], ENT_QUOTES, 'UTF-8') . 'T08:00' : '' ?>" required aria-required="true">
@@ -167,10 +194,10 @@
                                     <input type="number" class="form-control" id="estimated_participants" name="estimated_participants"
                                            value="<?= (int)($prospect['estimated_participants'] ?? 0) ?>" min="1">
                                 </div>
-                            </div
+                            </div>
                         </div>
 
-                        <div class="mb-3 mt-3">
+                        <div class="mb-3">
                             <label for="event_image" class="form-label small fw-bold text-muted">Illustration de l'événement (Lieu, Affiche...)</label>
                             <input type="file" class="form-control" id="event_image" name="event_image" accept="image/jpeg,image/png,image/webp">
                             <div class="form-text small">Facultatif. Format JPEG, PNG ou WebP.</div>
@@ -184,10 +211,11 @@
 
                         <div class="row mb-4">
                             <div class="col-md-6">
-                                <!-- Champ caché : l'événement débute obligatoirement en brouillon -->
-                                <input type="hidden" name="event_status" value="brouillon">
-                                <label class="form-label small fw-bold text-muted">Statut initial du projet</label>
-                                <input type="text" class="form-control bg-light" value="Brouillon (Édition des prestations)" readonly>
+                                <label for="event_status" class="form-label small fw-bold text-muted">Statut initial du projet</label>
+                                <select class="form-select" id="event_status" name="event_status">
+                                    <option value="brouillon" selected>Brouillon (Édition des prestations)</option>
+                                    <option value="planifié">Planifié</option>
+                                </select>
                             </div>
                             <div class="col-md-6 d-flex align-items-end">
                                 <div class="form-check form-switch mb-2">

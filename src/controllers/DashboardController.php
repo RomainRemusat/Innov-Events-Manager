@@ -12,13 +12,14 @@
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    1.3.0
+ * @version    2.5.0
  */
 
 require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../models/sql/Prospect.php';
 require_once __DIR__ . '/../models/nosql/Log.php'; // Nécessaire pour la journalisation MongoDB
 require_once __DIR__ . '/../services/ConversionService.php';
+require_once __DIR__ . '/../services/MailService.php';
 require_once __DIR__ . '/../models/sql/Devis.php';
 require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/sql/Event.php';
@@ -27,28 +28,6 @@ require_once __DIR__ . '/../models/sql/Note.php';
 
 class DashboardController extends BaseController
 {
-    public function showDashboard_old(): void
-    {
-        $this->checkAuth(['ADMIN', 'EMPLOYEE']); // Vérifie que l'utilisateur est connecté
-
-        $prospectModel = new Prospect();
-        $prospects = $prospectModel->findAllActive();
-
-        require_once __DIR__ . '/../models/sql/Event.php';
-        $eventModel = new Event();
-        $upcomingEvents = $eventModel->findUpcomingEvents(3);
-
-        $logModel = new Log();
-        $activityLogs = $logModel->getLatestLogs(5);
-
-        $pageTitle = "Tableau de Bord - Innov'Events";
-
-        require __DIR__ . '/../views/partials/header.php';
-        require __DIR__ . '/../views/admin/dashboard.php';
-        require __DIR__ . '/../views/partials/footer.php';
-    }
-
-
     public function showDashboard(): void
     {
         // Vérifie que l'utilisateur est connecté avec les bons droits
@@ -81,12 +60,11 @@ class DashboardController extends BaseController
         if (is_array($prospects)) {
             foreach ($prospects as $p) {
                 // On exclut les projets refusés du CA prévisionnel
-                if (isset($p['status']) && strtolower($p['status']) !== 'refusé') {
+                if (isset($p['status']) && !in_array(strtolower($p['status']), ['refusé', 'échoué'], true)) {
                     $caPrevisionnel += (float) ($p['budget'] ?? 0);
                 }
             }
         }
-        // ------------------------------------------
 
         // 4. Widgets de la colonne de droite (V3 + V2)
         $upcomingEvents = $eventModel->findUpcomingEvents(3);
@@ -94,7 +72,6 @@ class DashboardController extends BaseController
         $activityLogs = $logModel->getLatestLogs(5); // Flux d'audit NoSQL
 
         // Récupération des devis en attente de modification
-        $devisModel = new Devis();
         $pendingModifications = $devisModel->findByStatus('modification');
         $pendingModificationsCount = count($pendingModifications);
 
@@ -118,6 +95,12 @@ class DashboardController extends BaseController
             exit;
         }
 
+        if (strtolower($prospect['status'] ?? '') === 'converti') {
+            $_SESSION['flash_warning'] = "Ce prospect a déjà été converti en client.";
+            header('Location: index.php?action=view_prospect&id=' . $id);
+            exit;
+        }
+
         $pageTitle = "Convertir Prospect - " . htmlspecialchars($prospect['company_name'], ENT_QUOTES, 'UTF-8');
 
         require __DIR__ . '/../views/partials/header.php';
@@ -128,7 +111,7 @@ class DashboardController extends BaseController
     public function processConversion(array $postData): void
     {
         $this->checkAuth(['ADMIN']); // RBAC strict
-        $this->validateCsrf($postData);           // Validation Anti-CSRF
+        $this->validateCsrf($postData); // Validation Anti-CSRF
 
         // Validation des champs obligatoires
         if (
@@ -140,7 +123,9 @@ class DashboardController extends BaseController
             empty($postData['start_date']) ||
             empty($postData['location'])
         ) {
-            die("Erreur de validation : Tous les champs obligatoires (*) doivent être complétés.");
+            $_SESSION['flash_error'] = "Erreur de validation : Tous les champs obligatoires (*) doivent être complétés.";
+            header('Location: index.php?action=show_convert_form&id=' . (int)($postData['prospect_id'] ?? 0));
+            exit();
         }
 
         try {
@@ -155,7 +140,9 @@ class DashboardController extends BaseController
             exit();
 
         } catch (\InvalidArgumentException $e) {
-            die("Erreur de données : " . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'));
+            $_SESSION['flash_error'] = $e->getMessage();
+            header('Location: index.php?action=show_convert_form&id=' . (int)($postData['prospect_id'] ?? 0));
+            exit();
         } catch (\Exception $e) {
             error_log("Crash transactionnel Conversion : " . $e->getMessage());
             $_SESSION['flash_error'] = "Une erreur technique est survenue lors de la conversion.";
@@ -194,14 +181,6 @@ class DashboardController extends BaseController
     }
 
     /**
-     * Met à jour l'état d'un prospect (ex: "en attente" -> "refusé").
-     *
-     * Implémentation du pattern de Persistance Polyglotte : met à jour l'entité
-     * structurée dans MySQL et trace l'événement immuable dans MongoDB.
-     *
-     * @return void
-     */
-    /**
      * Met à jour l'état de qualification d'un prospect (ex: "à contacter" -> "échoué").
      */
     public function updateProspectStatus(): void
@@ -212,6 +191,7 @@ class DashboardController extends BaseController
             $this->validateCsrf($_POST);
             $id = (int)$_POST['id'];
             $status = trim($_POST['status']);
+            $reason = trim($_POST['rejection_reason'] ?? $_POST['motif_refus'] ?? '');
 
             // Contrôle des statuts autorisés en phase prospect
             $allowedStatuses = ['à contacter', 'en attente', 'échoué'];
@@ -227,9 +207,8 @@ class DashboardController extends BaseController
                 // Si le devis n'est pas possible, envoi du courriel d'échec exigé par le CDC
                 if ($status === 'échoué' && $prospect && !empty($prospect['email'])) {
                     try {
-                        require_once __DIR__ . '/../services/MailService.php';
                         $mailService = new MailService();
-                        $mailService->sendRejectionEmail($prospect['email'], $prospect['contact_name']);
+                        $mailService->sendRejectionEmail($prospect['email'], $prospect['contact_name'], $reason);
                     } catch (\Exception $e) {
                         error_log("Erreur envoi email échec prospect : " . $e->getMessage());
                     }
@@ -239,9 +218,10 @@ class DashboardController extends BaseController
                 try {
                     $logModel = new Log();
                     $logModel->addLog("UPDATE_PROSPECT", (int)$_SESSION['user_id'], [
-                        'message' => "Statut du prospect #$id modifié en : $status",
-                        'prospect_id' => $id,
-                        'status' => $status
+                        'message'          => "Statut du prospect #$id modifié en : $status" . (!empty($reason) ? " (Motif: $reason)" : ""),
+                        'prospect_id'      => $id,
+                        'status'           => $status,
+                        'rejection_reason' => $reason
                     ]);
                 } catch (\Exception $e) {
                     error_log("Erreur Log MongoDB : " . $e->getMessage());
@@ -267,7 +247,7 @@ class DashboardController extends BaseController
         $this->checkAuth(['ADMIN']);
 
         $prospectModel = new Prospect();
-        $prospects = $prospectModel->findAllActive();
+        $prospects = $prospectModel->findAll();
 
         $pageTitle = "Gestion des Prospects - Innov'Events";
 
@@ -275,5 +255,4 @@ class DashboardController extends BaseController
         require __DIR__ . '/../views/admin/list_prospects.php';
         require __DIR__ . '/../views/partials/footer.php';
     }
-
 }

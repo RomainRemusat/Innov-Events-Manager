@@ -20,7 +20,7 @@ require_once __DIR__ . '/../services/FileUploadService.php';
  * @package    InnovEventsManager
  * @subpackage Services
  * @author     Romain Remusat
- * @version    2.3.0
+ * @version    2.4.0
  */
 class ConversionService
 {
@@ -80,15 +80,38 @@ class ConversionService
         // Données du projet événementiel
         $eventTitle   = trim($data['event_title'] ?? '');
         $startDate    = $data['start_date'] ?? '';
+        $endDate      = !empty($data['end_date']) ? $data['end_date'] : null;
         $location     = trim($data['location'] ?? '');
+        $eventType    = trim($data['event_type'] ?? 'Autre');
+        $theme        = !empty($data['theme']) ? trim($data['theme']) : null;
         $participants = !empty($data['estimated_participants']) ? (int)$data['estimated_participants'] : null;
         $description  = trim($data['description'] ?? '');
         $eventStatus  = trim($data['event_status'] ?? 'brouillon');
+        $isPublished  = !empty($data['is_visible']) ? 1 : 0;
 
         // Validation stricte des champs obligatoires
         if (!$prospectId || empty($companyName) || !$email || empty($eventTitle) || empty($startDate) || empty($location)) {
             throw new InvalidArgumentException("Paramètres métier obligatoires manquants ou invalides.");
         }
+
+        // Vérification d'anti-double conversion
+        $stmtCheck = $this->db->prepare("SELECT id, status FROM prospects WHERE id = ? LIMIT 1");
+        $stmtCheck->execute([$prospectId]);
+        $currentProspect = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+        if (!$currentProspect) {
+            throw new InvalidArgumentException("Prospect introuvable.");
+        }
+
+        if (strtolower($currentProspect['status'] ?? '') === 'converti') {
+            throw new InvalidArgumentException("Ce prospect a déjà été converti en client.");
+        }
+
+        // Variables post-transactionnelles (envois emails après commit)
+        $isNewUserCreated = false;
+        $newUserEmail     = null;
+        $newUserFirstname = null;
+        $newUserTempPass  = null;
 
         // ---------------------------------------------------------------------
         // 2. EXÉCUTION TRANSACTIONNELLE (GARANTIE ACID)
@@ -125,13 +148,10 @@ class ConversionService
                 $stmtUser->execute([$companyId, $email, $hashedPassword, $firstname, $lastname]);
                 $clientId = (int)$this->db->lastInsertId();
 
-                // Envoi des identifiants temporaires par courriel
-                try {
-                    $mailService = new MailService();
-                    $mailService->sendTemporaryPasswordEmail($email, $firstname, $tempPassword);
-                } catch (Exception $e) {
-                    error_log("Avertissement MailService : " . $e->getMessage());
-                }
+                $isNewUserCreated = true;
+                $newUserEmail     = $email;
+                $newUserFirstname = $firstname;
+                $newUserTempPass  = $tempPassword;
             }
 
             // C. Traitement du téléversement sécurisé de l'image d'illustration (OWASP CWE-434)
@@ -150,33 +170,53 @@ class ConversionService
             }
 
             // D. Création du projet événementiel (events)
-            $mysqlDate = date('Y-m-d H:i:s', strtotime($startDate));
+            $mysqlStartDate = date('Y-m-d H:i:s', strtotime($startDate));
+            $mysqlEndDate   = $endDate ? date('Y-m-d H:i:s', strtotime($endDate)) : null;
+
             $stmtEvent = $this->db->prepare("
-                INSERT INTO events (client_id, company_id, title, description, start_date, location, estimated_participants, image_path, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO events (client_id, company_id, title, description, start_date, end_date, location, event_type, theme, estimated_participants, image_path, status, is_published)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmtEvent->execute([
                 $clientId,
                 $companyId,
                 $eventTitle,
                 $description,
-                $mysqlDate,
+                $mysqlStartDate,
+                $mysqlEndDate,
                 $location,
+                $eventType,
+                $theme,
                 $participants,
                 $imagePath,
-                $eventStatus
+                $eventStatus,
+                $isPublished
             ]);
             $eventId = (int)$this->db->lastInsertId();
 
-            // E. Passage du prospect au statut 'converti' (Table prospects)
+            // E. Mise à jour des coordonnées et passage du prospect au statut 'converti'
             $stmtProspect = $this->db->prepare("
                 UPDATE prospects 
                 SET status = 'converti', 
                     user_id = ?, 
-                    company_id = ? 
+                    company_id = ?,
+                    company_name = ?,
+                    contact_name = ?,
+                    email = ?,
+                    phone = ?,
+                    location = ?
                 WHERE id = ?
             ");
-            $stmtProspect->execute([$clientId, $companyId, $prospectId]);
+            $stmtProspect->execute([
+                $clientId,
+                $companyId,
+                $companyName,
+                $contactName,
+                $email,
+                $phone,
+                $location,
+                $prospectId
+            ]);
 
             // F. Génération de la coquille financière initiale au statut 'brouillon' (Table devis)
             $safePrefix = strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $companyName), 0, 5));
@@ -193,8 +233,17 @@ class ConversionService
             $this->db->commit();
 
             // -----------------------------------------------------------------
-            // 3. PERSISTANCE POLYGLOTTE : AUDIT NOSQL MONGODB (AT2)
+            // 3. ACTIONS POST-TRANSACTION : EMAILS & AUDIT NOSQL MONGODB (AT2)
             // -----------------------------------------------------------------
+            if ($isNewUserCreated && $newUserEmail && $newUserTempPass) {
+                try {
+                    $mailService = new MailService();
+                    $mailService->sendTemporaryPasswordEmail($newUserEmail, $newUserFirstname, $newUserTempPass);
+                } catch (\Exception $e) {
+                    error_log("Avertissement MailService post-conversion : " . $e->getMessage());
+                }
+            }
+
             $this->logActivity($prospectId, $clientId, $companyId, $eventId, $devisId, $actorUserId, [
                 'company_name'           => $companyName,
                 'location'               => $location,
@@ -248,7 +297,7 @@ class ConversionService
                 ], $context)
             );
         } catch (Exception $e) {
-            error_log("Avertissement Log (MongoDB) : " . $e->getMessage());
+            error_log("Erreur MongoDB lors de la conversion : " . $e->getMessage());
         }
     }
 }
