@@ -59,6 +59,7 @@ location VARCHAR(255) NULL,
 estimated_participants INT NULL,
 budget DECIMAL(10, 2) NULL,
 description TEXT NULL,
+rejection_reason TEXT NULL,
 status VARCHAR(50) NOT NULL DEFAULT 'à contacter',
 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 CONSTRAINT fk_prospects_user

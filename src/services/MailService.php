@@ -340,14 +340,15 @@ class MailService
             $mail->addAddress($email, $contactName);
             $mail->isHTML(true);
             $mail->Subject = "Information concernant votre demande de devis - Innov'Events";
+            $safeContactName = htmlspecialchars($contactName, ENT_QUOTES, 'UTF-8');
 
             $reasonHtml = !empty($refusalReason) 
-                ? "<div style='background-color: #f8fafc; padding: 15px; border-left: 4px solid #ef4444; margin: 20px 0;'><strong>Motif :</strong><br>" . nl2br(htmlspecialchars($refusalReason)) . "</div>"
+                ? "<div style='background-color: #f8fafc; padding: 15px; border-left: 4px solid #ef4444; margin: 20px 0;'><strong>Motif :</strong><br>" . nl2br(htmlspecialchars($refusalReason, ENT_QUOTES, 'UTF-8')) . "</div>"
                 : "";
 
             $mail->Body = "
                 <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;'>
-                    <h2 style='color: #0F172A; font-size: 18px;'>Bonjour {$contactName},</h2>
+                    <h2 style='color: #0F172A; font-size: 18px;'>Bonjour {$safeContactName},</h2>
                     <p style='line-height: 1.6;'>Nous vous remercions pour l'intérêt que vous portez aux services d'Innov'Events.</p>
                     <p style='line-height: 1.6;'>Après analyse attentive de votre cahier des charges, nous avons le regret de vous informer que nous ne pourrons pas donner une suite favorable à votre demande pour la date souhaitée.</p>
                     {$reasonHtml}

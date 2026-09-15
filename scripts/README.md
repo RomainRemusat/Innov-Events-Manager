@@ -102,7 +102,21 @@ Plusieurs versions de devis peuvent viser un événement ; la fiche affiche la d
 Sans association, elle indique qu'aucun devis n'est rattaché.
 Les PDF déjà émis ne sont pas réécrits par cette migration.
 
-**Vérification automatisée**
+**Motif de non-faisabilité**
+
+Importer `update_prospect_rejection.sql` après sauvegarde et avant de déployer
+la qualification des prospects. La colonne nullable `prospects.rejection_reason`
+conserve le dernier motif de refus, même après réouverture de la demande.
+La migration est rejouable et ne reconstitue pas les motifs historiques perdus.
+Le statut et le motif sont validés en SQL avant la tentative SMTP. En cas d'échec
+d'envoi, l'écran conserve le motif et permet une nouvelle soumission explicite.
+Une acceptation par le serveur SMTP ne garantit pas la livraison au destinataire.
+
+`python -B tests/prospect_qualification.py` vérifie le contrôleur sur des bases
+temporaires et des emails capturés par MailHog local. Il nettoie ses dossiers,
+ses journaux et uniquement ses propres messages après exécution.
+
+**Exécution des vérifications**
 
 Python 3 et Docker sont nécessaires. Le test utilise l'image `mysql:8.0`, un
 conteneur sans réseau ni port exposé, et un stockage temporaire. Il ne se connecte

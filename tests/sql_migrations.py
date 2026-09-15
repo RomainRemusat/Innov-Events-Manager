@@ -55,7 +55,8 @@ def main():
             table: hashlib.sha256(sql(database, "SELECT " + ','.join(
                 '`' + name + '`' for name in rows(database,
                     f"SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{database}' "
-                    f"AND TABLE_NAME = '{table}' AND NOT (TABLE_NAME = 'devis' AND COLUMN_NAME = 'event_id') ORDER BY ORDINAL_POSITION")
+                    f"AND TABLE_NAME = '{table}' AND NOT (TABLE_NAME = 'devis' AND COLUMN_NAME = 'event_id') "
+                    "AND NOT (TABLE_NAME = 'prospects' AND COLUMN_NAME = 'rejection_reason') ORDER BY ORDINAL_POSITION")
             ) + f" FROM {table} ORDER BY 1").stdout).hexdigest()
             for table in TABLES
         }
@@ -144,6 +145,7 @@ def main():
                 ALTER TABLE devis MODIFY status VARCHAR(50) NULL DEFAULT 'brouillon',
                     ALTER montant_ht DROP DEFAULT, ALTER tva DROP DEFAULT;
                 ALTER TABLE devis DROP FOREIGN KEY fk_devis_event, DROP COLUMN event_id;
+                ALTER TABLE prospects DROP COLUMN rejection_reason;
             """)
 
         for database in ("fresh", "migrated"):

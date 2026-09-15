@@ -197,23 +197,44 @@ class Prospect
     }
 
     /**
-     * Met à jour le statut d'un prospect spécifique.
+     * Enregistre une qualification et son motif sans rouvrir un dossier converti.
+     * Le verrou SQL protège la vérification de l'état attendu jusqu'à l'écriture.
+     * Une soumission identique reste valide pour réessayer une notification échouée.
      *
      * @param int    $id     L'identifiant unique du prospect.
      * @param string $status Le nouveau statut à appliquer.
+     * @param string $reason Motif obligatoire pour l'état « échoué ».
+     * @param string $expectedStatus État lu par le contrôleur avant la modification.
      * @return bool True en cas de succès, false sinon.
      */
-    public function updateStatus(int $id, string $status): bool
+    public function updateStatus(int $id, string $status, string $reason, string $expectedStatus): bool
     {
+        $reason = trim($reason);
+        if (!in_array($status, ['à contacter', 'en attente', 'échoué'], true)
+            || ($status === 'échoué' && ($reason === '' || strlen($reason) > 10000))) {
+            return false;
+        }
         try {
-            $query = "UPDATE prospects SET status = :status WHERE id = :id";
-            $stmt = $this->db->prepare($query);
-
-            return $stmt->execute([
-                ':status' => $status,
-                ':id'     => $id
-            ]);
+            $this->db->beginTransaction();
+            $stmt = $this->db->prepare('SELECT status FROM prospects WHERE id = ? FOR UPDATE');
+            $stmt->execute([$id]);
+            $currentStatus = $stmt->fetchColumn();
+            $stmt = $this->db->prepare('SELECT id_devis FROM devis WHERE id_prospect = ? LIMIT 1');
+            $stmt->execute([$id]);
+            if ($currentStatus === false || $currentStatus === 'converti'
+                || $currentStatus !== $expectedStatus || $stmt->fetchColumn() !== false) {
+                $this->db->rollBack();
+                return false;
+            }
+            $stmt = $this->db->prepare("UPDATE prospects SET status = ?,
+                rejection_reason = CASE WHEN ? = 'échoué' THEN ? ELSE rejection_reason END WHERE id = ?");
+            $stmt->execute([$status, $status, $reason, $id]);
+            $this->db->commit();
+            return true;
         } catch (\PDOException $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("Erreur lors de la mise à jour du statut pour le prospect $id : " . $e->getMessage());
             return false;
         }

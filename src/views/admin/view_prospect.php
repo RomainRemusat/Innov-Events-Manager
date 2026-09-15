@@ -29,6 +29,15 @@ $isConverted = ($prospect['status'] ?? '') === 'converti';
 
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-2">
 
+            <?php foreach (['flash_error' => 'danger', 'flash_success' => 'success'] as $key => $color): ?>
+                <?php if (isset($_SESSION[$key])): ?>
+                    <div class="alert alert-<?= $color ?>" role="<?= $color === 'danger' ? 'alert' : 'status' ?>">
+                        <?= htmlspecialchars($_SESSION[$key], ENT_QUOTES, 'UTF-8') ?>
+                    </div>
+                    <?php unset($_SESSION[$key]); ?>
+                <?php endif; ?>
+            <?php endforeach; ?>
+
             <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-4 border-bottom">
                 <div>
                     <h1 class="h3 fw-bold text-dark mb-1">
@@ -104,6 +113,7 @@ $isConverted = ($prospect['status'] ?? '') === 'converti';
                             <hr>
 
                             <!-- Formulaire restreint aux seuls états de qualification prospect -->
+                            <?php if ($status !== 'converti'): ?>
                             <form action="index.php?action=update_prospect_status" method="POST">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                 <input type="hidden" name="id" value="<?= (int)$prospect['id'] ?>">
@@ -119,16 +129,19 @@ $isConverted = ($prospect['status'] ?? '') === 'converti';
 
                                 <div class="mb-3" id="rejection_block">
                                     <label for="rejection_reason" class="form-label fw-bold text-muted small">Motif du refus / non-faisabilité (envoyé par email) :</label>
-                                    <textarea class="form-control form-control-sm" id="rejection_reason" name="rejection_reason" rows="2" placeholder="Ex: Dates indisponibles, budget insuffisant pour la formule demandée..."></textarea>
+                                    <textarea class="form-control form-control-sm" id="rejection_reason" name="rejection_reason" rows="2" placeholder="Ex: Dates indisponibles, budget insuffisant pour la formule demandée..."><?= htmlspecialchars($prospect['rejection_reason'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
                                 </div>
 
                                 <button class="btn btn-sm btn-primary w-100 fw-bold" type="submit">
                                     <i class="bi bi-arrow-repeat me-1"></i>Mettre à jour le statut
                                 </button>
                                 <small class="text-muted d-block mt-2" style="font-size: 0.75rem;">
-                                    <i class="bi bi-info-circle me-1"></i>Le passage sur « Échoué » transmet un courriel de non-faisabilité personnalisé au prospect.
+                                    <i class="bi bi-info-circle me-1"></i>Pour « Échoué », le motif est obligatoire. Chaque soumission enregistre le motif et tente son envoi par email, y compris lors d'une nouvelle tentative.
                                 </small>
                             </form>
+                            <?php else: ?>
+                                <p class="text-muted">Ce prospect est converti. La qualification ne peut plus être modifiée.</p>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>

@@ -101,19 +101,6 @@ class ConversionService
             throw new InvalidArgumentException("Paramètres métier obligatoires manquants ou invalides.");
         }
 
-        // Vérification d'anti-double conversion
-        $stmtCheck = $this->db->prepare("SELECT id, status FROM prospects WHERE id = ? LIMIT 1");
-        $stmtCheck->execute([$prospectId]);
-        $currentProspect = $stmtCheck->fetch(PDO::FETCH_ASSOC);
-
-        if (!$currentProspect) {
-            throw new InvalidArgumentException("Prospect introuvable.");
-        }
-
-        if (strtolower($currentProspect['status'] ?? '') === 'converti') {
-            throw new InvalidArgumentException("Ce prospect a déjà été converti en client.");
-        }
-
         // Variables post-transactionnelles (envois emails après commit)
         $isNewUserCreated = false;
         $newUserEmail     = null;
@@ -126,6 +113,14 @@ class ConversionService
         $this->db->beginTransaction();
 
         try {
+            // Partagé avec la qualification : une décision concurrente ne doit pas
+            // convertir un dossier refusé ni permettre une seconde conversion.
+            $stmtCheck = $this->db->prepare('SELECT status FROM prospects WHERE id = ? FOR UPDATE');
+            $stmtCheck->execute([$prospectId]);
+            $currentStatus = $stmtCheck->fetchColumn();
+            if ($currentStatus === false || in_array($currentStatus, ['converti', 'échoué'], true)) {
+                throw new InvalidArgumentException('Prospect introuvable, déjà converti ou échoué. Requalifiez une demande échouée avant conversion.');
+            }
             // A. Gestion de l'entité morale B2B (companies)
             $companyModel = new Company();
             $companyId = $companyModel->findOrCreateAndEnrich($companyName, $siren, $address, $postalCode, $city);

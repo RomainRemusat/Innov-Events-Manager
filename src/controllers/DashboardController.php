@@ -203,6 +203,11 @@ class DashboardController extends BaseController
         require __DIR__ . '/../views/partials/footer.php';
     }
 
+    /**
+     * Qualifie une demande et notifie le prospect en cas de non-faisabilité (ECF p. 9).
+     * Le motif est conservé en SQL avant toute notification externe ; une panne SMTP
+     * ne doit ni perdre la décision ni être présentée comme un envoi réussi.
+     */
     public function updateProspectStatus(): void
     {
         $this->checkAuth(['ADMIN']);
@@ -215,15 +220,22 @@ class DashboardController extends BaseController
         $this->validateCsrf($_POST);
 
         $prospectId = (int)($_POST['prospect_id'] ?? $_POST['id'] ?? 0);
-        $newStatus = trim($_POST['status'] ?? '');
-        $refusalReason = trim($_POST['refusal_reason'] ?? '');
+        $newStatus = $_POST['status'] ?? '';
+        $newStatus = is_string($newStatus) ? trim($newStatus) : '';
+        $refusalReason = $_POST['rejection_reason'] ?? $_POST['refusal_reason'] ?? '';
+        $refusalReason = is_string($refusalReason) ? trim($refusalReason) : '';
 
         if ($prospectId > 0 && !empty($newStatus)) {
             $prospectModel = new Prospect();
             $prospect = $prospectModel->find($prospectId);
 
-            if ($prospect) {
-                $prospectModel->updateStatus($prospectId, $newStatus);
+            if ($prospect && $prospectModel->updateStatus($prospectId, $newStatus, $refusalReason, $prospect['status'])) {
+                $mailSent = null;
+                if ($newStatus === 'échoué') {
+                    $mailSent = (new MailService())->sendQuoteRefusal(
+                        $prospect['email'], $prospect['contact_name'], $refusalReason
+                    );
+                }
 
                 // Journalisation MongoDB
                 try {
@@ -234,16 +246,27 @@ class DashboardController extends BaseController
                         'nouveau_statut'=> $newStatus,
                         'company_name'  => $prospect['company_name']
                     ];
-                    if (!empty($refusalReason)) {
+                    if ($newStatus === 'échoué') {
                         $logDetails['motif_refus'] = $refusalReason;
+                        $logDetails['email_sent'] = $mailSent;
                     }
                     $logModel->addLog("QUALIFICATION_PROSPECT", (int)$_SESSION['user_id'], $logDetails);
                 } catch (\Exception $e) {
                     error_log("Erreur Log MongoDB qualification : " . $e->getMessage());
                 }
 
-                $_SESSION['flash_success'] = "Statut du prospect mis à jour avec succès.";
+                if ($mailSent === false) {
+                    $_SESSION['flash_error'] = "Refus et motif enregistrés, mais l'email n'a pas pu être envoyé. Soumettez à nouveau le formulaire pour réessayer.";
+                } else {
+                    $_SESSION['flash_success'] = $mailSent === true
+                        ? "Refus et motif enregistrés. L'email a été transmis au serveur de messagerie."
+                        : "Statut du prospect mis à jour avec succès.";
+                }
+            } else {
+                $_SESSION['flash_error'] = "Qualification non enregistrée : vérifiez le statut et le motif (obligatoire pour un échec, 10 000 octets maximum). Un dossier converti, associé à un devis ou modifié entre-temps ne peut pas être requalifié.";
             }
+        } else {
+            $_SESSION['flash_error'] = "Demande ou statut manquant.";
         }
 
         header("Location: index.php?action=view_prospect&id=" . $prospectId);
