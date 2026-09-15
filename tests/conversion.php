@@ -3,6 +3,7 @@
 // docker compose exec -T app php tests/conversion.php
 // Bases SQL/MongoDB temporaires : aucune donnée de travail ni aucun mail modifié.
 require_once __DIR__ . '/../src/services/ConversionService.php';
+require_once __DIR__ . '/../src/models/sql/Devis.php';
 
 function verify(bool $condition, string $message): void
 {
@@ -31,6 +32,8 @@ try {
     $database = $databaseClass->newInstanceWithoutConstructor();
     $databaseClass->getProperty('pdo')->setValue($database, $pdo);
     $databaseClass->getProperty('instance')->setValue(null, $database);
+    verify(Database::getInstance()->query('SELECT DATABASE()')->fetchColumn() === $name,
+        'Le service doit exclusivement utiliser la base temporaire');
 
     $pdo->exec("INSERT INTO prospects (company_name, contact_name, email, phone, event_type)
         VALUES ('NextGen Software', 'Amandine Legrand', 'a.legrand@nextgen.io', '0102030405', 'Séminaire')");
@@ -44,6 +47,8 @@ try {
         'start_date' => '2026-10-12T14:30',
         'location' => 'Paris',
         'estimated_participants' => 25,
+        'event_type' => 'Conférence',
+        'description' => 'Projet ajusté pendant la conversion',
     ];
     $service = new ConversionService();
     $devisId = $service->convertProspectToClient($data, null, 1);
@@ -56,12 +61,48 @@ try {
         && (int)$prospect['company_id'] === 3, 'Prospect non converti');
     $devis = $pdo->query("SELECT * FROM devis WHERE id_devis = $devisId")->fetch();
     verify((int)$devis['id_prospect'] === $prospectId && $devis['status'] === 'brouillon', 'Devis incorrect');
+    verify((int)$devis['event_id'] === (int)$event['id'], 'Lien événement/devis absent');
+    $devisModel = new Devis();
+    $pdfData = $devisModel->findWithProspect($devisId);
+    verify($pdfData['event_date'] === '2026-10-12' && $pdfData['event_type'] === 'Conférence'
+        && (int)$pdfData['estimated_participants'] === 25
+        && $pdfData['description'] === $data['description'] && $pdfData['location'] === 'Paris',
+        'Les données du PDF ne correspondent pas au projet converti');
+    $pdo->exec("INSERT INTO prestations (devis_id, libelle, montant_ht) VALUES ($devisId, 'Prestation du premier projet', 100)");
     $logs = $mongo->executeQuery($name . '.logs', new MongoDB\Driver\Query([
         'type_action' => 'CONVERSION_PROSPECT', 'details.devis_id' => $devisId,
     ]))->toArray();
     verify(count($logs) === 1 && $logs[0]->id_utilisateur === 1
         && $logs[0]->details->event_id === (int)$event['id'], 'Journal de conversion incorrect');
     echo "OK : conversion réelle, start_date, liens client/entreprise, devis et journal MongoDB.\n";
+
+    $pdo->exec("INSERT INTO prospects (company_name, contact_name, email, phone, event_type)
+        VALUES ('NextGen Software', 'Amandine Legrand', 'a.legrand@nextgen.io', '0102030405', 'Autre')");
+    $data['prospect_id'] = (int)$pdo->lastInsertId();
+    $data['event_title'] = 'Deuxième projet du même client';
+    $secondQuote = $service->convertProspectToClient($data, null, 1);
+    $secondEvent = (int)$pdo->query("SELECT event_id FROM devis WHERE id_devis = $secondQuote")->fetchColumn();
+    $first = $devisModel->findByEventIdWithPrestations((int)$event['id']);
+    $second = $devisModel->findByEventIdWithPrestations($secondEvent);
+    verify((int)$first['id_devis'] === $devisId && count($first['prestations']) === 1
+        && (int)$second['id_devis'] === $secondQuote && $second['prestations'] === [],
+        'Les devis/prestations de deux événements du même client sont mélangés');
+    verify($first['reference_pdf'] !== $second['reference_pdf'], 'Collision des noms de PDF');
+    $pdo->exec("UPDATE devis SET event_id = NULL WHERE id_devis = $secondQuote");
+    verify($devisModel->findByEventIdWithPrestations($secondEvent) === null, 'Un devis historique ne doit pas être deviné');
+    $pdo->exec("UPDATE devis SET event_id = $secondEvent WHERE id_devis = $secondQuote");
+    $pdo->exec("DELETE FROM events WHERE id = $secondEvent");
+    verify($pdo->query("SELECT event_id FROM devis WHERE id_devis = $secondQuote")->fetchColumn() === null,
+        'La suppression de l’événement doit conserver le devis sans lien');
+    echo "OK : isolation de deux projets, données PDF synchronisées, absence de lien et suppression événement.\n";
+
+    $pdo->exec("INSERT INTO prospects (company_name, contact_name, email, phone, event_type)
+        VALUES ('NextGen Software', 'Amandine Legrand', 'a.legrand@nextgen.io', '0102030405', 'Autre')");
+    $data['prospect_id'] = (int)$pdo->lastInsertId();
+    // Échec réel en fin de transaction, sans modifier le service ni toucher la base de travail.
+    verify($pdo->query('SELECT DATABASE()')->fetchColumn() === $name, 'Base temporaire attendue');
+    $pdo->exec("CREATE TRIGGER `$name`.fail_quote BEFORE INSERT ON `$name`.devis FOR EACH ROW
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Échec devis simulé'");
 
     $snapshot = static function () use ($pdo): array {
         $rows = [];
@@ -71,13 +112,12 @@ try {
         return $rows;
     };
     $before = $snapshot();
-    $data['prospect_id'] = 2147483647; // Échec FK du devis après création de l'événement.
     $data['company_name'] = 'Entreprise à annuler';
     try {
         $service->convertProspectToClient($data, null, 1);
         throw new RuntimeException('Une erreur SQL était attendue');
     } catch (PDOException $error) {
-        verify($error->getCode() === '23000', 'Erreur SQL inattendue');
+        verify($error->getCode() === '45000', 'Erreur SQL inattendue');
     }
     verify(!$pdo->inTransaction() && $snapshot() === $before, 'Rollback incomplet');
     echo "OK : rollback SQL complet si la création du devis échoue.\n";

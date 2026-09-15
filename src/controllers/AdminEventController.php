@@ -63,12 +63,9 @@ class AdminEventController extends BaseController
         $noteModel = new Note();
         $notes = $noteModel->findByEventId($eventId);
 
-        // Récupération des prestations et devis associés au client de l'événement
-        $associatedDevis = null;
-        if (!empty($event['client_id'])) {
-            $devisModel = new Devis();
-            $associatedDevis = $devisModel->findByClientIdWithPrestations((int)$event['client_id']);
-        }
+        // Ne jamais substituer le devis d'un autre projet du même client.
+        $devisModel = new Devis();
+        $associatedDevis = $devisModel->findByEventIdWithPrestations($eventId);
 
         $pageTitle = "Détail Événement - " . htmlspecialchars($event['title'], ENT_QUOTES, 'UTF-8');
 

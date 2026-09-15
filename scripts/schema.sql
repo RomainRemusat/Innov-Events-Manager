@@ -75,6 +75,7 @@ ON DELETE CASCADE ON UPDATE CASCADE
 CREATE TABLE devis (
 id_devis INT AUTO_INCREMENT PRIMARY KEY,
 id_prospect INT NOT NULL,
+event_id INT NULL,
 reference_pdf VARCHAR(255) NOT NULL,
 montant_ht DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
 tva DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
@@ -113,6 +114,10 @@ ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
+-- Le devis reste consultable si son événement est supprimé.
+ALTER TABLE devis ADD CONSTRAINT fk_devis_event
+FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL ON UPDATE CASCADE;
+
 -- 6. TABLE : PRESTATIONS (Postes budgétaires rattachés au devis)
 -- ---------------------------------------------------------------------
 CREATE TABLE prestations (

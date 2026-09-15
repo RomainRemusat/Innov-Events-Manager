@@ -258,12 +258,12 @@ class Devis
     }
 
     /**
-     * Récupère le devis et l'ensemble de ses prestations chiffrées rattachés à un client.
+     * Récupère le dernier devis explicitement rattaché à cet événement et ses prestations.
      *
-     * @param int $clientId Identifiant unique du client (users.id)
+     * @param int $eventId Identifiant unique de l'événement (events.id)
      * @return array|null
      */
-    public function findByClientIdWithPrestations(int $clientId): ?array
+    public function findByEventIdWithPrestations(int $eventId): ?array
     {
         try {
             $stmt = $this->db->prepare("
@@ -282,12 +282,13 @@ class Devis
                 FROM devis d
                 INNER JOIN prospects p ON d.id_prospect = p.id
                 LEFT JOIN prestations pr ON d.id_devis = pr.devis_id
-                WHERE p.user_id = :client_id
+                INNER JOIN events e ON e.id = d.event_id AND e.client_id = p.user_id
+                WHERE d.event_id = :event_id
                 GROUP BY d.id_devis
                 ORDER BY d.id_devis DESC
                 LIMIT 1
             ");
-            $stmt->execute([':client_id' => $clientId]);
+            $stmt->execute([':event_id' => $eventId]);
             $devis = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($devis) {
@@ -298,7 +299,7 @@ class Devis
 
             return null;
         } catch (PDOException $e) {
-            error_log("Défaut SQL findByClientIdWithPrestations : " . $e->getMessage());
+            error_log("Défaut SQL findByEventIdWithPrestations : " . $e->getMessage());
             return null;
         }
     }

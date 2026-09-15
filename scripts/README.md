@@ -87,6 +87,21 @@ START TRANSACTION/ROLLBACK ne permet pas d'annuler une série entière de DDL.
 `Prospect::create()` doit encore être corrigé pour ne plus imposer `en attente`.
 Le défaut SQL ne remplace pas une valeur explicitement envoyée par l'application.
 
+**Lien devis/événement (base existante, y compris export du 15/09/2026)**
+
+Après sauvegarde, importer `update_devis_event.sql` avant le déploiement du code
+de conversion. Ce script ajoute `devis.event_id` nullable et sa clé étrangère ;
+il peut être rejoué. `schema.sql` inclut déjà ce lien pour une installation neuve.
+La suppression d'un événement détache le devis (`SET NULL`) sans le détruire.
+
+Les devis historiques restent sans lien : ne pas les associer automatiquement
+par client, date ou numéro. Après vérification des dossiers (ou des identifiants
+`event_id` / `devis_id` d'un journal de conversion), renseigner explicitement
+`devis.event_id` en vérifiant aussi que l'événement et le prospect ont le même client.
+Plusieurs versions de devis peuvent viser un événement ; la fiche affiche la dernière.
+Sans association, elle indique qu'aucun devis n'est rattaché.
+Les PDF déjà émis ne sont pas réécrits par cette migration.
+
 **Vérification automatisée**
 
 Python 3 et Docker sont nécessaires. Le test utilise l'image `mysql:8.0`, un

@@ -204,7 +204,11 @@ class ConversionService
                     contact_name = ?,
                     email = ?,
                     phone = ?,
-                    location = ?
+                    location = ?,
+                    event_date = ?,
+                    event_type = ?,
+                    estimated_participants = ?,
+                    description = ?
                 WHERE id = ?
             ");
             $stmtProspect->execute([
@@ -215,18 +219,22 @@ class ConversionService
                 $email,
                 $phone,
                 $location,
+                substr($mysqlStartDate, 0, 10),
+                $eventType,
+                $participants,
+                $description,
                 $prospectId
             ]);
 
             // F. Génération de la coquille financière initiale au statut 'brouillon' (Table devis)
             $safePrefix = strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $companyName), 0, 5));
-            $refPdf     = "Devis_" . $safePrefix . "_" . date('Ymd_His') . ".pdf";
+            $refPdf     = "Devis_" . $safePrefix . "_" . $prospectId . "_" . date('Ymd_His') . ".pdf";
 
             $stmtDevis = $this->db->prepare("
-                INSERT INTO devis (id_prospect, reference_pdf, montant_ht, tva, status) 
-                VALUES (?, ?, 0.00, 0.00, 'brouillon')
+                INSERT INTO devis (id_prospect, event_id, reference_pdf, montant_ht, tva, status)
+                VALUES (?, ?, ?, 0.00, 0.00, 'brouillon')
             ");
-            $stmtDevis->execute([$prospectId, $refPdf]);
+            $stmtDevis->execute([$prospectId, $eventId, $refPdf]);
             $devisId = (int)$this->db->lastInsertId();
 
             // Commit final de la transaction MySQL

@@ -39,6 +39,12 @@ INSERT INTO events (id, client_id, company_id, title, description, start_date, e
     (3, 3, 2, 'Team Building - Luxury Hotel Group', 'Journée de cohésion d équipe en pleine nature avec ateliers collaboratifs.', '2026-10-18 08:00:00', '2026-10-18 19:00:00', 'Domaine de l Abbaye, Nancy', 'Team Building', 'Nature & Cohésion', 24, NULL, 'brouillon', 0),
     (4, 4, 3, 'Séminaire - NextGen Software', 'Séminaire de rentrée annuel.', '2026-09-15 08:00:00', '2026-09-15 12:00:00', 'Éco-Lodge, Fontainebleau', 'Séminaire', NULL, 150, NULL, 'brouillon', 0);
 
+-- Associations explicites du jeu de démonstration uniquement (pas une migration).
+UPDATE devis SET event_id = 1 WHERE id_devis = 1;
+UPDATE devis SET event_id = 2 WHERE id_devis = 2;
+UPDATE devis SET event_id = 3 WHERE id_devis = 3;
+UPDATE devis SET event_id = 4 WHERE id_devis IN (4, 5);
+
 -- 6. Insertion des Prestations détaillées chiffrées
 INSERT INTO prestations (id, devis_id, libelle, montant_ht) VALUES
     (1, 1, 'Scénographie lumineuse LED complète', 15000.00),

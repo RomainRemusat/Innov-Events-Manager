@@ -7,6 +7,7 @@ sans copier son contenu dans le dépôt ni se connecter à la base de travail.
 import argparse
 import hashlib
 import pathlib
+import re
 import secrets
 import subprocess
 import time
@@ -28,6 +29,9 @@ def main():
     parser.add_argument("--export", type=pathlib.Path)
     options = parser.parse_args()
     export_sql = options.export.read_bytes() if options.export else None
+    if export_sql:
+        # Garder l'import dans la base isolée choisie par le test.
+        export_sql = re.sub(rb'(?mi)^(?:CREATE DATABASE|USE )[^\r\n]*;\s*', b'', export_sql)
     container = "innovevents-sql-test-" + secrets.token_hex(4)
     password = secrets.token_hex(16)
     migrations = sorted((ROOT / "scripts").glob("update_*.sql"))
@@ -48,7 +52,11 @@ def main():
 
     def snapshot(database):
         return {
-            table: hashlib.sha256(sql(database, f"SELECT * FROM {table} ORDER BY 1").stdout).hexdigest()
+            table: hashlib.sha256(sql(database, "SELECT " + ','.join(
+                '`' + name + '`' for name in rows(database,
+                    f"SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{database}' "
+                    f"AND TABLE_NAME = '{table}' AND NOT (TABLE_NAME = 'devis' AND COLUMN_NAME = 'event_id') ORDER BY ORDINAL_POSITION")
+            ) + f" FROM {table} ORDER BY 1").stdout).hexdigest()
             for table in TABLES
         }
 
@@ -135,6 +143,7 @@ def main():
                 ALTER TABLE events MODIFY status VARCHAR(50) NULL DEFAULT 'brouillon';
                 ALTER TABLE devis MODIFY status VARCHAR(50) NULL DEFAULT 'brouillon',
                     ALTER montant_ht DROP DEFAULT, ALTER tva DROP DEFAULT;
+                ALTER TABLE devis DROP FOREIGN KEY fk_devis_event, DROP COLUMN event_id;
             """)
 
         for database in ("fresh", "migrated"):
@@ -144,6 +153,10 @@ def main():
                     sql(database, migration.read_bytes())
                 assert snapshot(database) == before, f"Données modifiées dans {database}, passage {pass_number}"
                 assert structure(database) == expected, f"Schéma divergent dans {database}, passage {pass_number}"
+                if database == 'migrated':
+                    assert rows(database, 'SELECT COUNT(*) FROM devis WHERE event_id IS NOT NULL') == ['0'], 'Lien historique deviné'
+                else:
+                    assert rows(database, 'SELECT event_id FROM devis ORDER BY id_devis') == ['1', '2', '3', '4', '4'], 'Liens existants modifiés'
             print(f"OK : {database}, deux passages des {len(migrations)} migrations, données et contraintes préservées", flush=True)
 
         sql("invalid", schema)
