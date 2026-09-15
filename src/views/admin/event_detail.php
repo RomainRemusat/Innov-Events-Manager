@@ -4,52 +4,28 @@
  *
  * Cette vue constitue l'interface centrale de pilotage opérationnel pour Chloé (ADMIN)
  * et José (EMPLOYEE). Elle rassemble la synthèse logistique, la gestion des médias,
- * les actions rapides de contact client et le flux de notes collaboratives.
+ * les actions rapides de contact client, les prestations associées au devis et le flux de notes collaboratives.
  *
  * Variables injectées par le contrôleur (AdminEventController::showEventDetail) :
- * @var array{
- *     id: int|string,
- *     title: string,
- *     status: string,
- *     start_date: string,
- *     end_date: ?string,
- *     location: string,
- *     event_type: string,
- *     theme: ?string,
- *     estimated_participants: int|string|null,
- *     is_published: int|string|bool,
- *     image_path: ?string,
- *     firstname: string,
- *     lastname: string,
- *     company_name: ?string,
- *     client_email: ?string,
- *     phone: ?string
- * } $event Détails complets de l'événement et du client rattaché.
- *
- * @var array<int, array{
- *     id: int|string,
- *     content: string,
- *     created_at: string,
- *     firstname: string,
- *     lastname: string,
- *     user_role: string
- * }> $notes Liste chronologique inversée des notes collaboratives de l'événement.
- *
+ * @var array $event Détails complets de l'événement et du client rattaché.
+ * @var array $notes Liste chronologique inversée des notes collaboratives de l'événement.
+ * @var array|null $associatedDevis Devis et prestations chiffrées associés au projet.
  * @var string $pageTitle Titre de la page transmis au gabarit global.
  *
  * @package    InnovEventsManager
  * @subpackage Views\Admin
  * @author     Romain Rémusat
- * @version    1.2.0
+ * @version    1.3.0
  */
 ?>
+
 <div class="container-fluid">
     <div class="row">
         <!-- Menu latéral de navigation du Back-Office -->
         <?php require __DIR__ . '/../partials/sidebar.php'; ?>
 
         <!-- Zone de contenu principal (Repère sémantique RGAA pour lecteurs d'écran) -->
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4" id="main-content">
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4" id=\"main-content\">
 
             <!-- Fil d'Ariane contextuel (Critère accessibilité RGAA) -->
             <nav aria-label="Fil d'Ariane" class="mb-3">
@@ -59,7 +35,25 @@
                 </ol>
             </nav>
 
-            <!-- Retour visuel utilisateur : Notifications Flash d'état (Succès / Erreurs) -->
+            <!-- Notifications Flash d'état -->
+            <?php if (isset($_SESSION['flash_success'])): ?>
+                <div class="alert alert-success alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
+                    <i class="fa-solid fa-circle-check me-2" aria-hidden="true"></i>
+                    <div><?= htmlspecialchars($_SESSION['flash_success'], ENT_QUOTES, 'UTF-8') ?></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+                </div>
+                <?php unset($_SESSION['flash_success']); ?>
+            <?php endif; ?>
+
+            <?php if (isset($_SESSION['flash_error'])): ?>
+                <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
+                    <i class="fa-solid fa-triangle-exclamation me-2" aria-hidden="true"></i>
+                    <div><?= htmlspecialchars($_SESSION['flash_error'], ENT_QUOTES, 'UTF-8') ?></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+                </div>
+                <?php unset($_SESSION['flash_error']); ?>
+            <?php endif; ?>
+
             <?php if (isset($_GET['success']) && $_GET['success'] === 'image_updated'): ?>
                 <div class="alert alert-success alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
                     <i class="fa-solid fa-circle-check me-2" aria-hidden="true"></i>
@@ -76,30 +70,38 @@
                 </div>
             <?php endif; ?>
 
-            <!-- En-tête de la fiche projet : Titre, Statut opérationnel et Navigation de retour -->
-            <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+            <!-- En-tête de la fiche projet -->
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom flex-wrap gap-2">
                 <div>
                     <h1 class="h3 fw-bold text-dark mb-1"><?= htmlspecialchars($event['title'], ENT_QUOTES, 'UTF-8') ?></h1>
                     <p class="text-muted small mb-0">Fiche logistique et pilotage opérationnel</p>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-primary px-3 py-2 text-capitalize fs-6">
-                        <?= htmlspecialchars($event['status'], ENT_QUOTES, 'UTF-8') ?>
-                    </span>
+                    <form method="POST" action="index.php?action=admin_update_event_status" class="d-inline-flex align-items-center gap-1">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="event_id" value="<?= (int)$event['id'] ?>">
+                        <select name="status" class="form-select form-select-sm fw-bold border-primary" onchange="this.form.submit()">
+                            <option value="brouillon" <?= $event['status'] === 'brouillon' ? 'selected' : '' ?>>📝 Brouillon</option>
+                            <option value="accepté" <?= $event['status'] === 'accepté' ? 'selected' : '' ?>>✅ Accepté (Prêt)</option>
+                            <option value="en cours" <?= $event['status'] === 'en cours' ? 'selected' : '' ?>>⏳ En cours</option>
+                            <option value="terminé" <?= $event['status'] === 'terminé' ? 'selected' : '' ?>>🏁 Terminé</option>
+                            <option value="annuler" <?= $event['status'] === 'annuler' ? 'selected' : '' ?>>❌ Annulé</option>
+                        </select>
+                    </form>
+
                     <a href="index.php?action=admin_events" class="btn btn-outline-secondary btn-sm">
                         <i class="fa-solid fa-arrow-left me-1" aria-hidden="true"></i>Retour
                     </a>
                 </div>
             </div>
 
-            <div class="row g-4 mb-5">
+            <div class="row g-4 mb-4">
                 <!-- COLONNE GAUCHE : Spécifications logistiques & Gestionnaire de média -->
                 <div class="col-lg-6 d-flex flex-column gap-4">
 
                     <!-- Carte synthétique des données logistiques -->
                     <div class="card shadow-sm border-0 overflow-hidden h-100">
                         <?php require_once __DIR__ . '/../../utils/ImageHelper.php'; ?>
-                        <!-- Rendu sécurisé de la vignette ou fallback vers le placeholder RGAA -->
                         <?= ImageHelper::renderThumbnail($event['image_path'] ?? null, $event['title'], '200px') ?>
 
                         <div class="card-header bg-light fw-bold py-3">
@@ -133,14 +135,13 @@
                     </div>
 
                     <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
-                    <!-- Carte de téléversement média (Sécurisation OWASP : jeton CSRF, MIME côté serveur) -->
+                    <!-- Carte de téléversement média -->
                     <div class="card shadow-sm border-0">
                         <div class="card-header bg-light fw-bold py-3">
                             <i class="fa-solid fa-camera me-2 text-primary" aria-hidden="true"></i>Illustration de l'événement
                         </div>
                         <div class="card-body">
                             <form method="POST" action="index.php?action=admin_upload_image" enctype="multipart/form-data">
-                                <!-- Protection contre les attaques Cross-Site Request Forgery (CWE-352) -->
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                 <input type="hidden" name="event_id" value="<?= (int)$event['id'] ?>">
 
@@ -165,7 +166,7 @@
                     <?php endif; ?>
                 </div>
 
-                <!-- COLONNE DROITE : Client rattaché & Actions directes terrain (Mobilité CDC p. 14) -->
+                <!-- COLONNE DROITE : Client rattaché & Actions directes terrain -->
                 <div class="col-lg-6">
                     <div class="card shadow-sm border-0 h-100">
                         <div class="card-header bg-light fw-bold py-3">
@@ -175,22 +176,21 @@
                             <h2 class="h5 fw-bold text-dark mb-1"><?= htmlspecialchars($event['firstname'] . ' ' . $event['lastname'], ENT_QUOTES, 'UTF-8') ?></h2>
                             <p class="text-muted small mb-4"><?= htmlspecialchars($event['company_name'] ?? 'Compte Individuel', ENT_QUOTES, 'UTF-8') ?></p>
 
-                            <!-- Déclencheurs natifs en mobilité (Protocoles mailto:, tel: et webmapping)[cite: 11] -->
                             <div class="d-flex flex-wrap gap-2 mt-auto pt-3 border-top">
                                 <?php if (!empty($event['client_email'])): ?>
-                                    <a href="mailto:<?= htmlspecialchars($event['client_email'], ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-primary">
+                                    <a href="mailto:<?= htmlspecialchars($event['client_email'], ENT_QUOTES, 'UTF-8') ?>\" class="btn btn-sm btn-outline-primary">
                                         <i class="fa-solid fa-envelope me-1" aria-hidden="true"></i>Envoyer un email
                                     </a>
                                 <?php endif; ?>
 
                                 <?php if (!empty($event['phone'])): ?>
-                                    <a href="tel:<?= htmlspecialchars($event['phone'], ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-success">
+                                    <a href="tel:<?= htmlspecialchars($event['phone'], ENT_QUOTES, 'UTF-8') ?>\" class="btn btn-sm btn-outline-success">
                                         <i class="fa-solid fa-phone me-1" aria-hidden="true"></i>Appeler
                                     </a>
                                 <?php endif; ?>
 
                                 <?php if (!empty($event['location'])): ?>
-                                    <a href="https://maps.google.com/?q=<?= urlencode($event['location']) ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary">
+                                    <a href="https://maps.google.com/?q=<?= urlencode($event['location']) ?>\" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary">
                                         <i class="fa-solid fa-map-location-dot me-1" aria-hidden="true"></i>Itinéraire
                                     </a>
                                 <?php endif; ?>
@@ -200,7 +200,98 @@
                 </div>
             </div>
 
-            <!-- SECTION COLLABORATIVE : Flux des notes de projet (Exigence CDC p. 11 & 14) -->
+            <!-- SECTION FINANCIÈRE & LOGISTIQUE : Devis commercial et Prestations convenues -->
+            <section class="card shadow-sm border-0 mb-4" aria-labelledby="devis-section-title">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center py-3 flex-wrap gap-2">
+                    <h2 class="h6 fw-bold mb-0" id="devis-section-title">
+                        <i class="fa-solid fa-file-invoice-dollar me-2 text-primary" aria-hidden="true"></i>Devis & Prestations Validées
+                    </h2>
+                    <?php if (!empty($associatedDevis)): ?>
+                        <div class="d-flex align-items-center gap-2">
+                            <?php
+                            $dStatus = strtolower($associatedDevis['status'] ?? '');
+                            $dBadge = 'bg-warning text-dark';
+                            if ($dStatus === 'accepté') $dBadge = 'bg-success text-white';
+                            elseif ($dStatus === 'refusé') $dBadge = 'bg-danger text-white';
+                            elseif ($dStatus === 'modification') $dBadge = 'bg-warning text-dark';
+                            elseif ($dStatus === 'étude côté client') $dBadge = 'bg-info text-dark';
+                            ?>
+                            <span class="badge <?= $dBadge ?> px-3 py-1">
+                                Devis #<?= (int)$associatedDevis['id_devis'] ?> : <?= ucfirst(htmlspecialchars($associatedDevis['status'] ?? 'Brouillon', ENT_QUOTES, 'UTF-8')) ?>
+                            </span>
+                            <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
+                                <a href="index.php?action=edit_devis&id=<?= (int)$associatedDevis['id_devis'] ?>" class="btn btn-outline-primary btn-sm">
+                                    <i class="fa-solid fa-pen-to-square me-1"></i>Gérer le devis
+                                </a>
+                            <?php endif; ?>
+                            <?php if (!empty($associatedDevis['reference_pdf'])): ?>
+                                <a href="index.php?action=download_devis&id=<?= (int)$associatedDevis['id_devis'] ?>" class="btn btn-outline-secondary btn-sm" target="_blank">
+                                    <i class="fa-solid fa-file-pdf text-danger me-1"></i>PDF
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div class="card-body p-4">
+                    <?php if (empty($associatedDevis)): ?>
+                        <div class="alert alert-light border mb-0 text-muted d-flex align-items-center">
+                            <i class="fa-solid fa-circle-info fs-4 me-3 text-secondary"></i>
+                            <div>
+                                <strong>Aucun devis commercial associé.</strong><br>
+                                Ce projet n'a pas encore de devis rattaché ou a été initialisé sans prospect.
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <?php if (empty($associatedDevis['prestations'])): ?>
+                            <p class="text-muted small mb-0">Aucune ligne de prestation détaillée n'a été saisie sur ce devis.</p>
+                        <?php else: ?>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-3">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 50px;">#</th>
+                                            <th>Prestation / Engagement logistique</th>
+                                            <th class="text-end" style="width: 150px;">Montant HT</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php 
+                                        $i = 1;
+                                        foreach ($associatedDevis['prestations'] as $presta): ?>
+                                            <tr>
+                                                <td class="text-muted small"><?= $i++ ?></td>
+                                                <td class="fw-semibold text-dark">
+                                                    <i class="fa-solid fa-check text-success me-2"></i>
+                                                    <?= htmlspecialchars($presta['libelle'], ENT_QUOTES, 'UTF-8') ?>
+                                                </td>
+                                                <td class="text-end fw-bold text-secondary">
+                                                    <?= number_format((float)$presta['montant_ht'], 2, ',', ' ') ?> €
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                    <tfoot class="table-group-divider">
+                                        <tr>
+                                            <th colspan="2" class="text-end text-muted">Total HT :</th>
+                                            <th class="text-end fw-bold"><?= number_format((float)$associatedDevis['total_ht'], 2, ',', ' ') ?> €</th>
+                                        </tr>
+                                        <tr>
+                                            <th colspan="2" class="text-end text-muted">TVA (20%) :</th>
+                                            <th class="text-end text-muted"><?= number_format((float)$associatedDevis['total_tva'], 2, ',', ' ') ?> €</th>
+                                        </tr>
+                                        <tr class="table-primary">
+                                            <th colspan="2" class="text-end text-primary fs-6">Total TTC validé :</th>
+                                            <th class="text-end text-primary fs-6 fw-bold"><?= number_format((float)$associatedDevis['total_ttc'], 2, ',', ' ') ?> €</th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+            </section>
+
+            <!-- SECTION COLLABORATIVE : Flux des notes de projet -->
             <section class="card shadow-sm border-0 mb-4" aria-labelledby="notes-section-title">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center py-3">
                     <h2 class="h6 fw-bold mb-0" id="notes-section-title">
@@ -208,7 +299,7 @@
                     </h2>
                 </div>
                 <div class="card-body p-4">
-                    <!-- Formulaire de consigne à chaud (Accessible sur desktop et mobile)[cite: 11] -->
+                    <!-- Formulaire de consigne à chaud -->
                     <form method="POST" action="index.php?action=admin_add_note" class="mb-4">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="event_id" value="<?= (int)$event['id'] ?>">

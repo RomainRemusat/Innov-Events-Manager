@@ -9,10 +9,11 @@
  * @package    InnovEventsManager
  * @subpackage Models/SQL
  * @author     Romain Remusat
- * @version    1.2.0
+ * @version    1.3.0
  */
 
 require_once __DIR__ . '/../../config/Database.php';
+require_once __DIR__ . '/Prestation.php';
 
 class Devis
 {
@@ -178,7 +179,7 @@ class Devis
             // 2. Calcul de la TVA collectée (20 %)
             $tva = round($totalHt * 0.20, 2);
 
-            // 3. Mise à jour atomique de l'entête devis
+            // 3. Mise à jour atomique de l'en-tête devis
             $updateStmt = $this->db->prepare("
                 UPDATE devis
                 SET montant_ht = :montant_ht,
@@ -253,6 +254,52 @@ class Devis
         } catch (PDOException $e) {
             error_log("Défaut SQL findAllWithTotals : " . $e->getMessage());
             return [];
+        }
+    }
+
+    /**
+     * Récupère le devis et l'ensemble de ses prestations chiffrées rattachés à un client.
+     *
+     * @param int $clientId Identifiant unique du client (users.id)
+     * @return array|null
+     */
+    public function findByClientIdWithPrestations(int $clientId): ?array
+    {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT d.id_devis,
+                       d.id_prospect,
+                       d.reference_pdf,
+                       d.status,
+                       d.date_creation,
+                       p.company_name,
+                       p.contact_name,
+                       p.event_type,
+                       p.event_date,
+                       COALESCE(SUM(pr.montant_ht), d.montant_ht, 0.00) AS total_ht,
+                       ROUND(COALESCE(SUM(pr.montant_ht), d.montant_ht, 0.00) * 0.20, 2) AS total_tva,
+                       ROUND(COALESCE(SUM(pr.montant_ht), d.montant_ht, 0.00) * 1.20, 2) AS total_ttc
+                FROM devis d
+                INNER JOIN prospects p ON d.id_prospect = p.id
+                LEFT JOIN prestations pr ON d.id_devis = pr.devis_id
+                WHERE p.user_id = :client_id
+                GROUP BY d.id_devis
+                ORDER BY d.id_devis DESC
+                LIMIT 1
+            ");
+            $stmt->execute([':client_id' => $clientId]);
+            $devis = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($devis) {
+                $prestationModel = new Prestation();
+                $devis['prestations'] = $prestationModel->findByDevisId((int)$devis['id_devis']);
+                return $devis;
+            }
+
+            return null;
+        } catch (PDOException $e) {
+            error_log("Défaut SQL findByClientIdWithPrestations : " . $e->getMessage());
+            return null;
         }
     }
 }

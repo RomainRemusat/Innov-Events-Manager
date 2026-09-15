@@ -75,6 +75,38 @@ class Log
         }
     }
 
+    /** Efface les documents liés au client, y compris les actions du personnel sur ses dossiers. */
+    public function deleteClientData(int $userId, string $email, array $prospectIds, array $quoteIds, array $eventIds): bool
+    {
+        if ($this->manager === null || $userId <= 0 || $email === '') {
+            return false;
+        }
+        $conditions = [];
+        foreach ([
+            'id_utilisateur' => [$userId],
+            'details.user_id' => [$userId],
+            'details.client_id' => [$userId],
+            'details.prospect_id' => $prospectIds,
+            'details.devis_id' => $quoteIds,
+            'details.event_id' => $eventIds,
+        ] as $field => $ids) {
+            if ($ids !== []) {
+                $conditions[] = [$field => ['$in' => array_merge(array_map('intval', $ids), array_map('strval', $ids))]];
+            }
+        }
+        foreach (['details.email', 'details.recipient'] as $field) {
+            $conditions[] = [$field => new \MongoDB\BSON\Regex('^' . preg_quote($email, '/') . '$', 'i')];
+        }
+        try {
+            $bulk = new \MongoDB\Driver\BulkWrite();
+            $bulk->delete(['$or' => $conditions], ['limit' => 0]);
+            return $this->manager->executeBulkWrite($this->namespace, $bulk)->isAcknowledged();
+        } catch (\Throwable $e) {
+            error_log('[Log::deleteClientData] ' . $e->getMessage());
+            return false;
+        }
+    }
+
     /**
      * Récupère l'historique des derniers logs pour la vue technique.
      *
@@ -133,15 +165,18 @@ class Log
         }
 
         try {
+            // Requête flexible : supporte devis_id sous forme d'entier ou de chaîne de caractères
             $filter = [
-                'type_action'      => 'REPONSE_DEVIS_CLIENT',
-                'details.devis_id' => $devisId,
-                'details.action'   => 'request_change'
+                'type_action' => 'REPONSE_DEVIS_CLIENT',
+                '$or' => [
+                    ['details.devis_id' => $devisId],
+                    ['details.devis_id' => (string)$devisId]
+                ]
             ];
 
             $query = new \MongoDB\Driver\Query($filter, [
                 'sort'  => ['Horodatage' => -1],
-                'limit' => 1
+                'limit' => 5
             ]);
 
             $cursor = $this->manager->executeQuery($this->namespace, $query);
@@ -150,8 +185,12 @@ class Log
                 $data = (array)$doc;
                 if (isset($data['details'])) {
                     $details = (array)$data['details'];
-                    if (!empty($details['change_reason'])) {
-                        return (string)$details['change_reason'];
+                    $action = $details['action'] ?? $details['client_action'] ?? '';
+                    if ($action === 'request_change') {
+                        $reason = $details['change_reason'] ?? $details['reason'] ?? null;
+                        if (!empty($reason)) {
+                            return (string)$reason;
+                        }
                     }
                 }
             }

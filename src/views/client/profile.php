@@ -54,11 +54,12 @@ require __DIR__ . '/../partials/header.php';
                     <div class="card-body bg-danger-subtle d-flex flex-column justify-content-center text-center p-4">
                         <p class="text-danger-emphasis fw-medium small mb-4">
                             Conformément au RGPD (Règlement Général sur la Protection des Données), vous disposez d'un droit d'effacement de vos données.
-                            <strong>Attention, cette action est irréversible.</strong> Vos devis et événements seront détruits.
+                            <strong>Attention, cette action est irréversible.</strong> Votre compte, ses demandes, devis, événements et journaux associés seront supprimés, ainsi que leurs fichiers non partagés.
+                            Les données de société et les fichiers utilisés par d'autres clients sont conservés.
                         </p>
-                        <form action="index.php?action=delete_account" method="POST">
+                        <form action="index.php?action=client_delete_account" method="POST">
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
-                            <button type="submit" class="btn btn-danger fw-bold w-100 py-2 shadow-sm" onclick="return confirm('Êtes-vous absolument certain(e) de vouloir supprimer définitivement votre compte et l\'intégralité de vos données ? Cette action est immédiate et irréversible.');">
+                            <button type="submit" class="btn btn-danger fw-bold w-100 py-2 shadow-sm" onclick="return confirm('Voulez-vous supprimer définitivement votre compte et les données associées décrites ci-dessus ? Cette action est irréversible.');">
                                 <i class="bi bi-trash3-fill me-2"></i>SUPPRIMER MON COMPTE
                             </button>
                         </form>

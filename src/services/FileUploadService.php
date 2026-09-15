@@ -11,7 +11,7 @@ declare(strict_types=1);
  * @package    InnovEventsManager
  * @subpackage Services
  * @author     Romain Remusat
- * @version    1.2.0
+ * @version    1.3.0
  */
 class FileUploadService
 {
@@ -79,16 +79,31 @@ class FileUploadService
         $newFilename = $prefix . bin2hex(random_bytes(10)) . '.' . $extension;
 
         if (!is_dir($targetDirectory)) {
-            mkdir($targetDirectory, 0755, true);
+            @mkdir($targetDirectory, 0777, true);
         }
 
-        $destination = rtrim($targetDirectory, '/') . '/' . $newFilename;
+        $realTargetDir = realpath($targetDirectory) ?: $targetDirectory;
+        $destination = rtrim($realTargetDir, DIRECTORY_SEPARATOR . '/') . '/' . $newFilename;
 
-        if (move_uploaded_file($file['tmp_name'], $destination) || (php_sapi_name() === 'cli' && copy($file['tmp_name'], $destination))) {
+        if (@move_uploaded_file($file['tmp_name'], $destination) || @copy($file['tmp_name'], $destination)) {
+            @chmod($destination, 0777);
             return $newFilename;
         }
 
         return null;
+    }
+
+    /**
+     * Téléverse une image d'illustration d'événement et renvoie le chemin relatif pour la base de données.
+     */
+    public function uploadEventImage(array $file): ?string
+    {
+        $targetDir = __DIR__ . '/../../public/uploads/events';
+        if (!is_dir($targetDir)) {
+            @mkdir($targetDir, 0777, true);
+        }
+        $filename = $this->uploadImage($file, $targetDir, 'event_');
+        return $filename ? 'uploads/events/' . $filename : null;
     }
 
     /**

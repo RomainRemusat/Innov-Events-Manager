@@ -12,12 +12,12 @@ require_once __DIR__ . '/../../config/Database.php';
  * Alignement ECF Studi (Titre CDA) :
  * - AT1 : Requêtes préparées PDO systématiques contre les injections SQL (CWE-89).
  * - AT2 : Respect de la 3NF, masquage strict des données financières en vitrine publique,
- *         et capture étanche des exceptions PDO sans fuite d'informations[cite: 19].
+ *         et capture étanche des exceptions PDO sans fuite d'informations.
  *
  * @package    InnovEventsManager
  * @subpackage Models\SQL
  * @author     Romain Remusat
- * @version    2.1.0
+ * @version    2.3.0
  */
 class Event
 {
@@ -35,7 +35,7 @@ class Event
      * Recherche les événements publics publiés selon les filtres multicritères.
      *
      * Spécifications CDC (Page 7) : Accord client obligatoire (is_published = 1),
-     * statut != 'brouillon', et STRICTEMENT AUCUNE DONNÉE FINANCIÈRE extraite[cite: 19].
+     * statut != 'brouillon', et STRICTEMENT AUCUNE DONNÉE FINANCIÈRE extraite.
      *
      * @param string|null $dateStart Date minimale (format Y-m-d).
      * @param string|null $dateEnd   Date maximale (format Y-m-d).
@@ -175,9 +175,6 @@ class Event
     /**
      * Extrait les prochains événements à venir (Widget Dashboard Admin Chloé & Espace Client).
      *
-     * Exigence CDC (Page 11) : Affiche les événements dont la date de début est la plus proche
-     * avec le nom de l'événement et le client associé[cite: 19].
-     *
      * @param int $limit Nombre maximal d'enregistrements.
      * @return array<int, array<string, mixed>>
      */
@@ -246,6 +243,7 @@ class Event
             return [];
         }
     }
+
     /**
      * Extrait l'intégralité des événements pour le Back-Office d'administration.
      *
@@ -282,6 +280,14 @@ class Event
     }
 
     /**
+     * Alias de compatibilité vers findAllAdmin.
+     */
+    public function findAllWithClient(): array
+    {
+        return $this->findAllAdmin();
+    }
+
+    /**
      * Recherche un événement par son identifiant unique (Accès Back-Office).
      *
      * @param int $id Identifiant unique de l'événement.
@@ -312,22 +318,21 @@ class Event
     }
 
     /**
+     * Alias de compatibilité vers findByIdAdmin.
+     */
+    public function findByIdWithClient(int $id): ?array
+    {
+        return $this->findByIdAdmin($id);
+    }
+
+    /**
      * Met à jour le statut opérationnel d'un événement.
-     *
-     * @param int    $id        Identifiant de l'événement.
-     * @param string $newStatus Nouveau statut ('brouillon', 'accepté', 'en cours', 'terminé', 'annuler').
-     * @return bool
      */
     public function updateStatus(int $id, string $newStatus): bool
     {
-        $allowedStatuses = ['brouillon', 'accepté', 'en cours', 'terminé', 'annuler'];
-        if (!in_array($newStatus, $allowedStatuses, true)) {
-            return false;
-        }
-
         try {
             $stmt = $this->db->prepare("
-                UPDATE events
+                UPDATE events 
                 SET status = :status
                 WHERE id = :id
             ");
@@ -336,50 +341,37 @@ class Event
                 ':id'     => $id
             ]);
         } catch (\PDOException $e) {
-            error_log(sprintf("[Event::updateStatus] Erreur SQL #%d : %s", $id, $e->getMessage()));
+            error_log(sprintf("[Event::updateStatus] Erreur SQL event #%d : %s", $id, $e->getMessage()));
             return false;
         }
     }
 
     /**
-     * Bascule la visibilité publique d'un événement (accord client).
-     *
-     * @param int  $id          Identifiant de l'événement.
-     * @param bool $isPublished État de publication.
-     * @return bool
+     * Bascule la visibilité publique d'un événement.
      */
-    public function updatePublication(int $id, bool $isPublished): bool
+    public function togglePublish(int $id): bool
     {
         try {
             $stmt = $this->db->prepare("
-                UPDATE events
-                SET is_published = :is_published
+                UPDATE events 
+                SET is_published = IF(is_published = 1, 0, 1)
                 WHERE id = :id
             ");
-            return $stmt->execute([
-                ':is_published' => $isPublished ? 1 : 0,
-                ':id'           => $id
-            ]);
+            return $stmt->execute([':id' => $id]);
         } catch (\PDOException $e) {
-            error_log(sprintf("[Event::updatePublication] Erreur SQL #%d : %s", $id, $e->getMessage()));
+            error_log(sprintf("[Event::togglePublish] Erreur SQL event #%d : %s", $id, $e->getMessage()));
             return false;
         }
     }
 
     /**
-     * Met à jour le chemin relatif de l'illustration de l'événement.
-     *
-     * Permet à Chloé de modifier le visuel du lieu (CDC p. 9 et 12).
-     *
-     * @param int         $id        Identifiant unique de l'événement.
-     * @param string|null $imagePath Chemin relatif sécurisé (ex: 'uploads/events/event_xyz.webp') ou null.
-     * @return bool
+     * Met à jour le chemin d'accès de l'image de couverture.
      */
-    public function updateImagePath(int $id, ?string $imagePath): bool
+    public function updateImage(int $id, string $imagePath): bool
     {
         try {
             $stmt = $this->db->prepare("
-                UPDATE events
+                UPDATE events 
                 SET image_path = :image_path
                 WHERE id = :id
             ");
@@ -388,7 +380,7 @@ class Event
                 ':id'         => $id
             ]);
         } catch (\PDOException $e) {
-            error_log(sprintf("[Event::updateImagePath] Erreur SQL event #%d : %s", $id, $e->getMessage()));
+            error_log(sprintf("[Event::updateImage] Erreur SQL event #%d : %s", $id, $e->getMessage()));
             return false;
         }
     }

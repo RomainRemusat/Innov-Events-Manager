@@ -4,7 +4,7 @@
  *
  * @package    InnovEventsManager
  * @subpackage Views\Admin
- * @version    3.1.0 (Conformité ECF - AT1/AT2 + Rétrocompatibilité V2)
+ * @version    3.2.0 (Conformité ECF - Pipeline Commercial & Événements)
  */
 
 // -----------------------------------------------------------------------------
@@ -16,12 +16,72 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // -----------------------------------------------------------------------------
-// RÉCUPÉRATION DES KPI (Doivent être calculés et envoyés par le DashboardController)
+// RÉCUPÉRATION DES KPI
 // -----------------------------------------------------------------------------
 $nbClientsActifs = $clientsActifs ?? 0;
 $nbProjetsEnAttente = isset($prospectsEnAttente) ? count($prospectsEnAttente) : 0;
-$totalDemandes = $totalProspects ?? 0;
+$totalDemandes = $totalProspects ?? (isset($allProspects) ? count($allProspects) : 0);
 $caPrev = $caPrevisionnel ?? 0;
+
+$renderProspectTable = function(array $items, string $emptyMsg = "Aucun prospect dans cette catégorie.") {
+    if (empty($items)): ?>
+        <div class="p-4 text-center text-muted"><?= $emptyMsg ?></div>
+    <?php else: ?>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Entreprise / Contact</th>
+                    <th>Événement / Date</th>
+                    <th>Budget</th>
+                    <th>Statut</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($items as $prospect): ?>
+                    <tr>
+                        <td class="px-3">
+                            <div class="fw-bold text-dark"><?= htmlspecialchars($prospect['company_name'], ENT_QUOTES, 'UTF-8') ?></div>
+                            <small class="text-muted"><i class="bi bi-person me-1"></i><?= htmlspecialchars($prospect['contact_name'], ENT_QUOTES, 'UTF-8') ?></small>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary"><?= htmlspecialchars($prospect['event_type'], ENT_QUOTES, 'UTF-8') ?></span>
+                            <div class="small text-muted mt-1">
+                                <i class="bi bi-calendar me-1"></i>
+                                <?= !empty($prospect['event_date']) ? date('d/m/Y', strtotime($prospect['event_date'])) : 'Non définie' ?>
+                            </div>
+                        </td>
+                        <td class="fw-bold text-secondary">
+                            <?= number_format($prospect['budget'] ?? 0, 2, ',', ' ') ?> €
+                        </td>
+                        <td>
+                            <?php
+                            $st = strtolower($prospect['status'] ?? '');
+                            $badgeColor = 'text-bg-warning';
+                            if (in_array($st, ['accepté', 'terminé', 'converti'], true)) $badgeColor = 'text-bg-success';
+                            elseif (in_array($st, ['refusé', 'échoué'], true)) $badgeColor = 'text-bg-danger';
+                            elseif (in_array($st, ['devis envoyé', 'en cours'], true)) $badgeColor = 'text-bg-info';
+                            ?>
+                            <span class="badge <?= $badgeColor ?> status-badge"><?= ucfirst(htmlspecialchars($prospect['status'], ENT_QUOTES, 'UTF-8')) ?></span>
+                        </td>
+                        <td class="text-center px-3">
+                            <a href="index.php?action=view_prospect&id=<?= (int)$prospect['id'] ?>" class="btn btn-sm btn-outline-primary me-1" title="Voir la fiche">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <?php if (!in_array($st, ['converti', 'échoué', 'refusé'], true)): ?>
+                                <a href="index.php?action=view_prospect&id=<?= (int)$prospect['id'] ?>" class="btn btn-sm btn-outline-success" title="Traiter / Qualifier">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif;
+};
 ?>
 
 <style>
@@ -30,6 +90,8 @@ $caPrev = $caPrevisionnel ?? 0;
     .status-badge { font-size: 0.85rem; padding: 0.4em 0.6em; }
     .timeline { border-left: 2px solid #e9ecef; padding-left: 20px; margin-left: 10px; }
     .timeline-dot { left: -26px; top: 4px; font-size: 0.65rem; }
+    .nav-tabs .nav-link { border: none; border-bottom: 2px solid transparent; color: #64748b; font-size: 0.9rem; }
+    .nav-tabs .nav-link.active { border-color: #0d6efd; color: #0d6efd; background: transparent; font-weight: 600; }
 </style>
 
 <div class="container-fluid bg-light min-vh-100">
@@ -54,7 +116,6 @@ $caPrev = $caPrevisionnel ?? 0;
                 </div>
             </div>
 
-
             <!-- Alerte d'action requise : Demandes de modification en attente -->
             <?php if (!empty($pendingModificationsCount) && $pendingModificationsCount > 0): ?>
                 <div class="alert alert-warning border-warning shadow-sm mb-4 p-3" role="alert">
@@ -76,7 +137,6 @@ $caPrev = $caPrevisionnel ?? 0;
                     </div>
                 </div>
             <?php endif; ?>
-
 
             <!-- Widget : Indicateurs Clés -->
             <div id="indicateurs" class="mb-5">
@@ -109,7 +169,7 @@ $caPrev = $caPrevisionnel ?? 0;
                 </div>
             </div>
 
-            <!-- Widgets : Pilotages (V3 : Événements & Notes) -->
+            <!-- Widgets : Pilotages (Événements & Notes) -->
             <div id="pilotage-v3" class="row g-4 mb-5">
                 <div class="col-lg-6">
                     <div class="card border-0 shadow-sm rounded-3 h-100">
@@ -119,15 +179,16 @@ $caPrev = $caPrevisionnel ?? 0;
                         <div class="list-group list-group-flush">
                             <?php if (!empty($upcomingEvents)): ?>
                                 <?php foreach ($upcomingEvents as $event): ?>
-                                    <div class="list-group-item py-3">
-                                        <div class="fw-bold text-dark"><?= htmlspecialchars($event['title'], ENT_QUOTES, 'UTF-8') ?></div>
+                                    <a href="index.php?action=admin_event_detail&id=<?= (int)$event['id'] ?>" class="list-group-item list-group-item-action py-3">
+                                        <div class="d-flex w-100 justify-content-between align-items-center">
+                                            <h6 class="mb-1 fw-bold text-dark"><?= htmlspecialchars($event['title'], ENT_QUOTES, 'UTF-8') ?></h6>
+                                            <span class="badge text-bg-light border text-capitalize"><?= htmlspecialchars($event['status'], ENT_QUOTES, 'UTF-8') ?></span>
+                                        </div>
                                         <div class="small text-muted mt-1">
-                                            <i class="bi bi-building me-1"></i><?= htmlspecialchars($event['company_name'] ?? $event['firstname'] . ' ' . $event['lastname'], ENT_QUOTES, 'UTF-8') ?>
+                                            <i class="bi bi-building me-1"></i><?= htmlspecialchars($event['company_name'] ?? 'Client direct', ENT_QUOTES, 'UTF-8') ?> &bull;
+                                            <i class="bi bi-calendar-check me-1 ms-1"></i><?= date('d/m/Y', strtotime($event['start_date'])) ?>
                                         </div>
-                                        <div class="small fw-semibold mt-1" style="color: #3B82F6;">
-                                            <i class="bi bi-calendar me-1"></i><?= date('d/m/Y', strtotime($event['start_date'])) ?>
-                                        </div>
-                                    </div>
+                                    </a>
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <div class="list-group-item py-4 text-center text-muted">Aucun événement à venir.</div>
@@ -139,14 +200,14 @@ $caPrev = $caPrevisionnel ?? 0;
                 <div class="col-lg-6">
                     <div class="card border-0 shadow-sm rounded-3 h-100">
                         <div class="card-header bg-white py-3 border-bottom">
-                            <h5 class="mb-0 fw-bold text-dark" style="font-size: 1.1rem;"><i class="bi bi-journal-text text-secondary me-2"></i>Notes récentes</h5>
+                            <h5 class="mb-0 fw-bold text-dark" style="font-size: 1.1rem;"><i class="bi bi-journal-text text-primary me-2"></i>Notes d'équipe récentes</h5>
                         </div>
                         <div class="list-group list-group-flush">
                             <?php if (!empty($recentNotes)): ?>
                                 <?php foreach ($recentNotes as $note): ?>
                                     <div class="list-group-item py-3">
-                                        <div class="small fw-bold text-dark">
-                                            <?= htmlspecialchars($note['firstname'] . ' ' . $note['lastname'], ENT_QUOTES, 'UTF-8') ?>
+                                        <div class="small text-muted">
+                                            <strong class="text-dark"><?= htmlspecialchars($note['firstname'] . ' ' . $note['lastname'], ENT_QUOTES, 'UTF-8') ?></strong>
                                             <span class="text-muted fw-normal ms-1">- Projet : <?= htmlspecialchars($note['event_title'] ?? 'Note globale', ENT_QUOTES, 'UTF-8') ?></span>
                                         </div>
                                         <div class="small mt-2 p-2 bg-light rounded text-muted fst-italic border-start border-secondary border-2">
@@ -162,72 +223,58 @@ $caPrev = $caPrevisionnel ?? 0;
                 </div>
             </div>
 
-            <!-- Widgets : Pilotages (V2 Réintégrés : Tableau et MongoDB) -->
+            <!-- Widgets : Pipeline des Prospects & Audit MongoDB -->
             <div id="pilotage-v2" class="row g-4">
-                <h2 class="text-dark fw-bold h4 mb-3 mt-2">Gestion des demandes & Audit</h2>
+                <h2 class="text-dark fw-bold h4 mb-3 mt-2">Pipeline des Demandes & Audit</h2>
 
-                <!-- Tableau des devis -->
+                <!-- Tableau des prospects par onglets de statut -->
                 <div class="col-lg-8">
-                    <div class="card border-0 shadow-sm rounded-3 h-100">
-                        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-list-check text-primary me-2"></i>Demandes de devis entrantes</h5>
+                    <div class="card border-0 shadow-sm rounded-3 h-100 overflow-hidden">
+                        <div class="card-header bg-white pt-3 pb-0 border-bottom">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-funnel-fill text-primary me-2"></i>Pipeline Commercial (Demandes de devis)</h5>
+                            </div>
+                            <ul class="nav nav-tabs card-header-tabs" id="prospectTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="encours-tab" data-bs-toggle="tab" data-bs-target="#encours" type="button" role="tab" aria-selected="true">
+                                        <i class="bi bi-hourglass-split me-1 text-warning"></i> À traiter / En cours
+                                        <span class="badge rounded-pill bg-warning text-dark ms-1"><?= count($prospectsEnCours ?? []) ?></span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="convertis-tab" data-bs-toggle="tab" data-bs-target="#convertis" type="button" role="tab" aria-selected="false">
+                                        <i class="bi bi-check-circle me-1 text-success"></i> Convertis
+                                        <span class="badge rounded-pill bg-success ms-1"><?= count($prospectsConvertis ?? []) ?></span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="echoues-tab" data-bs-toggle="tab" data-bs-target="#echoues" type="button" role="tab" aria-selected="false">
+                                        <i class="bi bi-x-circle me-1 text-danger"></i> Refusés / Échoués
+                                        <span class="badge rounded-pill bg-danger ms-1"><?= count($prospectsEchoues ?? []) ?></span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="tous-tab" data-bs-toggle="tab" data-bs-target="#tous" type="button" role="tab" aria-selected="false">
+                                        <i class="bi bi-folder2-open me-1 text-secondary"></i> Tous
+                                        <span class="badge rounded-pill bg-secondary ms-1"><?= count($allProspects ?? $prospects ?? []) ?></span>
+                                    </button>
+                                </li>
+                            </ul>
                         </div>
                         <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle mb-0">
-                                    <thead class="table-light">
-                                    <tr>
-                                        <th>Entreprise / Contact</th>
-                                        <th>Événement / Date</th>
-                                        <th>Budget</th>
-                                        <th>Statut</th>
-                                        <th class="text-center">Actions</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    <?php if (empty($prospects)): ?>
-                                        <tr>
-                                            <td colspan="5" class="text-center py-4 text-muted">Aucune demande de devis enregistrée.</td>
-                                        </tr>
-                                    <?php else: ?>
-                                        <?php foreach ($prospects as $prospect): ?>
-                                            <tr>
-                                                <td class="px-3">
-                                                    <div class="fw-bold text-dark"><?= htmlspecialchars($prospect['company_name'], ENT_QUOTES, 'UTF-8') ?></div>
-                                                    <small class="text-muted"><i class="bi bi-person me-1"></i><?= htmlspecialchars($prospect['contact_name'], ENT_QUOTES, 'UTF-8') ?></small>
-                                                </td>
-                                                <td>
-                                                    <span class="badge bg-secondary"><?= htmlspecialchars($prospect['event_type'], ENT_QUOTES, 'UTF-8') ?></span>
-                                                    <div class="small text-muted mt-1">
-                                                        <i class="bi bi-calendar me-1"></i>
-                                                        <?= $prospect['event_date'] ? date('d/m/Y', strtotime($prospect['event_date'])) : 'Non définie' ?>
-                                                    </div>
-                                                </td>
-                                                <td class="fw-bold text-secondary">
-                                                    <?= number_format($prospect['budget'] ?? 0, 2, ',', ' ') ?> €
-                                                </td>
-                                                <td>
-                                                    <?php
-                                                    $badgeColor = 'text-bg-warning';
-                                                    if ($prospect['status'] === 'accepté' || $prospect['status'] === 'terminé') $badgeColor = 'text-bg-success';
-                                                    if ($prospect['status'] === 'refusé') $badgeColor = 'text-bg-danger';
-                                                    if ($prospect['status'] === 'devis envoyé') $badgeColor = 'text-bg-info';
-                                                    ?>
-                                                    <span class="badge <?= $badgeColor ?> status-badge"><?= ucfirst(htmlspecialchars($prospect['status'], ENT_QUOTES, 'UTF-8')) ?></span>
-                                                </td>
-                                                <td class="text-center px-3">
-                                                    <a href="index.php?action=view_prospect&id=<?= (int)$prospect['id'] ?>" class="btn btn-sm btn-outline-primary me-1" title="Voir">
-                                                        <i class="bi bi-eye"></i>
-                                                    </a>
-                                                    <a href="index.php?action=view_prospect&id=<?= (int)$prospect['id'] ?>" class="btn btn-sm btn-outline-success" title="Traiter">
-                                                        <i class="bi bi-pencil-square"></i>
-                                                    </a>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
-                                    </tbody>
-                                </table>
+                            <div class="tab-content" id="prospectTabsContent">
+                                <div class="tab-pane fade show active" id="encours" role="tabpanel" aria-labelledby="encours-tab">
+                                    <?php $renderProspectTable($prospectsEnCours ?? [], "Aucune demande en attente de traitement."); ?>
+                                </div>
+                                <div class="tab-pane fade" id="convertis" role="tabpanel" aria-labelledby="convertis-tab">
+                                    <?php $renderProspectTable($prospectsConvertis ?? [], "Aucun prospect converti pour le moment."); ?>
+                                </div>
+                                <div class="tab-pane fade" id="echoues" role="tabpanel" aria-labelledby="echoues-tab">
+                                    <?php $renderProspectTable($prospectsEchoues ?? [], "Aucun prospect refusé ou échoué."); ?>
+                                </div>
+                                <div class="tab-pane fade" id="tous" role="tabpanel" aria-labelledby="tous-tab">
+                                    <?php $renderProspectTable($allProspects ?? $prospects ?? [], "Aucune demande de devis enregistrée."); ?>
+                                </div>
                             </div>
                         </div>
                     </div>

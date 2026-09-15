@@ -118,6 +118,80 @@ class PdfController extends BaseController
     }
 
     /**
+     * Action dédiée à la génération et au streaming direct d'un PDF (pour les tests & accès direct).
+     */
+    public function generatePdfAction(): void
+    {
+        $this->startSession();
+
+        if (empty($_SESSION['user_id'])) {
+            header('Location: index.php?action=login');
+            exit();
+        }
+
+        $userRole = $_SESSION['user_role'] ?? '';
+        $userId   = (int)$_SESSION['user_id'];
+        $devisId  = (int)($_GET['id'] ?? 0);
+
+        if ($userRole === 'EMPLOYEE') {
+            http_response_code(403);
+            echo "Accès interdit.";
+            exit();
+        }
+
+        if ($devisId <= 0) {
+            http_response_code(404);
+            echo "Document introuvable.";
+            exit();
+        }
+
+        $devisModel = new Devis();
+        $devis = $devisModel->findWithProspect($devisId);
+
+        if (!$devis) {
+            http_response_code(404);
+            echo "Document introuvable.";
+            exit();
+        }
+
+        if ($userRole === 'CLIENT') {
+            if ((int)($devis['user_id'] ?? 0) !== $userId) {
+                http_response_code(404);
+                echo "Document introuvable.";
+                exit();
+            }
+        } elseif ($userRole !== 'ADMIN') {
+            http_response_code(403);
+            echo "Accès interdit.";
+            exit();
+        }
+
+        $prestationModel = new Prestation();
+        $prestations = $prestationModel->findByDevisId($devisId);
+
+        ob_start();
+        require __DIR__ . '/../views/admin/pdf_template.php';
+        $htmlContent = ob_get_clean();
+
+        $options = new Options();
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isRemoteEnabled', false);
+        $options->set('defaultFont', 'DejaVu Sans');
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($htmlContent, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $safeFileName = !empty($devis['reference_pdf'])
+            ? basename($devis['reference_pdf'])
+            : 'Devis_' . $devisId . '.pdf';
+
+        $dompdf->stream($safeFileName, ['Attachment' => 0]);
+        exit();
+    }
+
+    /**
      * Génère et expédie le devis PDF par e-mail au client (AT2).
      *
      * @param  int $devisId Identifiant unique du devis à expédier.
@@ -181,6 +255,38 @@ class PdfController extends BaseController
 
         header('Location: index.php?action=edit_devis&id=' . $devisId);
         exit;
+    }
+
+    /**
+     * Point d'entrée pour le téléchargement sécurisé d'un devis par ID ou nom de fichier.
+     */
+    public function downloadDevis(mixed $param = null): void
+    {
+        $this->startSession();
+        $file = $_GET['file'] ?? $_GET['f'] ?? null;
+        $id   = (int)($_GET['id'] ?? (is_numeric($param) ? $param : 0));
+
+        if ($id > 0) {
+            $devisModel = new Devis();
+            $devis = $devisModel->findWithProspect($id);
+            if ($devis && !empty($devis['reference_pdf'])) {
+                $this->downloadPdf($devis['reference_pdf']);
+                return;
+            } elseif ($devis && in_array($_SESSION['user_role'] ?? '', ['ADMIN', 'EMPLOYEE'], true)) {
+                $fileName = $this->generatePdf($id, false);
+                if ($fileName) {
+                    $this->downloadPdf($fileName);
+                    return;
+                }
+            }
+        } elseif (!empty($file)) {
+            $this->downloadPdf((string)$file);
+            return;
+        }
+
+        $_SESSION['client_error'] = "Document introuvable ou indisponible.";
+        header('Location: ' . (($_SESSION['user_role'] ?? '') === 'CLIENT' ? 'index.php?action=client_dashboard' : 'index.php?action=admin_devis'));
+        exit();
     }
 
     /**

@@ -44,6 +44,7 @@ Thumbs.db
 
 # --- Rapports d'analyse et de tests (AT3) ---
 /tests/report/
+tests/__pycache__
 
 # --- Bases de données temporaires locales ---
 *.sqlite

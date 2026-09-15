@@ -1,40 +1,37 @@
 <?php
 
-declare(strict_types=1);
-
 require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../models/sql/Event.php';
 require_once __DIR__ . '/../models/sql/Note.php';
+require_once __DIR__ . '/../models/sql/Devis.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/FileUploadService.php';
 
-
 /**
- * Contrôleur Back-Office : Pilotage opérationnel des événements et notes.
- *
- * @package    InnovEventsManager
- * @subpackage Controllers
- * @author     Romain Remusat
- * @version    1.3.0
+ * Contrôleur : AdminEventController (Back-Office)
+ * Gère le cycle de vie des événements côté back-office (Chloé & José).
  */
 class AdminEventController extends BaseController
 {
+    /**
+     * Vérifie que l'utilisateur est membre du staff (ADMIN ou EMPLOYEE).
+     */
     private function checkStaffAccess(): void
     {
         $this->checkAuth(['ADMIN', 'EMPLOYEE']);
     }
 
     /**
-     * Liste des événements de l'agence (vue tableau).
+     * Affiche le catalogue complet des événements dans le back-office.
      */
     public function listEvents(): void
     {
         $this->checkStaffAccess();
 
         $eventModel = new Event();
-        $events = $eventModel->findAllAdmin();
+        $events = $eventModel->findAllWithClient();
 
-        $pageTitle = "Gestion des Événements - Administration";
+        $pageTitle = "Catalogue des Événements - Innov'Events";
 
         require __DIR__ . '/../views/partials/header.php';
         require __DIR__ . '/../views/admin/events_list.php';
@@ -42,15 +39,21 @@ class AdminEventController extends BaseController
     }
 
     /**
-     * Affiche la fiche détaillée d'un événement avec ses notes de terrain.
+     * Affiche la vue détaillée d'un événement avec ses notes et ses prestations de devis.
      */
     public function showEventDetail(): void
     {
         $this->checkStaffAccess();
 
         $eventId = (int)($_GET['id'] ?? 0);
+
+        if ($eventId <= 0) {
+            header('Location: index.php?action=admin_events');
+            exit();
+        }
+
         $eventModel = new Event();
-        $event = $eventModel->findByIdAdmin($eventId);
+        $event = $eventModel->findByIdWithClient($eventId);
 
         if (!$event) {
             header('Location: index.php?action=admin_events');
@@ -60,7 +63,14 @@ class AdminEventController extends BaseController
         $noteModel = new Note();
         $notes = $noteModel->findByEventId($eventId);
 
-        $pageTitle = "Projet : " . htmlspecialchars($event['title']) . " - Back-Office";
+        // Récupération des prestations et devis associés au client de l'événement
+        $associatedDevis = null;
+        if (!empty($event['client_id'])) {
+            $devisModel = new Devis();
+            $associatedDevis = $devisModel->findByClientIdWithPrestations((int)$event['client_id']);
+        }
+
+        $pageTitle = "Détail Événement - " . htmlspecialchars($event['title'], ENT_QUOTES, 'UTF-8');
 
         require __DIR__ . '/../views/partials/header.php';
         require __DIR__ . '/../views/admin/event_detail.php';
@@ -68,7 +78,7 @@ class AdminEventController extends BaseController
     }
 
     /**
-     * Modifie le statut opérationnel d'un événement avec audit NoSQL (CDC p. 13).
+     * Met à jour le statut opérationnel d'un événement (ADMIN uniquement).
      */
     public function updateStatus(): void
     {
@@ -84,34 +94,57 @@ class AdminEventController extends BaseController
         $eventId   = (int)($_POST['event_id'] ?? 0);
         $newStatus = trim($_POST['status'] ?? '');
 
-        $eventModel = new Event();
-        $currentEvent = $eventModel->findByIdAdmin($eventId);
+        $validStatuses = ['brouillon', 'en cours', 'terminé', 'annulé'];
 
-        if ($currentEvent && $newStatus !== '') {
-            $oldStatus = $currentEvent['status'];
+        if ($eventId > 0 && in_array($newStatus, $validStatuses, true)) {
+            $eventModel = new Event();
+            $eventModel->updateStatus($eventId, $newStatus);
 
-            if ($eventModel->updateStatus($eventId, $newStatus)) {
-                // Journalisation d'audit MongoDB conforme CDC p. 13
-                $logger = new Log();
-                $logger->addLog(
-                    'MODIFICATION_STATUT_EVENEMENT',
-                    (int)$_SESSION['user_id'],
-                    [
-                        'event_id'   => $eventId,
-                        'event_title'=> $currentEvent['title'],
-                        'old_status' => $oldStatus,
-                        'new_status' => $newStatus
-                    ]
-                );
-            }
+            // Audit NoSQL
+            $logger = new Log();
+            $logger->addLog(
+                'MODIFICATION_STATUT_EVENEMENT',
+                (int)$_SESSION['user_id'],
+                [
+                    'event_id'   => $eventId,
+                    'new_status' => $newStatus
+                ]
+            );
+
+            $_SESSION['flash_success'] = "Statut de l'événement mis à jour avec succès.";
         }
 
-        header('Location: index.php?action=admin_events');
+        header("Location: index.php?action=admin_event_detail&id={$eventId}");
         exit();
     }
 
     /**
-     * Enregistre une note collaborative à chaud sur un projet.
+     * Bascule la visibilité publique d'un événement (ADMIN uniquement).
+     */
+    public function togglePublish(): void
+    {
+        $this->checkAuth(['ADMIN']);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=admin_events');
+            exit();
+        }
+
+        $this->validateCsrf($_POST);
+
+        $eventId = (int)($_POST['event_id'] ?? 0);
+
+        if ($eventId > 0) {
+            $eventModel = new Event();
+            $eventModel->togglePublish($eventId);
+        }
+
+        header("Location: index.php?action=admin_event_detail&id={$eventId}");
+        exit();
+    }
+
+    /**
+     * Traite l'ajout d'une note collaborative sur un événement.
      */
     public function addNote(): void
     {
@@ -124,26 +157,35 @@ class AdminEventController extends BaseController
 
         $this->validateCsrf($_POST);
 
-        $eventId = !empty($_POST['event_id']) ? (int)$_POST['event_id'] : null;
-        if ($eventId === null) {
-            $this->checkAuth(['ADMIN']); // Les notes globales sont réservées à Chloé.
-        }
+        $eventId = isset($_POST['event_id']) && (int)$_POST['event_id'] > 0 ? (int)$_POST['event_id'] : null;
         $content = trim($_POST['content'] ?? '');
-        $userId  = (int)$_SESSION['user_id'];
 
-        if ($content !== '') {
+        // Restriction : un employé ne peut pas créer de note globale sans événement
+        if ($eventId === null && ($_SESSION['user_role'] ?? '') === 'EMPLOYEE') {
+            header('Location: index.php?action=admin_events');
+            exit();
+        }
+
+        if (!empty($content)) {
             $noteModel = new Note();
-            $noteModel->create($eventId, $userId, $content);
+            if ($noteModel->create($eventId, (int)$_SESSION['user_id'], $content)) {
+                $_SESSION['flash_success'] = "Note ajoutée avec succès.";
+            } else {
+                $_SESSION['flash_error'] = "Erreur lors de l'enregistrement de la note.";
+            }
         }
 
         if ($eventId !== null) {
             header("Location: index.php?action=admin_event_detail&id={$eventId}");
         } else {
-            header("Location: index.php?action=dashboard");
+            header('Location: index.php?action=admin_events');
         }
         exit();
     }
 
+    /**
+     * Traite l'upload d'image d'illustration pour un événement.
+     */
     public function uploadImage(): void
     {
         $this->checkAuth(['ADMIN']);
@@ -153,43 +195,43 @@ class AdminEventController extends BaseController
             exit();
         }
 
-        // Vérification du Token CSRF (Sécurité AT1 / OWASP)
         $this->validateCsrf($_POST);
 
         $eventId = (int)($_POST['event_id'] ?? 0);
-        $eventModel = new Event();
-        $event = $eventModel->findByIdAdmin($eventId);
 
-        if (!$event) {
-            header('Location: index.php?action=admin_events');
+        if (!isset($_FILES['event_image']) || $_FILES['event_image']['error'] !== UPLOAD_ERR_OK) {
+            header("Location: index.php?action=admin_event_detail&id={$eventId}&error=upload_failed");
             exit();
         }
 
-        $uploadService = new FileUploadService(5 * 1024 * 1024);
-
         try {
-            $targetDir = __DIR__ . '/../../public/uploads/events/';
-            $filename = $uploadService->uploadImage($_FILES['event_image'] ?? [], $targetDir, 'event_');
+            $uploader = new FileUploadService();
+            $imagePath = $uploader->uploadEventImage($_FILES['event_image']);
 
-            if ($filename !== null) {
-                // Suppression propre de l'ancien fichier s'il existait
-                if (!empty($event['image_path'])) {
-                    $oldPath = __DIR__ . '/../../public/' . ltrim($event['image_path'], '/');
-                    $uploadService->deleteFile($oldPath);
-                }
+            if ($imagePath) {
+                $eventModel = new Event();
+                $eventModel->updateImage($eventId, $imagePath);
 
-                // Persistance du chemin relatif en base
-                $eventModel->updateImagePath($eventId, 'uploads/events/' . $filename);
+                // Audit NoSQL
+                $logger = new Log();
+                $logger->addLog(
+                    'UPLOAD_IMAGE_EVENEMENT',
+                    (int)$_SESSION['user_id'],
+                    [
+                        'event_id'   => $eventId,
+                        'image_path' => $imagePath
+                    ]
+                );
 
                 header("Location: index.php?action=admin_event_detail&id={$eventId}&success=image_updated");
                 exit();
             }
-        } catch (\InvalidArgumentException $e) {
+
+            header("Location: index.php?action=admin_event_detail&id={$eventId}&error=upload_failed");
+            exit();
+        } catch (\Exception $e) {
             header("Location: index.php?action=admin_event_detail&id={$eventId}&error=" . urlencode($e->getMessage()));
             exit();
         }
-
-        header("Location: index.php?action=admin_event_detail&id={$eventId}&error=upload_failed");
-        exit();
     }
 }

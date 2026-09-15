@@ -149,6 +149,22 @@ class MailService
     }
 
     /**
+     * Alias pour l'envoi de mot de passe temporaire.
+     */
+    public function sendTempPasswordEmail(string $email, string $tempPassword, string $firstname = 'Client'): bool
+    {
+        return $this->sendResetPasswordEmail($email, $firstname, $tempPassword);
+    }
+
+    /**
+     * Alias pour l'envoi de mot de passe temporaire avec prénom.
+     */
+    public function sendTemporaryPasswordEmail(string $email, string $firstname, string $tempPassword): bool
+    {
+        return $this->sendResetPasswordEmail($email, $firstname, $tempPassword);
+    }
+
+    /**
      * Notifie l'administration (Chloé) de la réception d'une nouvelle demande de devis prospect.
      *
      * @param array $quoteData Données brutes du prospect saisies sur le formulaire public.
@@ -169,25 +185,33 @@ class MailService
             $phone        = htmlspecialchars($quoteData['phone'] ?? 'N/A');
             $eventType    = htmlspecialchars($quoteData['event_type'] ?? 'N/A');
             $eventDate    = htmlspecialchars($quoteData['event_date'] ?? 'N/A');
-            $location     = htmlspecialchars($quoteData['location'] ?? 'N/A');
             $participants = htmlspecialchars((string)($quoteData['estimated_participants'] ?? 'N/A'));
-            $description  = nl2br(htmlspecialchars($quoteData['description'] ?? 'Aucun détail fourni.'));
+            $budget       = !empty($quoteData['budget']) ? number_format((float)$quoteData['budget'], 2, ',', ' ') . ' €' : 'Non précisé';
+            $description  = nl2br(htmlspecialchars($quoteData['description'] ?? 'Aucune description'));
 
             $mail->Body = "
                 <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 8px;'>
-                    <h2 style='color: #0F172A; border-bottom: 2px solid #3B82F6; padding-bottom: 8px; margin-top: 0;'>Nouvelle opportunité commerciale</h2>
-                    <p>Un prospect vient de soumettre une demande de projet sur le portail public :</p>
+                    <h2 style='color: #0F172A; margin-top: 0;'>Nouvelle Opportunité Commerciale</h2>
+                    <p>Un prospect vient de soumettre une demande de devis depuis la vitrine publique.</p>
+                    
                     <table style='width: 100%; border-collapse: collapse; margin: 20px 0;'>
-                        <tr style='background-color: #f8fafc;'><td style='padding: 8px; font-weight: bold;'>Société :</td><td style='padding: 8px;'>{$company}</td></tr>
-                        <tr><td style='padding: 8px; font-weight: bold;'>Contact :</td><td style='padding: 8px;'>{$contact} ({$email} / {$phone})</td></tr>
-                        <tr style='background-color: #f8fafc;'><td style='padding: 8px; font-weight: bold;'>Type d'événement :</td><td style='padding: 8px;'>{$eventType}</td></tr>
-                        <tr><td style='padding: 8px; font-weight: bold;'>Date souhaitée :</td><td style='padding: 8px;'>{$eventDate} à {$location}</td></tr>
-                        <tr style='background-color: #f8fafc;'><td style='padding: 8px; font-weight: bold;'>Participants estimés :</td><td style='padding: 8px;'>{$participants} personnes</td></tr>
+                        <tr><td style='padding: 8px 0; font-weight: bold; width: 40%;'>Entreprise :</td><td>{$company}</td></tr>
+                        <tr><td style='padding: 8px 0; font-weight: bold;'>Contact :</td><td>{$contact}</td></tr>
+                        <tr><td style='padding: 8px 0; font-weight: bold;'>Email :</td><td><a href='mailto:{$email}'>{$email}</a></td></tr>
+                        <tr><td style='padding: 8px 0; font-weight: bold;'>Téléphone :</td><td>{$phone}</td></tr>
+                        <tr><td style='padding: 8px 0; font-weight: bold;'>Type d'événement :</td><td>{$eventType}</td></tr>
+                        <tr><td style='padding: 8px 0; font-weight: bold;'>Date souhaitée :</td><td>{$eventDate}</td></tr>
+                        <tr><td style='padding: 8px 0; font-weight: bold;'>Participants estimés :</td><td>{$participants}</td></tr>
+                        <tr><td style='padding: 8px 0; font-weight: bold;'>Budget indicatif :</td><td>{$budget}</td></tr>
                     </table>
-                    <p><strong>Détails du besoin :</strong></p>
-                    <div style='background-color: #f1f5f9; padding: 12px; border-radius: 6px; font-style: italic;'>{$description}</div>
-                    <div style='text-align: center; margin-top: 25px;'>
-                        <a href='http://localhost:8081/index.php?action=admin_prospects' style='background-color: #0F172A; color: #ffffff; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>Traiter la demande sur le tableau de bord</a>
+
+                    <div style='background-color: #f8fafc; padding: 15px; border-left: 4px solid #3B82F6; margin: 20px 0;'>
+                        <strong>Description / Vision du projet :</strong><br>
+                        <p style='margin: 8px 0 0 0;'>{$description}</p>
+                    </div>
+
+                    <div style='text-align: center; margin-top: 30px;'>
+                        <a href='http://localhost:8081/index.php?action=dashboard' style='background-color: #0F172A; color: #ffffff; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px;'>Accéder au tableau de bord</a>
                     </div>
                 </div>
             ";
@@ -195,92 +219,60 @@ class MailService
             return $mail->send();
 
         } catch (Exception $e) {
-            error_log("Défaut MailService lors de l'alerte admin prospect : " . $e->getMessage());
+            error_log("Défaut MailService lors de l'alerte prospect : " . $e->getMessage());
             return false;
         }
     }
 
     /**
-     * Alias de notification administrateur pour compatibilité.
-     */
-    public function sendNewQuoteNotificationToAdmin(array $quoteData): bool
-    {
-        return $this->sendNewQuoteAdminNotification($quoteData);
-    }
-
-    /**
-     * Transmet au nouveau client son mot de passe temporaire lors de la conversion administrative d'un prospect (AT2).
+     * Envoie la proposition commerciale finalisée avec le devis officiel joint en PDF.
      *
-     * @param string $email        Adresse email du nouveau compte client.
-     * @param string $firstname    Prénom du client pour personnalisation.
-     * @param string $tempPassword Mot de passe temporaire généré.
-     * @return bool Vrai en cas de distribution réussie.
+     * @param string $clientEmail Adresse email du client corporate destinataire.
+     * @param string $clientName  Nom ou dénomination de l'entreprise cliente.
+     * @param string $pdfFilePath Chemin absolu sécurisé vers le fichier PDF généré.
+     * @return bool Vrai en cas de succès d'expédition SMTP.
      */
-    public function sendTemporaryPasswordEmail(string $email, string $firstname, string $tempPassword): bool
+    public function sendQuoteEmail(string $clientEmail, string $clientName, string $pdfFilePath): bool
     {
         try {
             $mail = $this->createMailer();
-            $mail->addAddress($email, $firstname);
-            $mail->isHTML(true);
-            $mail->Subject = "Vos accès à l'espace client Innov'Events";
 
-            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || ($_SERVER['SERVER_PORT'] ?? null) == 443) ? "https://" : "http://";
-            $host = $_SERVER['HTTP_HOST'] ?? 'localhost:8081';
-            $loginUrl = $protocol . $host . dirname($_SERVER['PHP_SELF'] ?? '') . '/index.php?action=login';
+            $mail->addAddress($clientEmail, $clientName);
+            $mail->isHTML(true);
+            $mail->Subject = "Votre proposition commerciale personnalisée - Innov'Events";
 
             $mail->Body = "
                 <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;'>
-                    <h2 style='color: #0F172A; font-size: 20px; margin-top: 0;'>Bonjour {$firstname},</h2>
-                    <p style='line-height: 1.6;'>Un compte client sécurisé a été créé par notre équipe pour le suivi de vos projets événementiels.</p>
-                    <p style='line-height: 1.6;'>Voici vos identifiants temporaires générés automatiquement :</p>
-                    
-                    <div style='text-align: center; margin: 25px 0; background-color: #f8fafc; padding: 15px; border-radius: 6px; border: 1px dashed #cbd5e1;'>
-                        <p style='margin: 5px 0;'><strong>Identifiant :</strong> {$email}</p>
-                        <p style='margin: 5px 0;'><strong>Mot de passe :</strong> <span style='font-family: monospace; font-size: 18px; font-weight: bold; color: #3B82F6;'>{$tempPassword}</span></p>
+                    <div style='text-align: center; margin-bottom: 25px;'>
+                        <h1 style='color: #0F172A; font-size: 24px; font-weight: bold; margin: 0;'>INNOV'EVENTS</h1>
                     </div>
-                    
+                    <h2 style='color: #0F172A; font-size: 18px;'>Bonjour {$clientName},</h2>
+                    <p style='line-height: 1.6;'>Chloé et l'équipe Innov'Events ont le plaisir de vous transmettre la proposition commerciale chiffrée pour votre projet événementiel.</p>
+                    <p style='line-height: 1.6;'>Vous trouverez en pièce jointe de ce courriel votre <strong>devis contractuel au format PDF</strong> détaillant l'ensemble des prestations retenues.</p>
+                    <p style='line-height: 1.6;'>Vous pouvez également vous connecter directement à votre espace client pour valider ce document ou solliciter des ajustements :</p>
                     <div style='text-align: center; margin: 30px 0;'>
-                        <a href='{$loginUrl}' style='background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>
-                            Accéder à mon espace
-                        </a>
+                        <a href='http://localhost:8081/index.php?action=client_dashboard' style='background-color: #3B82F6; color: #ffffff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>Consulter sur mon espace client</a>
                     </div>
-                    
-                    <p style='line-height: 1.6; color: #b91c1c; font-weight: bold;'>🚨 Directive de Sécurité :</p>
-                    <p style='line-height: 1.6; font-size: 13px; color: #6b7280;'>Il vous sera demandé de modifier ce mot de passe dès votre première connexion pour garantir la confidentialité de vos données.</p>
+                    <p style='line-height: 1.6; margin-bottom: 0;'>Restant à votre entière disposition,<br><strong>Chloé - Direction Innov'Events</strong></p>
                 </div>
             ";
 
-            return $mail->send();
-
-        } catch (Exception $e) {
-            error_log("Défaut MailService (Création Client) : " . $e->getMessage());
-            return false;
-        }
-    }
-
-    public function sendQuoteEmail(string $email, string $clientName, string $filePath): bool
-    {
-        try {
-            $mail = $this->createMailer();
-            $mail->addAddress($email, $clientName);
-            $mail->Subject = "Votre proposition commerciale - Innov'Events";
-
-            $mail->isHTML(true);
-            $mail->Body = "<p>Bonjour {$clientName},</p><p>Veuillez trouver ci-joint votre devis. Il est également consultable depuis votre espace client.</p>";
-
-            // Attachement du document PDF physique
-            if (file_exists($filePath)) {
-                $mail->addAttachment($filePath);
+            // Attachement du fichier PDF physique si disponible sur le serveur
+            if (file_exists($pdfFilePath)) {
+                $mail->addAttachment($pdfFilePath, basename($pdfFilePath));
             }
 
             return $mail->send();
 
         } catch (Exception $e) {
-            error_log("Défaut MailService lors de l'envoi du devis : " . $e->getMessage());
+            error_log("Défaut MailService lors de l'envoi du devis PDF : " . $e->getMessage());
             return false;
         }
     }
 
+    /**
+     * Notifie la direction (Chloé) de l'acceptation d'un devis par le client.
+     */
     public function sendQuoteAcceptedEmail(string $companyName, int $devisId): bool
     {
         try {
@@ -296,6 +288,9 @@ class MailService
         }
     }
 
+    /**
+     * Notifie la direction d'une demande d'ajustement / modification émise par le client sur un devis.
+     */
     public function sendModificationRequestEmail(string $companyName, int $devisId, string $reason): bool
     {
         try {
@@ -311,6 +306,9 @@ class MailService
         }
     }
 
+    /**
+     * Notifie la direction du refus d'un devis par le client.
+     */
     public function sendQuoteRejectedEmail(string $companyName, int $devisId): bool
     {
         try {
@@ -327,41 +325,49 @@ class MailService
     }
 
     /**
-     * Envoie un e-mail au prospect pour notifier que sa demande ne peut aboutir (avec motif personnalisable).
+     * Notifie le prospect du refus de sa demande de devis avec le motif explicatif.
+     *
+     * @param string $email         Adresse email du prospect.
+     * @param string $contactName   Nom du contact.
+     * @param string $refusalReason Motif explicite du refus.
+     * @return bool Vrai si envoyé.
      */
-    public function sendQuoteRefusal(string $email, string $clientName, string $reason = ''): bool
+    public function sendQuoteRefusal(string $email, string $contactName, string $refusalReason): bool
     {
         try {
             $mail = $this->createMailer();
-            $mail->addAddress($email, $clientName);
-            $mail->isHTML(true);
-            $mail->Subject = "Information concernant votre demande d'événement - Innov'Events";
 
-            $reasonHtml = !empty($reason)
-                ? "<p><strong>Précision de notre équipe :</strong></p><blockquote style='background: #f8fafc; border-left: 4px solid #3b82f6; padding: 10px 15px; margin: 15px 0;'>" . nl2br(htmlspecialchars($reason)) . "</blockquote>"
-                : "<p>Après étude attentive de vos critères et de nos disponibilités, nous ne sommes malheureusement pas en mesure de donner suite à votre projet dans les conditions requises.</p>";
+            $mail->addAddress($email, $contactName);
+            $mail->isHTML(true);
+            $mail->Subject = "Information concernant votre demande de devis - Innov'Events";
+
+            $reasonHtml = !empty($refusalReason) 
+                ? "<div style='background-color: #f8fafc; padding: 15px; border-left: 4px solid #ef4444; margin: 20px 0;'><strong>Motif :</strong><br>" . nl2br(htmlspecialchars($refusalReason)) . "</div>"
+                : "";
 
             $mail->Body = "
-                <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 8px;'>
-                    <h2 style='color: #0F172A;'>Bonjour " . htmlspecialchars($clientName) . ",</h2>
-                    <p>Nous vous remercions pour l'intérêt que vous portez aux prestations Innov'Events.</p>
+                <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;'>
+                    <h2 style='color: #0F172A; font-size: 18px;'>Bonjour {$contactName},</h2>
+                    <p style='line-height: 1.6;'>Nous vous remercions pour l'intérêt que vous portez aux services d'Innov'Events.</p>
+                    <p style='line-height: 1.6;'>Après analyse attentive de votre cahier des charges, nous avons le regret de vous informer que nous ne pourrons pas donner une suite favorable à votre demande pour la date souhaitée.</p>
                     {$reasonHtml}
-                    <p>Nous restons à votre entière disposition pour vos futurs projets événementiels.</p>
-                    <p style='margin-top: 25px;'>Bien cordialement,<br><strong>Chloé — Direction Innov'Events</strong></p>
+                    <p style='line-height: 1.6; margin-bottom: 0;'>Nous restons à votre disposition pour de futurs projets.<br><strong>L'équipe Innov'Events</strong></p>
                 </div>
             ";
+
             return $mail->send();
+
         } catch (Exception $e) {
-            error_log("Défaut MailService (sendQuoteRefusal) : " . $e->getMessage());
+            error_log("Défaut MailService lors de la notification de refus : " . $e->getMessage());
             return false;
         }
     }
 
     /**
-     * Alias de sendQuoteRefusal pour compatibilité contrôleurs.
+     * Alias de sendQuoteRefusal pour compatibilité.
      */
-    public function sendRejectionEmail(string $email, string $clientName, string $reason = ''): bool
+    public function sendRejectionEmail(string $email, string $contactName, string $reason = ''): bool
     {
-        return $this->sendQuoteRefusal($email, $clientName, $reason);
+        return $this->sendQuoteRefusal($email, $contactName, $reason);
     }
 }

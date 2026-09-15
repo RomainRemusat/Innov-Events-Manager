@@ -104,7 +104,8 @@ class User
         try {
             $sql = "DELETE FROM users WHERE id = :id";
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([':id' => $userId]);
+            $stmt->execute([':id' => $userId]);
+            return $stmt->rowCount() === 1;
         } catch (PDOException $e) {
             error_log("Erreur critique (RGPD) lors de la suppression du compte $userId : " . $e->getMessage());
             return false;

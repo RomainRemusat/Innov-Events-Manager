@@ -121,12 +121,15 @@ class ClientController extends BaseController
                 break;
         }
 
+
         // 6. Double persistance & Audit NoSQL MongoDB
         try {
             $logModel = new Log();
             $logModel->addLog("REPONSE_DEVIS_CLIENT", $userId, [
                 'message'       => "Décision client enregistrée sur le devis #{$devisId} : {$action}",
                 'devis_id'      => $devisId,
+                'action'        => $action,
+                'change_reason' => $reason,
                 'client_action' => $action,
                 'reason'        => $reason,
                 'new_status'    => ($action === 'accept') ? 'accepté' : (($action === 'reject') ? 'refusé' : 'modification')
@@ -185,25 +188,20 @@ class ClientController extends BaseController
         $this->validateCsrf($_POST);
 
         $userId = (int)($_SESSION['user_id'] ?? 0);
-        if ($userId > 0) {
-            $userModel = new User();
-            $userModel->deleteAccount($userId);
-
-            try {
-                $logModel = new Log();
-                $logModel->addLog("DELETE_ACCOUNT_RGPD", $userId, [
-                    'message' => "Suppression définitive du compte demandée par le client #{$userId} (Droit à l'oubli)",
-                    'user_id' => $userId
-                ]);
-            } catch (\Exception $e) {
-                error_log("Erreur MongoDB log deleteAccount : " . $e->getMessage());
+        require_once __DIR__ . '/../services/AccountDeletionService.php';
+        if ((new AccountDeletionService())->delete($userId)) {
+            $_SESSION = [];
+            if (ini_get('session.use_cookies')) {
+                $params = session_get_cookie_params();
+                setcookie(session_name(), '', time() - 42000, $params['path'],
+                    $params['domain'], $params['secure'], $params['httponly']);
             }
-
             session_destroy();
             header('Location: index.php?action=login');
             exit();
         }
 
+        $_SESSION['client_error'] = "La suppression n'a pas pu être finalisée. Votre compte reste accessible ; certains éléments ont pu être effacés. Veuillez réessayer ou contacter l'équipe.";
         header('Location: index.php?action=client_profile');
         exit();
     }
