@@ -76,6 +76,8 @@ class AdminEventController extends BaseController
 
     /**
      * Met à jour le statut opérationnel d'un événement (ADMIN uniquement).
+     * Les refus métier et erreurs de persistance sont signalés à l'utilisateur.
+     * Une modification effective journalise les états avant/après conformément à l'ECF p. 13.
      */
     public function updateStatus(): void
     {
@@ -91,11 +93,14 @@ class AdminEventController extends BaseController
         $eventId   = (int)($_POST['event_id'] ?? 0);
         $newStatus = trim($_POST['status'] ?? '');
 
-        $validStatuses = ['brouillon', 'en cours', 'terminé', 'annulé'];
-
-        if ($eventId > 0 && in_array($newStatus, $validStatuses, true)) {
-            $eventModel = new Event();
-            $eventModel->updateStatus($eventId, $newStatus);
+        $newStatus = Event::normalizeStatus($newStatus);
+        $eventModel = new Event();
+        $event = $eventId > 0 ? $eventModel->findByIdWithClient($eventId) : null;
+        if (!$event || !isset(Event::STATUS_LABELS[$newStatus])) {
+            $_SESSION['flash_error'] = "Événement introuvable ou statut non autorisé.";
+        } elseif ($event['status'] === $newStatus) {
+            $_SESSION['flash_success'] = "Le statut de l'événement est déjà à jour.";
+        } elseif ($eventModel->updateStatus($eventId, $newStatus, $event['status'])) {
 
             // Audit NoSQL
             $logger = new Log();
@@ -104,14 +109,17 @@ class AdminEventController extends BaseController
                 (int)$_SESSION['user_id'],
                 [
                     'event_id'   => $eventId,
+                    'old_status' => $event['status'],
                     'new_status' => $newStatus
                 ]
             );
 
             $_SESSION['flash_success'] = "Statut de l'événement mis à jour avec succès.";
+        } else {
+            $_SESSION['flash_error'] = "Statut non modifié. Le passage en cours exige un dernier devis associé accepté. Le dossier a aussi pu être modifié entre-temps ; rechargez la page.";
         }
 
-        header("Location: index.php?action=admin_event_detail&id={$eventId}");
+        header('Location: ' . ($event ? "index.php?action=admin_event_detail&id={$eventId}" : 'index.php?action=admin_events'));
         exit();
     }
 

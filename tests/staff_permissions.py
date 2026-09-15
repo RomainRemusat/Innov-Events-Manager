@@ -59,6 +59,8 @@ def main():
             $db->exec("INSERT INTO events (client_id, company_id, title, start_date, location)
                 VALUES ($user,$company,'{marker}','2026-12-01 10:00:00','Paris')");
             $event = (int)$db->lastInsertId();
+            $db->exec("INSERT INTO devis (id_prospect, event_id, reference_pdf, montant_ht, tva, status)
+                VALUES ($prospect, $event, '{marker}_accepted.pdf', 100, 20, 'accepté')");
             $db->commit();
             echo json_encode(compact('company','user','prospect','quote','prestation','event'));
         """)

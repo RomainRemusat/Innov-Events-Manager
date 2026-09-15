@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../config/Database.php';
 require_once __DIR__ . '/../models/sql/Company.php';
 require_once __DIR__ . '/../models/sql/User.php';
+require_once __DIR__ . '/../models/sql/Event.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
 require_once __DIR__ . '/../services/FileUploadService.php';
@@ -86,8 +87,14 @@ class ConversionService
         $theme        = !empty($data['theme']) ? trim($data['theme']) : null;
         $participants = !empty($data['estimated_participants']) ? (int)$data['estimated_participants'] : null;
         $description  = trim($data['description'] ?? '');
-        $eventStatus  = trim($data['event_status'] ?? 'brouillon');
+        $eventStatus  = Event::normalizeStatus($data['event_status'] ?? 'brouillon');
         $isPublished  = !empty($data['is_visible']) ? 1 : 0;
+
+        // Le devis créé par cette transaction est un brouillon : le projet ne peut
+        // pas démarrer avant son acceptation commerciale (ECF, p. 12).
+        if (!isset(Event::STATUS_LABELS[$eventStatus]) || $eventStatus === 'en cours') {
+            throw new InvalidArgumentException("Statut initial non autorisé : le passage en cours nécessite un devis accepté.");
+        }
 
         // Validation stricte des champs obligatoires
         if (!$prospectId || empty($companyName) || !$email || empty($eventTitle) || empty($startDate) || empty($location)) {

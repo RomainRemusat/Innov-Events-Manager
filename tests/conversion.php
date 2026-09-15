@@ -80,8 +80,11 @@ try {
         VALUES ('NextGen Software', 'Amandine Legrand', 'a.legrand@nextgen.io', '0102030405', 'Autre')");
     $data['prospect_id'] = (int)$pdo->lastInsertId();
     $data['event_title'] = 'Deuxième projet du même client';
+    $data['event_status'] = 'planifié';
     $secondQuote = $service->convertProspectToClient($data, null, 1);
     $secondEvent = (int)$pdo->query("SELECT event_id FROM devis WHERE id_devis = $secondQuote")->fetchColumn();
+    verify($pdo->query("SELECT status FROM events WHERE id = $secondEvent")->fetchColumn() === 'planifié',
+        'Le statut initial planifié doit être conservé');
     $first = $devisModel->findByEventIdWithPrestations((int)$event['id']);
     $second = $devisModel->findByEventIdWithPrestations($secondEvent);
     verify((int)$first['id_devis'] === $devisId && count($first['prestations']) === 1
@@ -95,6 +98,35 @@ try {
     verify($pdo->query("SELECT event_id FROM devis WHERE id_devis = $secondQuote")->fetchColumn() === null,
         'La suppression de l’événement doit conserver le devis sans lien');
     echo "OK : isolation de deux projets, données PDF synchronisées, absence de lien et suppression événement.\n";
+
+    $eventModel = new Event();
+    $eventId = (int)$event['id'];
+    verify(!$eventModel->updateStatus($eventId, 'inconnu', 'brouillon'), 'Statut inconnu accepté');
+    verify(!$eventModel->updateStatus($eventId, 'en cours', 'brouillon'), 'Démarrage sans devis accepté');
+    $pdo->exec("UPDATE devis SET status = 'accepté' WHERE id_devis = $devisId");
+    $oldStatus = 'brouillon';
+    foreach (array_keys(Event::STATUS_LABELS) as $status) {
+        if ($status === $oldStatus) continue;
+        verify($eventModel->updateStatus($eventId, $status, $oldStatus), "Statut refusé : $status");
+        verify($pdo->query("SELECT status FROM events WHERE id = $eventId")->fetchColumn() === $status, 'Statut SQL incorrect');
+        $oldStatus = $status;
+    }
+    verify(!$eventModel->updateStatus($eventId, 'brouillon', 'planifié'), 'État concurrent écrasé');
+    verify(!$eventModel->updateStatus(2147483647, 'brouillon', 'planifié'), 'Événement inexistant accepté');
+    $pdo->exec("UPDATE events SET status = 'annuler' WHERE id = $eventId");
+    verify($eventModel->updateStatus($eventId, 'annuler', 'annuler'), 'Ancien libellé non normalisé');
+    verify($pdo->query("SELECT status FROM events WHERE id = $eventId")->fetchColumn() === 'annulé', 'Annulation non normalisée');
+    $pdo->exec("INSERT INTO devis (id_prospect, event_id, reference_pdf, status) VALUES ($prospectId, $eventId, 'revision.pdf', 'refusé')");
+    verify(!$eventModel->updateStatus($eventId, 'en cours', 'annulé'), 'Ancienne version acceptée utilisée malgré la dernière version refusée');
+    foreach (['inconnu', 'en cours'] as $invalidStatus) {
+        try {
+            $service->convertProspectToClient(array_replace($data, ['event_status' => $invalidStatus]), null, 1);
+            throw new RuntimeException('Statut initial invalide accepté');
+        } catch (InvalidArgumentException $error) {
+            verify(str_contains($error->getMessage(), 'Statut initial'), 'Mauvaise validation du statut initial');
+        }
+    }
+    echo "OK : référentiel des statuts, devis accepté obligatoire, concurrence et compatibilité annuler.\n";
 
     $pdo->exec("INSERT INTO prospects (company_name, contact_name, email, phone, event_type)
         VALUES ('NextGen Software', 'Amandine Legrand', 'a.legrand@nextgen.io', '0102030405', 'Autre')");

@@ -47,6 +47,13 @@
                 </div>
             </div>
 
+            <?php if (isset($_SESSION['flash_error'])): ?>
+                <div class="alert alert-danger" role="alert">
+                    <?= htmlspecialchars($_SESSION['flash_error'], ENT_QUOTES, 'UTF-8') ?>
+                </div>
+                <?php unset($_SESSION['flash_error']); ?>
+            <?php endif; ?>
+
             <!-- Tableau de supervision opérationnelle -->
             <div class="card shadow-sm border-0">
                 <div class="card-body p-0">
@@ -131,22 +138,16 @@
                                                         onchange="this.form.submit()"
                                                         aria-label="Modifier le statut de l'événement <?= htmlspecialchars($ev['title'], ENT_QUOTES, 'UTF-8') ?>">
                                                     <?php
-                                                    $statuses = [
-                                                        'brouillon' => 'Brouillon',
-                                                        'accepté'   => 'Accepté',
-                                                        'en cours'  => 'En cours',
-                                                        'terminé'   => 'Terminé',
-                                                        'annuler'   => 'Annulé'
-                                                    ];
+                                                    $statuses = Event::STATUS_LABELS;
                                                     foreach ($statuses as $val => $label):
                                                         ?>
-                                                        <option value="<?= $val ?>" <?= ($ev['status'] === $val) ? 'selected' : '' ?>>
+                                                        <option value="<?= $val ?>" <?= (Event::normalizeStatus($ev['status']) === $val) ? 'selected' : '' ?>>
                                                             <?= $label ?>
                                                         </option>
                                                     <?php endforeach; ?>
                                                 </select>
                                             </form>
-                                            <?php else: ?><?= htmlspecialchars($ev['status'], ENT_QUOTES, 'UTF-8') ?><?php endif; ?>
+                                            <?php else: ?><?= htmlspecialchars(Event::normalizeStatus($ev['status']), ENT_QUOTES, 'UTF-8') ?><?php endif; ?>
                                         </td>
 
                                         <!-- Accès à la fiche projet détaillée et aux notes de terrain -->

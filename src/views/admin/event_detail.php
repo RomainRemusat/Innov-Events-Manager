@@ -77,17 +77,19 @@
                     <p class="text-muted small mb-0">Fiche logistique et pilotage opérationnel</p>
                 </div>
                 <div class="d-flex align-items-center gap-2">
+                    <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
                     <form method="POST" action="index.php?action=admin_update_event_status" class="d-inline-flex align-items-center gap-1">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="event_id" value="<?= (int)$event['id'] ?>">
-                        <select name="status" class="form-select form-select-sm fw-bold border-primary" onchange="this.form.submit()">
-                            <option value="brouillon" <?= $event['status'] === 'brouillon' ? 'selected' : '' ?>>📝 Brouillon</option>
-                            <option value="accepté" <?= $event['status'] === 'accepté' ? 'selected' : '' ?>>✅ Accepté (Prêt)</option>
-                            <option value="en cours" <?= $event['status'] === 'en cours' ? 'selected' : '' ?>>⏳ En cours</option>
-                            <option value="terminé" <?= $event['status'] === 'terminé' ? 'selected' : '' ?>>🏁 Terminé</option>
-                            <option value="annuler" <?= $event['status'] === 'annuler' ? 'selected' : '' ?>>❌ Annulé</option>
+                        <select name="status" class="form-select form-select-sm fw-bold border-primary" aria-label="Statut de l'événement" onchange="this.form.submit()">
+                            <?php foreach (Event::STATUS_LABELS as $value => $label): ?>
+                                <option value="<?= $value ?>" <?= Event::normalizeStatus($event['status']) === $value ? 'selected' : '' ?>><?= $label ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </form>
+                    <?php else: ?>
+                        <span class="badge bg-secondary"><?= htmlspecialchars(Event::normalizeStatus($event['status']), ENT_QUOTES, 'UTF-8') ?></span>
+                    <?php endif; ?>
 
                     <a href="index.php?action=admin_events" class="btn btn-outline-secondary btn-sm">
                         <i class="fa-solid fa-arrow-left me-1" aria-hidden="true"></i>Retour

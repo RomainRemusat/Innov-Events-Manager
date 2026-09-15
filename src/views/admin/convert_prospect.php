@@ -213,8 +213,10 @@
                             <div class="col-md-6">
                                 <label for="event_status" class="form-label small fw-bold text-muted">Statut initial du projet</label>
                                 <select class="form-select" id="event_status" name="event_status">
-                                    <option value="brouillon" selected>Brouillon (Édition des prestations)</option>
-                                    <option value="planifié">Planifié</option>
+                                    <?php foreach (Event::STATUS_LABELS as $value => $label): ?>
+                                        <?php if ($value === 'en cours') continue; // Nécessite un devis accepté, absent à la conversion. ?>
+                                        <option value="<?= $value ?>" <?= $value === 'brouillon' ? 'selected' : '' ?>><?= $label ?></option>
+                                    <?php endforeach; ?>
                                 </select>
                             </div>
                             <div class="col-md-6 d-flex align-items-end">

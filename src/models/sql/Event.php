@@ -22,6 +22,34 @@ require_once __DIR__ . '/../../config/Database.php';
 class Event
 {
     /**
+     * Référentiel opérationnel partagé par les formulaires et les écritures SQL.
+     * Les états ECF (p. 7 et 12) sont complétés par « planifié », déjà utilisé
+     * à la conversion : planifier ne vaut pas acceptation commerciale du devis.
+     * @var array<string, string>
+     */
+    public const STATUS_LABELS = [
+        'brouillon' => 'Brouillon',
+        'planifié' => 'Planifié',
+        'accepté' => 'Accepté',
+        'en cours' => 'En cours',
+        'terminé' => 'Terminé',
+        'annulé' => 'Annulé',
+    ];
+
+    /**
+     * Assure la compatibilité avec l'ancien libellé d'annulation de l'énoncé.
+     * Cette normalisation ne valide pas le statut et ne modifie pas les données stockées.
+     *
+     * @param string $status Valeur issue du formulaire ou d'un enregistrement historique.
+     * @return string « annulé » pour l'ancien « annuler », sinon la valeur sans espaces périphériques.
+     */
+    public static function normalizeStatus(string $status): string
+    {
+        $status = trim($status);
+        return $status === 'annuler' ? 'annulé' : $status;
+    }
+
+    /**
      * Instance de connexion PDO partagée.
      */
     private \PDO $db;
@@ -327,19 +355,39 @@ class Event
 
     /**
      * Met à jour le statut opérationnel d'un événement.
+     * L'administrateur peut corriger les états sans ordre imposé ; le démarrage
+     * exige toutefois l'acceptation du dernier devis explicitement associé (ECF p. 12).
+     * La comparaison avec l'état lu évite de journaliser un ancien état devenu obsolète.
+     *
+     * @param int $id Identifiant de l'événement.
+     * @param string $newStatus État cible issu du référentiel STATUS_LABELS.
+     * @param string $expectedStatus État SQL lu avant la modification, non normalisé.
+     * @return bool Une ligne effectivement modifiée ; false en cas de refus ou d'erreur SQL.
      */
-    public function updateStatus(int $id, string $newStatus): bool
+    public function updateStatus(int $id, string $newStatus, string $expectedStatus): bool
     {
+        $newStatus = self::normalizeStatus($newStatus);
+        if (!isset(self::STATUS_LABELS[$newStatus])) {
+            return false;
+        }
         try {
             $stmt = $this->db->prepare("
                 UPDATE events 
                 SET status = :status
-                WHERE id = :id
+                WHERE id = :id AND status = :expected_status
+                  AND (:target_status <> 'en cours' OR (
+                    SELECT d.status FROM devis d
+                    JOIN prospects p ON p.id = d.id_prospect AND p.user_id = events.client_id
+                    WHERE d.event_id = events.id ORDER BY d.id_devis DESC LIMIT 1
+                  ) = 'accepté')
             ");
-            return $stmt->execute([
+            $stmt->execute([
                 ':status' => $newStatus,
-                ':id'     => $id
+                ':id' => $id,
+                ':expected_status' => $expectedStatus,
+                ':target_status' => $newStatus,
             ]);
+            return $stmt->rowCount() === 1;
         } catch (\PDOException $e) {
             error_log(sprintf("[Event::updateStatus] Erreur SQL event #%d : %s", $id, $e->getMessage()));
             return false;
