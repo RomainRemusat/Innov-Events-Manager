@@ -8,7 +8,7 @@
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    2.4.0
+ * @version    2.5.0
  */
 
 // 1. Héritage du contrôleur de base (Sécurité centralisée)
@@ -34,6 +34,7 @@ class QuoteController extends BaseController
      */
     public function showForm(): void
     {
+        $this->startSession();
         require __DIR__ . '/../views/public/devis.php';
     }
 
@@ -50,44 +51,89 @@ class QuoteController extends BaseController
         // 1. Validation de sécurité CSRF (AT1)
         $this->validateCsrf($data);
 
-        // 2. Validation des champs obligatoires du cahier des charges
-        if (
-            empty($data['company_name']) ||
-            empty($data['email']) ||
-            empty($data['contact_name']) ||
-            empty($data['phone']) ||
-            empty($data['event_type']) ||
-            empty($data['location'])
-        ) {
-            die("Erreur de validation : L'ensemble des champs obligatoires (*) doivent être renseignés.");
+        // 2. Validation et assainissement des données
+        $companyName  = trim($data['company_name'] ?? '');
+        $contactName  = trim($data['contact_name'] ?? '');
+        $email        = filter_var(trim($data['email'] ?? ''), FILTER_SANITIZE_EMAIL);
+        $phone        = trim($data['phone'] ?? '');
+        $eventType    = trim($data['event_type'] ?? '');
+        $eventDate    = trim($data['event_date'] ?? '');
+        $location     = trim($data['location'] ?? '');
+        $participants = isset($data['estimated_participants']) && $data['estimated_participants'] !== '' ? (int)$data['estimated_participants'] : null;
+        $budget       = isset($data['budget']) && $data['budget'] !== '' ? (float)$data['budget'] : null;
+        $description  = trim($data['description'] ?? '');
+
+        // Validation des invariants obligatoires
+        $errors = [];
+
+        if (empty($companyName)) {
+            $errors[] = "Le nom de l'entreprise est obligatoire.";
+        }
+        if (empty($contactName)) {
+            $errors[] = "Le nom du contact est obligatoire.";
+        }
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = "Une adresse email professionnelle valide est requise.";
+        }
+        if (empty($phone)) {
+            $errors[] = "Le numéro de téléphone est obligatoire.";
+        }
+        if (empty($eventType)) {
+            $errors[] = "Le type d'événement doit être sélectionné.";
+        }
+        if (empty($location)) {
+            $errors[] = "Le lieu ou la ville souhaitée est obligatoire.";
+        }
+        if (empty($eventDate)) {
+            $errors[] = "La date souhaitée est obligatoire.";
+        } else {
+            $timestamp = strtotime($eventDate);
+            if ($timestamp === false) {
+                $errors[] = "Le format de la date d'événement est invalide.";
+            } elseif ($timestamp < strtotime('today')) {
+                $errors[] = "La date de l'événement ne peut pas être passée.";
+            }
+        }
+        if ($participants === null || $participants <= 0) {
+            $errors[] = "Le nombre estimé de participants doit être supérieur à 0.";
+        }
+        if (empty($description) || mb_strlen($description) < 5) {
+            $errors[] = "La description du projet doit comporter au moins 5 caractères.";
+        }
+        if ($budget !== null && $budget < 0) {
+            $errors[] = "Le budget estimé ne peut pas être négatif.";
         }
 
-        // 3. Sanitisation des entrées
+        if (!empty($errors)) {
+            $_SESSION['flash_error'] = implode('<br>', $errors);
+            $_SESSION['old_inputs']  = $data;
+            header('Location: index.php?action=devis');
+            exit();
+        }
+
         $sanitizedData = [
-            'company_name'           => trim($data['company_name']),
-            'contact_name'           => trim($data['contact_name']),
-            'email'                  => filter_var(trim($data['email']), FILTER_SANITIZE_EMAIL),
-            'phone'                  => trim($data['phone']),
-            'location'               => trim($data['location']),
-            'event_type'             => trim($data['event_type']),
-            'event_date'             => !empty($data['event_date']) ? $data['event_date'] : null,
-            'estimated_participants' => isset($data['estimated_participants']) ? (int)$data['estimated_participants'] : null,
-            'budget'                 => isset($data['budget']) ? (float)$data['budget'] : null,
-            'description'            => trim($data['description'] ?? ''),
+            'company_name'           => $companyName,
+            'contact_name'           => $contactName,
+            'email'                  => $email,
+            'phone'                  => $phone,
+            'location'               => $location,
+            'event_type'             => $eventType,
+            'event_date'             => $eventDate,
+            'estimated_participants' => $participants,
+            'budget'                 => $budget,
+            'description'            => $description,
             'user_id'                => (!empty($_SESSION['user_id']) && ($_SESSION['user_role'] ?? '') === 'CLIENT') ? (int)$_SESSION['user_id'] : null
         ];
 
-        // Validation stricte du format email
-        if (!filter_var($sanitizedData['email'], FILTER_VALIDATE_EMAIL)) {
-            die("Erreur de validation : Le format de l'adresse email professionnelle est incorrect.");
-        }
-
-        // 4. Persistance relationnelle MySQL (AT2)
+        // 3. Persistance relationnelle MySQL (AT2)
         $prospectModel = new Prospect();
         $result = $prospectModel->create($sanitizedData);
 
         if ($result) {
-            // 5. Double persistance NoSQL MongoDB (AT2)
+            // Nettoyage des anciennes saisies
+            unset($_SESSION['old_inputs']);
+
+            // 4. Double persistance NoSQL MongoDB (AT2)
             try {
                 $logModel = new Log();
                 $logModel->addLog(
@@ -101,16 +147,16 @@ class QuoteController extends BaseController
                 error_log("Erreur MongoDB : " . $e->getMessage());
             }
 
-            // 6. Notification e-mail à l'administration
+            // 5. Notification e-mail à l'administration
             try {
                 $mailService = new MailService();
-                $mailService->sendNewQuoteNotificationToAdmin($sanitizedData);
+                $mailService->sendNewQuoteAdminNotification($sanitizedData);
             } catch (\Exception $e) {
                 error_log("Erreur MailService : " . $e->getMessage());
             }
         }
 
-        // 7. Délégation à la vue de confirmation
+        // 6. Délégation à la vue de confirmation
         $isSuccess = (bool)$result;
         $pageTitle = "Statut de votre demande - Innov'Events";
 
@@ -131,7 +177,7 @@ class QuoteController extends BaseController
         $devisModel = new Devis();
         $devisList = $devisModel->findAllWithTotals();
 
-        $pageTitle = "Devis & Facturation - Innov'Events";
+        $pageTitle = "Pilotage Commercial - Devis & Propositions";
 
         require __DIR__ . '/../views/partials/header.php';
         require __DIR__ . '/../views/admin/list_devis.php';
@@ -174,6 +220,12 @@ class QuoteController extends BaseController
     public function addPrestation(array $postData): void
     {
         $this->checkAuth(['ADMIN']);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=admin_devis');
+            exit();
+        }
+
         $this->validateCsrf($postData);
 
         $devisId   = (int)($postData['devis_id'] ?? 0);
@@ -181,11 +233,19 @@ class QuoteController extends BaseController
         $montantHt = (float)($postData['montant_ht'] ?? 0);
 
         if ($devisId > 0 && !empty($libelle) && $montantHt >= 0) {
+            // Verrouillage contractuel : modification interdite sur un devis déjà validé/accepté
+            $devisModel = new Devis();
+            $devis = $devisModel->findWithProspect($devisId);
+            if ($devis && strtolower($devis['status'] ?? '') === 'accepté') {
+                $_SESSION['flash_error'] = "Impossible d'ajouter une prestation : ce devis a déjà été validé par le client.";
+                header("Location: index.php?action=edit_devis&id=" . $devisId);
+                exit;
+            }
+
             $prestationModel = new Prestation();
             $prestationModel->create($devisId, $libelle, $montantHt);
 
             // Recalcul automatique des totaux en BDD
-            $devisModel = new Devis();
             $devisModel->recalculateTotals($devisId);
         }
 
@@ -196,21 +256,35 @@ class QuoteController extends BaseController
     public function deletePrestation(array $postData): void
     {
         $this->checkAuth(['ADMIN']);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=admin_devis');
+            exit();
+        }
+
         $this->validateCsrf($postData);
 
         $prestationId = (int)($postData['prestation_id'] ?? 0);
         $devisId      = (int)($postData['devis_id'] ?? 0);
 
         if ($prestationId > 0 && $devisId > 0) {
+            // Verrouillage contractuel : suppression interdite sur un devis déjà validé/accepté
+            $devisModel = new Devis();
+            $devis = $devisModel->findWithProspect($devisId);
+            if ($devis && strtolower($devis['status'] ?? '') === 'accepté') {
+                $_SESSION['flash_error'] = "Impossible de supprimer une prestation : ce devis a déjà été validé par le client.";
+                header("Location: index.php?action=edit_devis&id=" . $devisId);
+                exit;
+            }
+
             $prestationModel = new Prestation();
             $prestationModel->delete($prestationId, $devisId);
 
             // Recalcul automatique des totaux en BDD
-            $devisModel = new Devis();
             $devisModel->recalculateTotals($devisId);
         }
 
         header("Location: index.php?action=edit_devis&id=" . $devisId);
-        exit();
+        exit;
     }
 }
