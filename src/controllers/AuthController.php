@@ -23,6 +23,7 @@ require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
+require_once __DIR__ . '/../services/PasswordResetService.php';
 
 class AuthController extends BaseController
 {
@@ -145,9 +146,10 @@ class AuthController extends BaseController
             }
 
             $mailService = new MailService();
-            $mailService->sendRegisterConfirmation($email, $firstname);
+            $mailSent = $mailService->sendRegisterConfirmation($email, $firstname);
 
-            $_SESSION['global_success'] = "Votre compte client a été créé avec succès ! Vous pouvez maintenant vous connecter.";
+            $_SESSION['login_success'] = "Votre compte client a été créé. Vous pouvez maintenant vous connecter."
+                . ($mailSent ? '' : " L’email de confirmation n’a pas pu être envoyé.");
             header('Location: index.php?action=login');
             exit();
 
@@ -275,35 +277,25 @@ class AuthController extends BaseController
             $email = filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL);
 
             if (!$email) {
-                $_SESSION['flash_error'] = "Veuillez saisir une adresse email valide.";
+                $_SESSION['auth_message'] = "Veuillez saisir une adresse email valide.";
                 header('Location: index.php?action=forgot_password');
                 exit();
             }
 
-            $userModel = new User();
-            $user = $userModel->findByEmail($email);
-
-            if ($user && empty($user['is_deleted'])) {
-                $tempPassword = bin2hex(random_bytes(6)) . 'A1!';
-                $hashedTempPassword = password_hash($tempPassword, PASSWORD_BCRYPT);
-
-                $userModel->updatePassword((int)$user['id'], $hashedTempPassword, true);
-
-                $mailService = new MailService();
-                $mailService->sendTempPasswordEmail($email, $tempPassword, $user['firstname'] ?? 'Client');
-
-                try {
-                    $logModel = new Log();
-                    $logModel->addLog("RESET_PASSWORD_REQUEST", (int)$user['id'], [
-                        'email'   => $email,
-                        'message' => "Réinitialisation de mot de passe demandée avec génération de mot de passe temporaire."
+            try {
+                $userId = (new PasswordResetService())->reset($email);
+                if ($userId !== null) {
+                    (new Log())->addLog('RESET_PASSWORD_REQUEST', $userId, [
+                        'email' => $email,
+                        'message' => 'Mot de passe temporaire enregistré et accepté par le serveur SMTP.',
                     ]);
-                } catch (\Exception $e) {
-                    error_log("Erreur Log MongoDB reset pwd : " . $e->getMessage());
                 }
+            } catch (Throwable $error) {
+                error_log('Échec de réinitialisation du mot de passe : ' . $error->getMessage());
             }
 
-            $_SESSION['global_success'] = "Si cette adresse existe, des instructions temporaires de connexion vous ont été transmises par email.";
+            // Même réponse pour un compte absent, suspendu ou un échec technique.
+            $_SESSION['auth_message'] = "Si cette adresse correspond à un compte actif et que l'envoi aboutit, vous recevrez un mot de passe temporaire. Sans réception, réessayez plus tard ou contactez l’équipe.";
             header('Location: index.php?action=forgot_password');
             exit();
         }

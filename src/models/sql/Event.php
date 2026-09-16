@@ -445,10 +445,11 @@ class Event
                 SET image_path = :image_path
                 WHERE id = :id
             ");
-            return $stmt->execute([
+            $stmt->execute([
                 ':image_path' => $imagePath,
                 ':id'         => $id
             ]);
+            return $stmt->rowCount() === 1;
         } catch (\PDOException $e) {
             error_log(sprintf("[Event::updateImage] Erreur SQL event #%d : %s", $id, $e->getMessage()));
             return false;

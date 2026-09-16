@@ -19,6 +19,15 @@
  * @var array $clients Liste des utilisateurs récupérée depuis la base de données (rôle 'CLIENT').
  */
 ?>
+<?php foreach (['flash_success' => 'success', 'flash_error' => 'danger'] as $key => $color): ?>
+    <?php if (!empty($_SESSION[$key])): ?>
+        <div class="container mt-3 alert alert-<?= $color ?>" role="alert">
+            <?= htmlspecialchars($_SESSION[$key], ENT_QUOTES, 'UTF-8') ?>
+        </div>
+        <?php unset($_SESSION[$key]); ?>
+    <?php endif; ?>
+<?php endforeach; ?>
+
 
 <div class="container-fluid bg-light min-vh-100">
     <div class="row">

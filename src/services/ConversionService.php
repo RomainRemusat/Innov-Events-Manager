@@ -27,6 +27,15 @@ class ConversionService
      */
     private PDO $db;
 
+    /** @var bool|null Résultat SMTP ; null si aucun nouveau compte n'a été créé. */
+    private ?bool $credentialsEmailSent = null;
+
+    /** @return bool|null Résultat de l'envoi des identifiants de la dernière conversion. */
+    public function wasCredentialsEmailSent(): ?bool
+    {
+        return $this->credentialsEmailSent;
+    }
+
     /**
      * Initialise le service via le singleton de connexion PDO.
      */
@@ -56,6 +65,7 @@ class ConversionService
         // ---------------------------------------------------------------------
         // 1. VALIDATION ET NETTOYAGE MÉTIER (Invariants fonctionnels)
         // ---------------------------------------------------------------------
+        $this->credentialsEmailSent = null;
         foreach ($data as $value) {
             if (!is_scalar($value) && $value !== null) {
                 throw new InvalidArgumentException('Les champs du formulaire doivent contenir une valeur simple.');
@@ -279,14 +289,15 @@ class ConversionService
             // -----------------------------------------------------------------
             if ($isNewUserCreated && $newUserEmail && $newUserTempPass) {
                 try {
-                    $mailService = new MailService();
-                    $mailService->sendTemporaryPasswordEmail($newUserEmail, $newUserFirstname, $newUserTempPass);
-                } catch (\Exception $e) {
+                    $this->credentialsEmailSent = (new MailService())->sendTemporaryPasswordEmail($newUserEmail, $newUserFirstname, $newUserTempPass);
+                } catch (\Throwable $e) {
+                    $this->credentialsEmailSent = false;
                     error_log("Avertissement MailService post-conversion : " . $e->getMessage());
                 }
             }
 
             $this->logActivity($prospectId, $clientId, $companyId, $eventId, $devisId, $actorUserId, [
+                'credentials_email_sent' => $this->credentialsEmailSent,
                 'company_name'           => $companyName,
                 'location'               => $location,
                 'estimated_participants' => $participants,

@@ -43,10 +43,11 @@ class MailService
         // CONFIGURATION TECHNIQUE DU SERVEUR SMTP DE TEST (MailHog)
         // ---------------------------------------------------------------------
         $mail->isSMTP();
-        $mail->Host        = 'mailhog'; // Résolution DNS Docker interne basée sur le nom du service
-        $mail->Port        = 1025;      // Port d'écoute standard pour l'ingestion SMTP de MailHog
+        $mail->Host        = $_ENV['SMTP_HOST'] ?? 'mailhog'; // Résolution DNS Docker interne basée sur le nom du service
+        $mail->Port        = (int)($_ENV['SMTP_PORT'] ?? 1025);      // Port d'écoute standard pour l'ingestion SMTP de MailHog
         $mail->SMTPAuth    = false;     // Authentification désactivée (sécurisé dans l'environnement local)
         $mail->SMTPAutoTLS = false;     // Désactive le chiffrement TLS explicite requis en production
+        $mail->Timeout = 10;
         $mail->CharSet     = 'UTF-8';   // Encodage universel pour prévenir les altérations d'accents
 
         // Définition de l'identité de l'expéditeur unique (Conformité DKIM/SPF théorique)

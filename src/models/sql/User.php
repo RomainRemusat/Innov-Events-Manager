@@ -127,15 +127,16 @@ class User
     {
         try {
             // Préparation de la requête pour éviter les injections SQL
-            $sql = "UPDATE users SET password = :password, must_change_password = :must_change WHERE id = :id";
+            $sql = "UPDATE users SET password = :password, must_change_password = :must_change WHERE id = :id AND is_deleted = 0";
             $stmt = $this->db->prepare($sql);
 
             // Exécution avec liaison dynamique des paramètres
-            return $stmt->execute([
+            $stmt->execute([
                 ':password'    => $hashedPassword,
                 ':must_change' => $mustChange ? 1 : 0, // Conversion du booléen en entier pour MySQL
                 ':id'          => $userId
             ]);
+            return $stmt->rowCount() === 1;
 
         } catch (PDOException $e) {
             // Journalisation silencieuse de l'erreur
@@ -180,9 +181,10 @@ class User
     public function softDeleteClient(int $id): bool
     {
         try {
-            $sql = "UPDATE users SET is_deleted = 1 WHERE id = :id AND role = 'CLIENT'";
+            $sql = "UPDATE users SET is_deleted = 1 WHERE id = :id AND role = 'CLIENT' AND is_deleted = 0";
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([':id' => $id]);
+            $stmt->execute([':id' => $id]);
+            return $stmt->rowCount() === 1;
         } catch (\PDOException $e) {
             error_log("Erreur lors de la suppression logique du client $id : " . $e->getMessage());
             return false;
@@ -201,14 +203,18 @@ class User
     public function updateClient(int $id, string $firstname, string $lastname, string $email): bool
     {
         try {
-            $sql = "UPDATE users SET firstname = :firstname, lastname = :lastname, email = :email WHERE id = :id AND role = 'CLIENT'";
+            $sql = "UPDATE users SET firstname = :firstname, lastname = :lastname, email = :email WHERE id = :id AND role = 'CLIENT' AND is_deleted = 0";
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([
+            $stmt->execute([
                 ':firstname' => $firstname,
                 ':lastname'  => $lastname,
                 ':email'     => $email,
                 ':id'        => $id
             ]);
+            if ($stmt->rowCount() === 1) return true;
+            $client = $this->findById($id);
+            return $client && $client['role'] === 'CLIENT' && !(int)$client['is_deleted']
+                && $client['firstname'] === $firstname && $client['lastname'] === $lastname && $client['email'] === $email;
         } catch (\PDOException $e) {
             error_log("Erreur lors de la mise à jour du client $id : " . $e->getMessage());
             return false;

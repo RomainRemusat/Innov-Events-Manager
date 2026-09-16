@@ -134,7 +134,27 @@ acceptation du message par SMTP, vérifier l'état du devis et l'envoi avant de 
 `python -B tests/quote_lifecycle.py` vérifie le cycle complet et une concurrence
 modification/acceptation sur des bases temporaires, avec des emails capturés localement.
 
-**Tests SQL**
+**Motif de modification des devis**
+
+Importer `update_quote_change_reason.sql` avant le code qui enregistre les réponses
+clients. La migration ajoute `devis.change_reason`, peut être rejouée et conserve
+les données existantes. Le motif et le statut sont écrits dans la même requête SQL.
+Les anciens motifs restent lus dans MongoDB lorsque la colonne est vide ; les
+motifs historiques perdus ne peuvent pas être reconstitués.
+
+Les échecs SMTP ne suppriment pas une demande ou une décision déjà enregistrée.
+L'interface signale la notification échouée. Pour un compte créé par conversion,
+le client peut demander de nouveaux accès avec « Mot de passe oublié ».
+La réinitialisation conserve l'ancien mot de passe si l'envoi échoue. Le compte
+reste verrouillé pendant la tentative SMTP, avec un délai de connexion de dix
+secondes. Un message accepté par SMTP peut néanmoins précéder un échec du commit
+SQL ; dans ce cas, les anciens identifiants restent valides et il faut réessayer.
+
+`SMTP_HOST` et `SMTP_PORT` dans `$_ENV` permettent de choisir le serveur ; les
+valeurs par défaut restent `mailhog:1025`. `python -B tests/write_failures.py`
+simule des pannes SMTP, SQL et MongoDB sur une base temporaire, sans envoyer de mail.
+
+**Exécution des tests SQL**
 
 Python 3 et Docker sont nécessaires. Le test utilise l'image `mysql:8.0`, un
 conteneur sans réseau ni port exposé, et un stockage temporaire. Il ne se connecte

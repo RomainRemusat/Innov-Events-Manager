@@ -78,7 +78,13 @@ class AdminClientController extends BaseController
 
         if ($clientId > 0 && !empty($firstname) && !empty($lastname) && $email) {
             $userModel = new User();
-            $userModel->updateClient($clientId, $firstname, $lastname, $email);
+            if ($userModel->updateClient($clientId, $firstname, $lastname, $email)) {
+                $_SESSION['flash_success'] = 'Les informations du client sont enregistrées.';
+            } else {
+                $_SESSION['flash_error'] = 'Les informations n’ont pas pu être enregistrées. Vérifiez le compte et l’adresse email.';
+            }
+        } else {
+            $_SESSION['flash_error'] = 'Les coordonnées du client sont invalides.';
         }
 
         header('Location: index.php?action=view_client&id=' . $clientId);
@@ -92,11 +98,14 @@ class AdminClientController extends BaseController
 
         $clientId = (int)($postData['client_id'] ?? 0);
 
+        $_SESSION['flash_error'] = 'Le compte client n’a pas pu être désactivé.';
         if ($clientId > 0) {
             $userModel = new User();
             $clientData = $userModel->findById($clientId);
 
             if ($clientData && $userModel->softDeleteClient($clientId)) {
+                unset($_SESSION['flash_error']);
+                $_SESSION['flash_success'] = 'Le compte client a été désactivé.';
                 try {
                     $logModel = new Log();
                     $clientFullName = $clientData['firstname'] . ' ' . $clientData['lastname'];

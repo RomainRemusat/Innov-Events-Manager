@@ -132,6 +132,7 @@ class QuoteController extends BaseController
         // 3. Persistance relationnelle MySQL (AT2)
         $prospectModel = new Prospect();
         $result = $prospectModel->create($sanitizedData);
+        $notificationSent = false;
 
         if ($result) {
             // Nettoyage des anciennes saisies
@@ -154,7 +155,7 @@ class QuoteController extends BaseController
             // 5. Notification e-mail à l'administration
             try {
                 $mailService = new MailService();
-                $mailService->sendNewQuoteAdminNotification($sanitizedData);
+                $notificationSent = $mailService->sendNewQuoteAdminNotification($sanitizedData);
             } catch (\Exception $e) {
                 error_log("Erreur MailService : " . $e->getMessage());
             }
@@ -203,15 +204,11 @@ class QuoteController extends BaseController
         $prestationModel = new Prestation();
         $prestations = $prestationModel->findByDevisId($devisId);
 
-        // Extraction de la remarque client depuis MongoDB si statut en modification
-        $lastChangeReason = null;
-        if (in_array(strtolower($devis['status'] ?? ''), ['modification', 'brouillon'], true)) {
-            try {
-                $logModel = new Log();
-                $lastChangeReason = $logModel->getLatestChangeReason($devisId);
-            } catch (\Exception $e) {
-                error_log("Erreur lecture motif modification MongoDB : " . $e->getMessage());
-            }
+        // Le motif métier est conservé avec le devis, même si le journal est indisponible.
+        $lastChangeReason = $devis['change_reason'] ?? null;
+        if ($lastChangeReason === null && in_array($devis['status'], ['modification', 'brouillon'], true)) {
+            // Compatibilité de lecture pour les demandes enregistrées avant la colonne SQL.
+            $lastChangeReason = (new Log())->getLatestChangeReason($devisId);
         }
 
         $pageTitle = "Édition Devis - " . htmlspecialchars($devis['company_name'], ENT_QUOTES, 'UTF-8');

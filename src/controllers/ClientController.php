@@ -103,8 +103,8 @@ class ClientController extends BaseController
         }
 
         // 5. Exécution de la transition d'état et règles métiers
-        if ($action === 'request_change' && (empty($reason) || mb_strlen($reason) < 5)) {
-            $_SESSION['client_error'] = "Veuillez préciser le motif de votre demande d'ajustement (au moins 5 caractères).";
+        if ($action === 'request_change' && (mb_strlen($reason) < 5 || strlen($reason) > 65535)) {
+            $_SESSION['client_error'] = "Veuillez préciser le motif de votre demande d'ajustement (au moins 5 caractères, maximum 65 535 octets).";
             header('Location: index.php?action=client_dashboard');
             exit();
         }
@@ -112,7 +112,7 @@ class ClientController extends BaseController
             'accept' => 'accepté', 'reject' => 'refusé', 'request_change' => 'modification',
         };
         // La version vient de l'écran consulté, pas d'une relecture de la version courante.
-        if (!$devisModel->updateStatus($devisId, $newStatus, $userId, (int)($postData['revision'] ?? 0))) {
+        if (!$devisModel->updateStatus($devisId, $newStatus, $userId, (int)($postData['revision'] ?? 0), $reason)) {
             $_SESSION['client_error'] = "Cette proposition a changé ou a déjà reçu une réponse. Rechargez la page et consultez le devis actuel.";
             header('Location: index.php?action=client_dashboard');
             exit();
@@ -120,20 +120,16 @@ class ClientController extends BaseController
         $mailService = new MailService();
         $companyName = $devis['company_name'] ?? 'Client B2B';
 
-        switch ($action) {
-            case 'accept':
-                $mailService->sendQuoteAcceptedEmail($companyName, $devisId);
-                break;
-
-            case 'reject':
-                $mailService->sendQuoteRejectedEmail($companyName, $devisId);
-                break;
-
-            case 'request_change':
-                $mailService->sendModificationRequestEmail($companyName, $devisId, $reason);
-                break;
+        try {
+            $mailSent = match ($action) {
+                'accept' => $mailService->sendQuoteAcceptedEmail($companyName, $devisId),
+                'reject' => $mailService->sendQuoteRejectedEmail($companyName, $devisId),
+                'request_change' => $mailService->sendModificationRequestEmail($companyName, $devisId, $reason),
+            };
+        } catch (Throwable $error) {
+            error_log('Notification de décision client : ' . $error->getMessage());
+            $mailSent = false;
         }
-
 
         // 6. Double persistance & Audit NoSQL MongoDB
         try {
@@ -144,6 +140,7 @@ class ClientController extends BaseController
                 'revision'      => (int)$postData['revision'],
                 'action'        => $action,
                 'change_reason' => $reason,
+                'notification_sent' => $mailSent,
                 'client_action' => $action,
                 'reason'        => $reason,
                 'new_status'    => ($action === 'accept') ? 'accepté' : (($action === 'reject') ? 'refusé' : 'modification')
@@ -156,8 +153,12 @@ class ClientController extends BaseController
         $_SESSION['client_success'] = match ($action) {
             'accept'         => "Merci ! Votre devis a été validé avec succès. Notre équipe prend le relais.",
             'reject'         => "Votre refus a bien été pris en compte.",
-            'request_change' => "Votre demande de modification a bien été transmise à notre équipe commerciale.",
+            'request_change' => "Votre demande de modification a été enregistrée et reste consultable par notre équipe commerciale.",
         };
+
+        if (!$mailSent) {
+            $_SESSION['client_warning'] = "Votre réponse est enregistrée, mais l'email de notification n'a pas pu être envoyé à notre équipe.";
+        }
 
         header('Location: index.php?action=client_dashboard');
         exit();

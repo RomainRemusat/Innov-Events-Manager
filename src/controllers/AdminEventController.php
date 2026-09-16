@@ -77,7 +77,7 @@ class AdminEventController extends BaseController
     /**
      * Met à jour le statut opérationnel d'un événement (ADMIN uniquement).
      * Les refus métier et erreurs de persistance sont signalés à l'utilisateur.
-     * Une modification effective journalise les états avant/après conformément à l'ECF p. 13.
+     * Une modification effective journalise les états avant et après.
      */
     public function updateStatus(): void
     {
@@ -230,7 +230,12 @@ class AdminEventController extends BaseController
 
             if ($imagePath) {
                 $eventModel = new Event();
-                $eventModel->updateImage($eventId, $imagePath);
+                if (!$eventModel->updateImage($eventId, $imagePath)) {
+                    $uploader->deleteFile(__DIR__ . '/../../public/' . $imagePath);
+                    $_SESSION['flash_error'] = "L’image n’a pas pu être associée à l’événement.";
+                    header("Location: index.php?action=admin_event_detail&id={$eventId}");
+                    exit();
+                }
 
                 // Audit NoSQL
                 $logger = new Log();

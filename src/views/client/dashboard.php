@@ -56,6 +56,13 @@ require __DIR__ . '/../partials/header.php';
             </div>
         <?php endif; ?>
 
+        <?php if (!empty($_SESSION['client_warning'])): ?>
+            <div class="alert alert-warning" role="alert">
+                <?= htmlspecialchars($_SESSION['client_warning'], ENT_QUOTES, 'UTF-8') ?>
+            </div>
+            <?php unset($_SESSION['client_warning']); ?>
+        <?php endif; ?>
+
         <?php if (isset($_SESSION['client_error'])): ?>
             <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
                 <i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>

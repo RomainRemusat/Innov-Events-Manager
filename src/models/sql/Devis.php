@@ -46,6 +46,7 @@ class Devis
             $stmt = $this->db->prepare("
                 SELECT d.id_devis,
                        d.revision,
+                       d.change_reason,
                        d.id_prospect,
                        d.reference_pdf,
                        d.montant_ht,
@@ -165,17 +166,22 @@ class Devis
      * @param string $newStatus Décision client : 'accepté', 'refusé' ou 'modification'.
      * @param int $userId Propriétaire authentifié de la demande.
      * @param int $revision Version transmise par le formulaire client.
+     * @param string|null $reason Motif obligatoire pour une demande de modification.
      * @return bool Vrai en cas de succès.
      */
-    public function updateStatus(int $devisId, string $newStatus, int $userId, int $revision): bool
+    public function updateStatus(int $devisId, string $newStatus, int $userId, int $revision, ?string $reason = null): bool
     {
         if (!in_array($newStatus, ['accepté', 'refusé', 'modification'], true) || $revision < 1) {
+            return false;
+        }
+        $reason = trim($reason ?? '');
+        if ($newStatus === 'modification' && (mb_strlen($reason) < 5 || strlen($reason) > 65535)) {
             return false;
         }
         try {
             $stmt = $this->db->prepare("
                 UPDATE devis
-                SET status = :status
+                SET status = :status, change_reason = :reason
                 WHERE id_devis = :devis_id AND revision = :revision
                   AND status IN ('étude côté client', 'devis envoyé')
                   AND EXISTS (SELECT 1 FROM prospects p WHERE p.id = devis.id_prospect AND p.user_id = :user_id)
@@ -183,6 +189,7 @@ class Devis
 
             $stmt->execute([
                 ':status'   => $newStatus,
+                ':reason' => $newStatus === 'modification' ? $reason : null,
                 ':devis_id' => $devisId,
                 ':user_id' => $userId,
                 ':revision' => $revision,

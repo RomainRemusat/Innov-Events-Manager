@@ -175,6 +175,9 @@ class DashboardController extends BaseController
             $devisId = $conversionService->convertProspectToClient($data, $file, $actorId);
 
             $_SESSION['flash_success'] = "Prospect converti avec succès en client et projet événementiel créé.";
+            if ($conversionService->wasCredentialsEmailSent() === false) {
+                $_SESSION['flash_warning'] = "La conversion est enregistrée, mais l’email d’accès au nouveau compte n’a pas pu être envoyé. Le client pourra utiliser « Mot de passe oublié » pour obtenir ses accès.";
+            }
             header("Location: index.php?action=edit_devis&id=" . $devisId);
             exit();
         } catch (\Exception $e) {
