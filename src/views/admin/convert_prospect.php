@@ -2,14 +2,8 @@
 /**
  * Vue : Formulaire de Conversion (Prospect -> Client, Entreprise & Événement)
  *
- * Cette interface d'administration est l'étape centrale du workflow commercial (AT2).
- * Elle permet à Chloé de convertir un prospect en client B2B tout en qualifiant
- * l'adresse postale légale et les paramètres complets du projet événementiel.
- *
- * Normes appliquées :
- * - Sécurité (AT1) : Jeton Anti-CSRF et échappement strict (XSS) via ENT_QUOTES.
- * - Accessibilité (RGAA) : Labels explicites, structuration sémantique et attributs ARIA.
- * - UI/UX : Charte Slate Dark (#0F172A) et Bleu (#3B82F6).
+ * Permet de compléter les coordonnées du client et les informations du projet
+ * avant la création du devis. Les valeurs affichées sont échappées en HTML.
  *
  * @package    InnovEventsManager
  * @subpackage Views/Admin
@@ -51,7 +45,7 @@
         <!-- =============================================================== -->
         <form action="index.php?action=process_conversion" method="POST" enctype="multipart/form-data" class="row g-4">
 
-            <!-- Jeton de sécurité Anti-CSRF (Validation AT1) -->
+            <!-- Jeton de protection contre les soumissions intersites -->
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
             <!-- ID caché du prospect pour la liaison SQL -->
             <input type="hidden" name="prospect_id" value="<?= (int)$prospect['id'] ?>">
@@ -188,11 +182,11 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label for="estimated_participants" class="form-label small fw-bold text-muted">Participants prévus</label>
+                                <label for="estimated_participants" class="form-label small fw-bold text-muted">Participants prévus *</label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light text-muted"><i class="bi bi-people"></i></span>
                                     <input type="number" class="form-control" id="estimated_participants" name="estimated_participants"
-                                           value="<?= (int)($prospect['estimated_participants'] ?? 0) ?>" min="1">
+                                           value="<?= (int)($prospect['estimated_participants'] ?? 0) ?>" min="1" max="2147483647" required aria-required="true">
                                 </div>
                             </div>
                         </div>
@@ -204,8 +198,8 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="description" class="form-label small fw-bold text-muted">Cahier des charges & spécifications</label>
-                            <textarea class="form-control" id="description" name="description" rows="4"><?= htmlspecialchars($prospect['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+                            <label for="description" class="form-label small fw-bold text-muted">Cahier des charges & spécifications *</label>
+                            <textarea class="form-control" id="description" name="description" rows="4" minlength="5" required aria-required="true"><?= htmlspecialchars($prospect['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
                             <div class="form-text small">Pré-rempli avec la demande initiale. Vous pouvez compléter selon vos échanges de qualification.</div>
                         </div>
 

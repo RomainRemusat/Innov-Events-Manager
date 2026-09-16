@@ -2,7 +2,6 @@
 
 require_once __DIR__ . '/../config/Database.php';
 require_once __DIR__ . '/../models/sql/Company.php';
-require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/sql/Event.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
@@ -11,12 +10,8 @@ require_once __DIR__ . '/../services/FileUploadService.php';
 /**
  * Service métier : ConversionService
  *
- * Orchestre le workflow transactionnel de conversion d'un prospect en client B2B (AT2).
- * Applique le principe ACID et la persistance polyglotte (MySQL / MongoDB).
- *
- * Exigences respectées (ECF) :
- * - AT1 : Sécurisation de la création de compte client et hachage OWASP (Bcrypt).
- * - AT2 : Gestion transactionnelle MySQL (ACID) et journalisation d'audit NoSQL MongoDB.
+ * Crée le client, l'événement et le devis dans une transaction SQL.
+ * Supprime l'image créée en cas d'échec ; notifie et journalise après validation SQL.
  *
  * @package    InnovEventsManager
  * @subpackage Services
@@ -41,39 +36,39 @@ class ConversionService
     }
 
     /**
-     * Exécute le processus transactionnel complet de conversion d'un prospect en client B2B.
+     * Convertit un prospect en client, événement et devis après validation du formulaire.
      *
-     * Workflow métier transactionnel (ACID) :
-     * 1. Nettoyage et validation des invariants fonctionnels.
-     * 2. Création ou enrichissement de l'entreprise morale B2B (`companies`).
-     * 3. Création du compte utilisateur client avec identifiants temporaires (`users`).
-     * 4. Téléversement et enregistrement de l'image d'illustration de l'événement via FileUploadService.
-     * 5. Création du projet événementiel au statut initial (`events`).
-     * 6. Passage du prospect au statut 'converti' (`prospects`).
-     * 7. Génération de la coquille financière initiale au statut 'brouillon' (`devis`).
-     * 8. Journalisation d'audit dans la base orientée documents MongoDB (`logs`).
+     * Le verrou SQL du prospect empêche deux conversions simultanées. Un compte
+     * existant doit être actif, de rôle CLIENT et rattaché à la même entreprise
+     * ou sans entreprise. L'image est supprimée si les écritures SQL échouent.
+     * La notification et la journalisation interviennent après le commit.
      *
-     * @param  array      $data        Payload assaini issu du formulaire POST.
+     * @param  array      $data        Données du formulaire POST à valider.
      * @param  array|null $file        Fichier uploadé ($_FILES['event_image'] ou null).
      * @param  int|null   $actorUserId Identifiant de l'agent exécutant l'action (audit).
      * @return int                     Identifiant unique du devis généré (`id_devis`).
      *
      * @throws InvalidArgumentException Si un invariant fonctionnel obligatoire est absent.
-     * @throws Exception                En cas de défaillance SQL (rollback automatique).
+     * @throws Throwable                En cas d'échec de stockage (annulation SQL et nettoyage de l'image).
      */
     public function convertProspectToClient(array $data, ?array $file = null, ?int $actorUserId = null): int
     {
         // ---------------------------------------------------------------------
         // 1. VALIDATION ET NETTOYAGE MÉTIER (Invariants fonctionnels)
         // ---------------------------------------------------------------------
-        $prospectId  = (int)($data['prospect_id'] ?? 0);
+        foreach ($data as $value) {
+            if (!is_scalar($value) && $value !== null) {
+                throw new InvalidArgumentException('Les champs du formulaire doivent contenir une valeur simple.');
+            }
+        }
+        $prospectId = filter_var($data['prospect_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $companyName = trim($data['company_name'] ?? '');
         $contactName = trim($data['contact_name'] ?? '');
         $email       = filter_var(trim($data['email'] ?? ''), FILTER_VALIDATE_EMAIL);
         $phone       = trim($data['phone'] ?? '');
 
         // Données d'immatriculation B2B
-        $siren       = !empty($data['siren']) ? preg_replace('/[^0-9]/', '', $data['siren']) : null;
+        $siren       = trim($data['siren'] ?? '') ?: null;
         $address     = !empty($data['address']) ? trim($data['address']) : null;
         $postalCode  = !empty($data['postal_code']) ? trim($data['postal_code']) : null;
         $city        = !empty($data['city']) ? trim($data['city']) : null;
@@ -85,7 +80,8 @@ class ConversionService
         $location     = trim($data['location'] ?? '');
         $eventType    = trim($data['event_type'] ?? 'Autre');
         $theme        = !empty($data['theme']) ? trim($data['theme']) : null;
-        $participants = !empty($data['estimated_participants']) ? (int)$data['estimated_participants'] : null;
+        $participants = filter_var($data['estimated_participants'] ?? null, FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1, 'max_range' => 2147483647]]);
         $description  = trim($data['description'] ?? '');
         $eventStatus  = Event::normalizeStatus($data['event_status'] ?? 'brouillon');
         $isPublished  = !empty($data['is_visible']) ? 1 : 0;
@@ -95,14 +91,38 @@ class ConversionService
         }
 
         // Le devis créé par cette transaction est un brouillon : le projet ne peut
-        // pas démarrer avant son acceptation commerciale (ECF, p. 12).
+        // pas démarrer avant son acceptation commerciale.
         if (!isset(Event::STATUS_LABELS[$eventStatus]) || $eventStatus === 'en cours') {
             throw new InvalidArgumentException("Statut initial non autorisé : le passage en cours nécessite un devis accepté.");
         }
 
         // Validation stricte des champs obligatoires
-        if (!$prospectId || empty($companyName) || !$email || empty($eventTitle) || empty($startDate) || empty($location)) {
+        if (!$prospectId || $companyName === '' || $contactName === '' || !$email || $eventTitle === '' || $location === '' || $eventType === '') {
             throw new InvalidArgumentException("Paramètres métier obligatoires manquants ou invalides.");
+        }
+        if (!preg_match('/^\+?[0-9 () .-]+$/D', $phone) || strlen(preg_replace('/\D/', '', $phone)) < 6) {
+            throw new InvalidArgumentException('Le numéro de téléphone est invalide.');
+        }
+        if ($participants === false) {
+            throw new InvalidArgumentException('Le nombre de participants doit être un entier strictement positif.');
+        }
+        if (mb_strlen($description) < 5 || strlen($description) > 65535) {
+            throw new InvalidArgumentException('La description doit comporter au moins 5 caractères et tenir dans 65 535 octets.');
+        }
+        foreach (['company_name' => 255, 'contact_name' => 255, 'email' => 255, 'phone' => 50,
+            'event_title' => 255, 'location' => 255, 'event_type' => 100, 'theme' => 100,
+            'address' => 255, 'postal_code' => 10, 'city' => 100] as $field => $maxLength) {
+            if (mb_strlen(trim((string)($data[$field] ?? ''))) > $maxLength) {
+                throw new InvalidArgumentException("Le champ $field dépasse $maxLength caractères.");
+            }
+        }
+        if ($siren !== null && !preg_match('/^[0-9]{9}$/D', $siren)) {
+            throw new InvalidArgumentException('Le SIREN doit contenir exactement 9 chiffres.');
+        }
+        $mysqlStartDate = $this->parseDate($startDate);
+        $mysqlEndDate = $endDate !== null ? $this->parseDate($endDate) : null;
+        if ($mysqlEndDate !== null && $mysqlEndDate <= $mysqlStartDate) {
+            throw new InvalidArgumentException('La fin de l’événement doit être postérieure à son début.');
         }
 
         // Variables post-transactionnelles (envois emails après commit)
@@ -114,6 +134,8 @@ class ConversionService
         // ---------------------------------------------------------------------
         // 2. EXÉCUTION TRANSACTIONNELLE (GARANTIE ACID)
         // ---------------------------------------------------------------------
+        $imagePath = null;
+        $committed = false;
         $this->db->beginTransaction();
 
         try {
@@ -130,10 +152,17 @@ class ConversionService
             $companyId = $companyModel->findOrCreateAndEnrich($companyName, $siren, $address, $postalCode, $city);
 
             // B. Gestion du compte utilisateur Client (users)
-            $userModel = new User();
-            $existingUser = $userModel->findByEmail($email);
+            $stmtUser = $this->db->prepare('SELECT id, role, is_deleted, company_id FROM users WHERE email = ? FOR UPDATE');
+            $stmtUser->execute([$email]);
+            $existingUser = $stmtUser->fetch(PDO::FETCH_ASSOC);
 
             if ($existingUser) {
+                if ($existingUser['role'] !== 'CLIENT' || (int)$existingUser['is_deleted'] !== 0) {
+                    throw new InvalidArgumentException('Cette adresse email ne correspond pas à un compte client actif.');
+                }
+                if ($existingUser['company_id'] !== null && (int)$existingUser['company_id'] !== $companyId) {
+                    throw new InvalidArgumentException('Ce compte client est déjà rattaché à une autre entreprise.');
+                }
                 $clientId = (int)$existingUser['id'];
                 $stmtLink = $this->db->prepare("UPDATE users SET company_id = ? WHERE id = ?");
                 $stmtLink->execute([$companyId, $clientId]);
@@ -142,8 +171,11 @@ class ConversionService
                 $nameParts = explode(' ', $contactName, 2);
                 $firstname = $nameParts[0];
                 $lastname  = $nameParts[1] ?? 'Client';
+                if (mb_strlen($firstname) > 100 || mb_strlen($lastname) > 100) {
+                    throw new InvalidArgumentException('Le prénom et le nom ne doivent pas dépasser 100 caractères chacun.');
+                }
 
-                // Génération d'un mot de passe temporaire robuste (Normes OWASP)
+                // Le client devra remplacer ce mot de passe à sa première connexion.
                 $tempPassword   = 'Temp_' . bin2hex(random_bytes(4)) . '!2026';
                 $hashedPassword = password_hash($tempPassword, PASSWORD_BCRYPT);
 
@@ -160,24 +192,15 @@ class ConversionService
                 $newUserTempPass  = $tempPassword;
             }
 
-            // C. Traitement du téléversement sécurisé de l'image d'illustration (OWASP CWE-434)
-            $imagePath = null;
-            if ($file && isset($file['error']) && $file['error'] === UPLOAD_ERR_OK) {
-                try {
-                    $uploadService = new FileUploadService(5 * 1024 * 1024);
-                    $uploadDir = __DIR__ . '/../../public/uploads/events/';
-                    $fileName = $uploadService->uploadImage($file, $uploadDir, 'event_');
-                    if ($fileName !== null) {
-                        $imagePath = 'uploads/events/' . $fileName;
-                    }
-                } catch (\InvalidArgumentException $e) {
-                    error_log("Avertissement FileUploadService : " . $e->getMessage());
+            // Une image fournie doit être enregistrée pour poursuivre la conversion.
+            if ($file !== null && ($file['error'] ?? null) !== UPLOAD_ERR_NO_FILE) {
+                $imagePath = (new FileUploadService())->uploadEventImage($file);
+                if ($imagePath === null) {
+                    throw new RuntimeException("L'image n'a pas pu être enregistrée. La conversion a été annulée.");
                 }
             }
 
             // D. Création du projet événementiel (events)
-            $mysqlStartDate = date('Y-m-d H:i:s', strtotime($startDate));
-            $mysqlEndDate   = $endDate ? date('Y-m-d H:i:s', strtotime($endDate)) : null;
 
             $stmtEvent = $this->db->prepare("
                 INSERT INTO events (client_id, company_id, title, description, start_date, end_date, location, event_type, theme, estimated_participants, image_path, status, is_published)
@@ -249,9 +272,10 @@ class ConversionService
 
             // Commit final de la transaction MySQL
             $this->db->commit();
+            $committed = true;
 
             // -----------------------------------------------------------------
-            // 3. ACTIONS POST-TRANSACTION : EMAILS & AUDIT NOSQL MONGODB (AT2)
+            // 3. NOTIFICATION ET JOURNALISATION APRÈS VALIDATION SQL
             // -----------------------------------------------------------------
             if ($isNewUserCreated && $newUserEmail && $newUserTempPass) {
                 try {
@@ -273,12 +297,36 @@ class ConversionService
 
             return $devisId;
 
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
+            if (!$committed && $imagePath !== null) {
+                $absolutePath = __DIR__ . '/../../public/' . $imagePath;
+                if (is_file($absolutePath) && !unlink($absolutePath)) {
+                    error_log('Impossible de supprimer l’image de la conversion annulée : ' . $imagePath);
+                }
+            }
             throw $e;
         }
+    }
+
+    /**
+     * Valide une date de formulaire sans accepter la correction automatique du calendrier.
+     *
+     * @param string $value Date et heure locales, avec secondes facultatives.
+     * @return string Date normalisée pour MySQL.
+     * @throws InvalidArgumentException Si le format ou la date est invalide.
+     */
+    private function parseDate(string $value): string
+    {
+        foreach (['Y-m-d\TH:i', 'Y-m-d\TH:i:s'] as $format) {
+            $date = DateTimeImmutable::createFromFormat('!' . $format, $value);
+            if ($date !== false && $date->format($format) === $value && (int)$date->format('Y') >= 1000) {
+                return $date->format('Y-m-d H:i:s');
+            }
+        }
+        throw new InvalidArgumentException('La date et l’heure de l’événement sont invalides.');
     }
 
     /**

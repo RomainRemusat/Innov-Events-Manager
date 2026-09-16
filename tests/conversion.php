@@ -43,6 +43,7 @@ try {
         'company_name' => 'NextGen Software',
         'contact_name' => 'Amandine Legrand',
         'email' => 'a.legrand@nextgen.io',
+        'phone' => '01 02 03 04 05',
         'event_title' => 'Conversion de test',
         'start_date' => '2026-10-12T14:30',
         'location' => 'Paris',
@@ -51,6 +52,51 @@ try {
         'description' => 'Projet ajusté pendant la conversion',
     ];
     $service = new ConversionService();
+    $snapshot = static function () use ($pdo): array {
+        $rows = [];
+        foreach (['companies', 'users', 'prospects', 'events', 'devis'] as $table) {
+            $rows[$table] = $pdo->query("SELECT * FROM $table ORDER BY 1")->fetchAll();
+        }
+        return $rows;
+    };
+    $before = $snapshot();
+    foreach ([
+        ['start_date' => 'demain'], ['start_date' => '2026-02-30T12:00'],
+        ['start_date' => '2026-10-12T25:00'], ['end_date' => 'invalide'],
+        ['end_date' => '2026-10-12T14:30'], ['end_date' => '2026-10-11T14:30'],
+        ['contact_name' => ' '], ['phone' => ''], ['phone' => 'abcdef'],
+        ['estimated_participants' => '12abc'], ['estimated_participants' => '1.5'],
+        ['estimated_participants' => 0], ['estimated_participants' => -1],
+        ['estimated_participants' => '2147483648'], ['estimated_participants' => ''],
+        ['prospect_id' => '1abc'], ['email' => ['invalide']], ['event_type' => ''],
+        ['description' => ''], ['company_name' => str_repeat('é', 256)], ['siren' => '123abc456'],
+        ['email' => 'chloe@innovevents.fr'], ['email' => 'jose@innovevents.fr'],
+        ['company_name' => 'Autre entreprise'],
+    ] as $invalid) {
+        try {
+            $service->convertProspectToClient(array_replace($data, $invalid), null, 1);
+            throw new RuntimeException('Conversion invalide acceptée : ' . json_encode($invalid));
+        } catch (InvalidArgumentException $error) {
+            verify(!$pdo->inTransaction() && $snapshot() === $before, 'Écriture après validation refusée');
+        }
+    }
+    $pdo->exec('UPDATE users SET is_deleted = 1 WHERE id = 4');
+    try {
+        $service->convertProspectToClient($data, null, 1);
+        throw new RuntimeException('Compte désactivé réutilisé');
+    } catch (InvalidArgumentException $error) {
+        verify(str_contains($error->getMessage(), 'actif'), 'Mauvais rejet du compte désactivé');
+    }
+    $pdo->exec('UPDATE users SET is_deleted = 0 WHERE id = 4');
+    foreach ([[], ['error' => UPLOAD_ERR_PARTIAL], ['error' => UPLOAD_ERR_INI_SIZE]] as $file) {
+        try {
+            $service->convertProspectToClient($data, $file, 1);
+            throw new RuntimeException('Erreur de téléversement ignorée');
+        } catch (InvalidArgumentException $error) {
+            verify($snapshot() === $before, 'Conversion partielle après erreur image');
+        }
+    }
+    echo "OK : validation stricte, comptes protégés et erreurs de téléversement bloquantes.\n";
     foreach ([['is_visible' => '1'], ['is_visible' => '1', 'publication_consent' => 'on']] as $publication) {
         try {
             $service->convertProspectToClient(array_merge($data, $publication), null, 1);
@@ -178,23 +224,77 @@ try {
     $pdo->exec("CREATE TRIGGER `$name`.fail_quote BEFORE INSERT ON `$name`.devis FOR EACH ROW
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Échec devis simulé'");
 
-    $snapshot = static function () use ($pdo): array {
-        $rows = [];
-        foreach (['companies', 'users', 'prospects', 'events', 'devis'] as $table) {
-            $rows[$table] = $pdo->query("SELECT * FROM $table ORDER BY 1")->fetchAll();
-        }
-        return $rows;
-    };
     $before = $snapshot();
     $data['company_name'] = 'Entreprise à annuler';
+    $data['email'] = 'rollback@example.test';
+    $image = tempnam(sys_get_temp_dir(), 'conversion_');
+    file_put_contents($image, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='));
+    $imageDirectory = __DIR__ . '/../public/uploads/events/';
+    $imagesBefore = glob($imageDirectory . '*');
     try {
-        $service->convertProspectToClient($data, null, 1);
+        $service->convertProspectToClient($data, [
+            'error' => UPLOAD_ERR_OK, 'tmp_name' => $image, 'size' => filesize($image),
+        ], 1);
         throw new RuntimeException('Une erreur SQL était attendue');
     } catch (PDOException $error) {
         verify($error->getCode() === '45000', 'Erreur SQL inattendue');
+    } finally {
+        unlink($image);
     }
     verify(!$pdo->inTransaction() && $snapshot() === $before, 'Rollback incomplet');
-    echo "OK : rollback SQL complet si la création du devis échoue.\n";
+    verify(glob($imageDirectory . '*') === $imagesBefore, 'Image orpheline après rollback');
+    echo "OK : rollback SQL complet et suppression de l’image si la création du devis échoue.\n";
+    $pdo->exec('DROP TRIGGER fail_quote');
+
+    // Deux connexions indépendantes attendent la libération du même dossier.
+    $data['company_name'] = 'NextGen Software';
+    $data['email'] = 'a.legrand@nextgen.io';
+    $data['end_date'] = '2026-10-12T18:30:45';
+    $workerCode = 'require ' . var_export(__DIR__ . '/../src/services/ConversionService.php', true) . ';'
+        . '$pdo = new PDO(' . var_export("mysql:host=db;dbname=$name;charset=utf8mb4", true)
+        . ', "root", "root_password", [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);'
+        . '$class = new ReflectionClass(Database::class); $db = $class->newInstanceWithoutConstructor();'
+        . '$class->getProperty("pdo")->setValue($db, $pdo); $class->getProperty("instance")->setValue(null, $db);'
+        . '$_ENV["MONGO_URI"] = "mongodb://mongodb:27017"; $_ENV["MONGO_DATABASE"] = ' . var_export($name, true) . ';'
+        . 'echo "ready\n"; flush(); try { (new ConversionService())->convertProspectToClient('
+        . var_export($data, true) . ', null, 1); echo "converted"; }'
+        . 'catch (InvalidArgumentException $e) { echo "refused"; }';
+    $workers = [];
+    $pdo->beginTransaction();
+    $pdo->query('SELECT id FROM prospects WHERE id = ' . (int)$data['prospect_id'] . ' FOR UPDATE');
+    try {
+        for ($i = 0; $i < 2; $i++) {
+            $process = proc_open([PHP_BINARY, '-r', $workerCode], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+            verify(is_resource($process), 'Impossible de lancer la conversion concurrente');
+            $workers[] = [$process, $pipes];
+            stream_set_timeout($pipes[1], 10);
+            verify(fgets($pipes[1]) === "ready\n", 'Conversion concurrente non démarrée');
+        }
+        usleep(200000);
+        foreach ($workers as [$process]) {
+            verify(proc_get_status($process)['running'], 'La conversion doit attendre le verrou du dossier');
+        }
+        $pdo->commit();
+        $results = [];
+        foreach ($workers as [$process, $pipes]) {
+            $results[] = stream_get_contents($pipes[1]);
+            verify(stream_get_contents($pipes[2]) === '', 'Erreur dans la conversion concurrente');
+        }
+        sort($results);
+        verify($results === ['converted', 'refused'], 'Double conversion concurrente acceptée');
+        verify((int)$pdo->query('SELECT COUNT(*) FROM devis WHERE id_prospect = ' . (int)$data['prospect_id'])->fetchColumn() === 1,
+            'Plusieurs devis créés pour la même conversion');
+        verify($pdo->query('SELECT end_date FROM events ORDER BY id DESC LIMIT 1')->fetchColumn() === '2026-10-12 18:30:45',
+            'Les secondes de la date de fin doivent être conservées');
+    } finally {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        foreach ($workers as [$process, $pipes]) {
+            foreach ($pipes as $pipe) fclose($pipe);
+            if (proc_get_status($process)['running']) proc_terminate($process);
+            proc_close($process);
+        }
+    }
+    echo "OK : deux conversions concurrentes, une seule création de devis et dates avec secondes.\n";
 } finally {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
