@@ -71,6 +71,10 @@ abstract class BaseController
         }
 
         $_SESSION['user_role'] = $user['role'];
+        $_SESSION['user_firstname'] = $user['firstname'];
+        $_SESSION['user_lastname'] = $user['lastname'];
+        $_SESSION['user_name'] = $user['firstname'];
+        $_SESSION['user_email'] = $user['email'];
         $_SESSION['force_password_change'] = !empty($user['must_change_password']);
         if ($_SESSION['force_password_change'] && !$allowPasswordChange) {
             header('Location: index.php?action=force_password_change');

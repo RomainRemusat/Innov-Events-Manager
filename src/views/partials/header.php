@@ -117,6 +117,11 @@ $currentAction = $_GET['action'] ?? 'home';
                                 <i class="bi bi-speedometer2 me-1" aria-hidden="true"></i> Mon Espace
                             </a>
                         </li>
+                        <?php if (($_SESSION['user_role'] ?? '') === 'CLIENT'): ?>
+                            <li class="nav-item">
+                                <a class="btn btn-light btn-sm me-1" href="index.php?action=client_profile">Mon profil</a>
+                            </li>
+                        <?php endif; ?>
                         <li class="nav-item">
                             <a class="btn btn-outline-danger btn-sm px-3" href="index.php?action=logout">
                                 Déconnexion

@@ -22,6 +22,7 @@ require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/sql/Prospect.php';
 require_once __DIR__ . '/../models/sql/Devis.php';
+require_once __DIR__ . '/../models/sql/Event.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
 
@@ -42,6 +43,7 @@ class ClientController extends BaseController
 
         $prospectModel = new Prospect();
         $myQuotes = $prospectModel->findClientRequests($clientId);
+        $upcomingEvents = (new Event())->findUpcomingEvents(3, $clientId);
         foreach ($myQuotes as &$quote) {
             $fileName = $quote['reference_pdf'] ?? '';
             $quote['is_pdf_available'] = $fileName !== ''
@@ -182,10 +184,67 @@ class ClientController extends BaseController
     {
         $this->checkAuth(['CLIENT']);
 
-        $clientName = trim(($_SESSION['user_firstname'] ?? '') . ' ' . ($_SESSION['user_lastname'] ?? ''));
-        $clientEmail = $_SESSION['user_email'] ?? '';
+        $profile = $_SESSION['profile_inputs'] ?? [
+            'firstname' => $_SESSION['user_firstname'],
+            'lastname' => $_SESSION['user_lastname'],
+            'email' => $_SESSION['user_email'],
+        ];
+        unset($_SESSION['profile_inputs']);
 
         require __DIR__ . '/../views/client/profile.php';
+    }
+
+    /**
+     * Modifie les coordonnées du compte connecté, sans accepter d'identifiant soumis.
+     * Un changement d'adresse de connexion exige le mot de passe courant.
+     *
+     * @param array $postData Prénom, nom, email et jeton du formulaire personnel.
+     * @return void
+     */
+    public function updateProfile(array $postData): void
+    {
+        $this->checkAuth(['CLIENT']);
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=client_profile');
+            exit();
+        }
+        $this->validateCsrf($postData);
+        $profile = [];
+        foreach (['firstname', 'lastname', 'email'] as $field) {
+            $profile[$field] = is_string($postData[$field] ?? null) ? trim($postData[$field]) : '';
+        }
+        $userId = (int)$_SESSION['user_id'];
+        $userModel = new User();
+        $user = $userModel->findById($userId);
+        $password = is_string($postData['current_password'] ?? null) ? $postData['current_password'] : '';
+        unset($_SESSION['client_success'], $_SESSION['client_error']);
+
+        if ($profile['firstname'] === '' || mb_strlen($profile['firstname']) > 100
+            || $profile['lastname'] === '' || mb_strlen($profile['lastname']) > 100
+            || !filter_var($profile['email'], FILTER_VALIDATE_EMAIL) || mb_strlen($profile['email']) > 255) {
+            $_SESSION['client_error'] = 'Renseignez un prénom et un nom de 100 caractères maximum, ainsi qu’une adresse email valide.';
+        } elseif (!$user || ($profile['email'] !== $user['email'] && !password_verify($password, $user['password']))) {
+            $_SESSION['client_error'] = 'Pour changer votre adresse email, renseignez votre mot de passe actuel.';
+        } elseif (!$userModel->updateClient($userId, $profile['firstname'], $profile['lastname'], $profile['email'])) {
+            $_SESSION['client_error'] = 'Les informations n’ont pas pu être enregistrées. L’adresse email peut déjà être utilisée.';
+        } else {
+            $_SESSION['user_firstname'] = $profile['firstname'];
+            $_SESSION['user_lastname'] = $profile['lastname'];
+            $_SESSION['user_name'] = $profile['firstname'];
+            $_SESSION['user_email'] = $profile['email'];
+            $_SESSION['client_success'] = 'Vos informations personnelles ont été enregistrées.';
+            (new Log())->addLog('MODIFICATION_CLIENT', $userId, [
+                'client_id' => $userId,
+                'message' => 'Mise à jour des coordonnées depuis l’espace client.',
+            ]);
+        }
+        if (isset($_SESSION['client_error'])) {
+            $_SESSION['profile_inputs'] = $profile;
+        } else {
+            unset($_SESSION['profile_inputs']);
+        }
+        header('Location: index.php?action=client_profile');
+        exit();
     }
 
     /**

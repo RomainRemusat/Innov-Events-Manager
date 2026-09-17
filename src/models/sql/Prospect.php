@@ -267,6 +267,13 @@ class Prospect
         }
     }
 
+    /**
+     * Liste les demandes affectées au client, avec leurs devis lorsqu'ils existent.
+     * L'appartenance repose sur user_id, jamais sur une simple correspondance d'email.
+     *
+     * @param int $clientId Identifiant du propriétaire des demandes.
+     * @return array<int, array<string, mixed>> Une ligne par devis, ou par demande sans devis.
+     */
     public function findClientRequests(int $clientId): array
     {
         try {
@@ -274,7 +281,9 @@ class Prospect
             SELECT 
                 d.id_devis,
                 d.revision,
-                d.status,
+                COALESCE(d.status, p.status) AS status,
+                p.status AS prospect_status,
+                p.rejection_reason,
                 d.reference_pdf,
                 d.montant_ht,
                 d.tva,
@@ -285,10 +294,10 @@ class Prospect
                 p.event_type,
                 p.event_date,
                 p.created_at
-            FROM devis d
-            JOIN prospects p ON d.id_prospect = p.id
+            FROM prospects p
+            LEFT JOIN devis d ON d.id_prospect = p.id
             WHERE p.user_id = ?
-            ORDER BY d.id_devis DESC
+            ORDER BY p.created_at DESC, p.id DESC, d.id_devis DESC
         ");
             $stmt->execute([$clientId]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);

@@ -206,11 +206,15 @@ class Event
      * Extrait les prochains événements à venir (Widget Dashboard Admin Chloé & Espace Client).
      *
      * @param int $limit Nombre maximal d'enregistrements.
+     * @param int|null $clientId Si renseigné, limite la liste aux projets à venir de ce client.
      * @return array<int, array<string, mixed>>
      */
-    public function findUpcomingEvents(int $limit = 3): array
+    public function findUpcomingEvents(int $limit = 3, ?int $clientId = null): array
     {
         try {
+            $clientFilter = $clientId !== null
+                ? " AND e.client_id = :client_id AND e.status NOT IN ('annulé', 'annuler', 'terminé')"
+                : '';
             $stmt = $this->db->prepare("
                 SELECT e.id,
                        e.title,
@@ -225,10 +229,14 @@ class Event
                 INNER JOIN users u ON e.client_id = u.id
                 LEFT JOIN companies c ON e.company_id = c.id
                 WHERE e.start_date >= NOW()
-                ORDER BY e.start_date ASC
+                $clientFilter
+                ORDER BY e.start_date ASC, e.id ASC
                 LIMIT :limit
             ");
             $stmt->bindValue(':limit', $limit, \PDO::PARAM_INT);
+            if ($clientId !== null) {
+                $stmt->bindValue(':client_id', $clientId, \PDO::PARAM_INT);
+            }
             $stmt->execute();
 
             return $stmt->fetchAll(\PDO::FETCH_ASSOC);

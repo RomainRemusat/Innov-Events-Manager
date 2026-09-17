@@ -132,6 +132,10 @@ switch (true) {
         (new ClientController())->showProfile();
         break;
 
+    case ($action === 'client_update_profile'):
+        (new ClientController())->updateProfile($_POST);
+        break;
+
     case ($action === 'client_delete_account'):
         (new ClientController())->deleteAccount();
         break;

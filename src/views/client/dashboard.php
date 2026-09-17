@@ -7,10 +7,6 @@
  * et télécharger les propositions commerciales au format PDF, et d'exécuter
  * les arbitrages décisionnels (acceptation, demande de modification, refus).
  *
- * Exigences respectées (ECF) :
- * - AT1 : Interface responsive, contrôles CSRF, sécurisation XSS et gestion des identifiants uniques.
- * - AT2 : Gestion du cycle de vie des devis et des demandes de modification.
- *
  * @package    InnovEventsManager
  * @subpackage Views\Client
  * @author     Innov'Events
@@ -18,6 +14,7 @@
  *
  * @var string $clientName Nom/Prénom ou raison sociale du client connecté.
  * @var array  $myQuotes   Liste des devis et projets rattachés au compte client.
+ * @var array  $upcomingEvents Les trois prochains événements du client.
  */
 
 // -----------------------------------------------------------------------------
@@ -27,7 +24,7 @@ $pageTitle = "Mon Espace Client - Innov'Events";
 require __DIR__ . '/../partials/header.php';
 ?>
 
-    <div class="container my-5 py-4">
+    <main class="container my-5 py-4">
 
         <!-- =================================================================== -->
         <!-- EN-TÊTE DE BIENVENUE ET IDENTIFICATION DE L'ESPACE                  -->
@@ -38,6 +35,7 @@ require __DIR__ . '/../partials/header.php';
                     Bonjour, <?= htmlspecialchars($clientName ?? 'Client', ENT_QUOTES, 'UTF-8'); ?> 👋
                 </h1>
                 <p class="text-muted">Bienvenue dans votre espace personnel. Suivez l'avancement de vos projets événementiels.</p>
+                <a href="index.php?action=client_profile" class="btn btn-outline-primary btn-sm">Modifier mon profil</a>
             </div>
             <div class="col-2 text-end align-self-center">
                 <span class="badge bg-secondary px-3 py-2 text-uppercase fw-semibold" style="font-size: 0.8rem;">Espace Client</span>
@@ -75,12 +73,36 @@ require __DIR__ . '/../partials/header.php';
         <!-- =================================================================== -->
         <!-- TABLEAU DE BORD : DEVIS ET PROJETS ÉVÉNEMENTIELS                    -->
         <!-- =================================================================== -->
+        <section class="mb-4" aria-labelledby="upcoming-heading">
+            <h2 id="upcoming-heading" class="h4">Mes prochains événements</h2>
+            <?php if (empty($upcomingEvents)): ?>
+                <p class="text-muted">Aucun événement à venir pour le moment.</p>
+            <?php else: ?>
+                <div class="row g-3">
+                    <?php foreach ($upcomingEvents as $event): ?>
+                        <div class="col-md-4">
+                            <article class="card h-100 shadow-sm">
+                                <div class="card-body">
+                                    <h3 class="h5"><?= htmlspecialchars($event['title'], ENT_QUOTES, 'UTF-8') ?></h3>
+                                    <p class="mb-2">
+                                        <time datetime="<?= htmlspecialchars(str_replace(' ', 'T', $event['start_date']), ENT_QUOTES, 'UTF-8') ?>"><?= date('d/m/Y à H:i', strtotime($event['start_date'])) ?></time>
+                                    </p>
+                                    <p class="text-muted"><?= htmlspecialchars($event['location'], ENT_QUOTES, 'UTF-8') ?></p>
+                                    <span class="badge text-bg-secondary"><?= htmlspecialchars(Event::STATUS_LABELS[Event::normalizeStatus($event['status'])] ?? $event['status'], ENT_QUOTES, 'UTF-8') ?></span>
+                                </div>
+                            </article>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </section>
+
         <div class="row g-4">
             <div class="col-lg-12">
                 <div class="card shadow-sm border-0 rounded-3">
                     <div class="card-header bg-white border-bottom py-3">
                         <h2 class="card-title h5 fw-bold mb-0 text-dark">
-                            <i class="bi bi-folder-check text-primary me-2" aria-hidden="true"></i>Mes Devis & Événements
+                            <i class="bi bi-folder-check text-primary me-2" aria-hidden="true"></i>Mes demandes & devis
                         </h2>
                     </div>
                     <div class="card-body p-0">
@@ -99,7 +121,7 @@ require __DIR__ . '/../partials/header.php';
                                         <th scope="col" class="ps-4">N° Dossier</th>
                                         <th scope="col">Type d'Événement</th>
                                         <th scope="col">Date</th>
-                                        <th scope="col">Statut Devis</th>
+                                        <th scope="col">Suivi</th>
                                         <th scope="col" class="text-end pe-4">Actions</th>
                                     </tr>
                                     </thead>
@@ -108,12 +130,13 @@ require __DIR__ . '/../partials/header.php';
                                         <?php
                                         // Normalisation du statut et résolution de l'identifiant unique
                                         $st = strtolower($quote['status'] ?? 'brouillon');
+                                        $hasQuote = !empty($quote['id_devis']);
                                         $quoteUniqueId = (int)($quote['id_devis'] ?? $quote['prospect_id'] ?? $quote['id'] ?? 0);
                                         ?>
                                         <tr>
                                             <!-- Identifiant unique du dossier -->
                                             <td class="ps-4 fw-semibold text-secondary">
-                                                #<?= $quoteUniqueId; ?>
+                                                <?= $hasQuote ? 'Devis' : 'Demande' ?> #<?= $quoteUniqueId; ?>
                                             </td>
 
                                             <!-- Libellé de l'événement et entreprise -->
@@ -130,7 +153,18 @@ require __DIR__ . '/../partials/header.php';
 
                                             <!-- Badges sémantiques indiquant l'état du dossier -->
                                             <td>
-                                                <?php if (in_array($st, ['étude côté client', 'devis envoyé'], true)): ?>
+                                                <?php if (!$hasQuote): ?>
+                                                    <span class="badge text-bg-secondary"><?= htmlspecialchars(match ($st) {
+                                                        'à contacter' => 'Demande reçue',
+                                                        'en attente' => 'En cours de qualification',
+                                                        'échoué' => 'Demande non retenue',
+                                                        'converti' => 'Projet créé',
+                                                        default => ucfirst($st),
+                                                    }, ENT_QUOTES, 'UTF-8') ?></span>
+                                                    <?php if ($st === 'échoué' && !empty($quote['rejection_reason'])): ?>
+                                                        <p class="small mt-2 mb-0"><?= nl2br(htmlspecialchars($quote['rejection_reason'], ENT_QUOTES, 'UTF-8')) ?></p>
+                                                    <?php endif; ?>
+                                                <?php elseif (in_array($st, ['étude côté client', 'devis envoyé'], true)): ?>
                                                     <span class="badge text-bg-info px-2.5 py-1.5 rounded-pill">
                                                     <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i> Proposition reçue
                                                 </span>
@@ -165,7 +199,10 @@ require __DIR__ . '/../partials/header.php';
                                                 <?php endif; ?>
 
                                                 <!-- Tunnel d'interaction réservé aux devis en attente d'arbitrage -->
-                                                <?php if (in_array($st, ['étude côté client', 'devis envoyé'], true)): ?>
+                                                <?php if (!$hasQuote): ?>
+                                                    <span class="text-muted small">Aucun devis émis</span>
+                                                <?php endif; ?>
+                                                <?php if ($hasQuote && in_array($st, ['étude côté client', 'devis envoyé'], true)): ?>
                                                     <div class="mt-2 d-flex justify-content-end gap-1">
 
                                                         <!-- Formulaire 1 : Acceptation ferme du devis -->
@@ -229,7 +266,7 @@ require __DIR__ . '/../partials/header.php';
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 
 <?php
 // -----------------------------------------------------------------------------
