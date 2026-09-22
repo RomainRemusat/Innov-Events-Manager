@@ -49,5 +49,6 @@ tests/__pycache__
 # --- Bases de données temporaires locales ---
 *.sqlite
 *.sqlite-journal
+/backups/
 # Documents de travail locaux
 /docs/AUDIT_*
