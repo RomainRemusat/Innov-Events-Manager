@@ -55,6 +55,31 @@
                         <td><?= $account['role'] === 'CLIENT' ? 'Client' : 'Employé' ?></td>
                         <td><?= $account['is_deleted'] ? 'Suspendu' : 'Actif' ?></td>
                         <td>
+                            <details class="mb-2"><summary>Modifier</summary>
+                                <form method="post" action="index.php?action=admin_manage_account" class="row g-2 mt-2">
+                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="operation" value="update">
+                                    <input type="hidden" name="account_id" value="<?= (int)$account['id'] ?>">
+                                    <?php foreach (['firstname' => 'Prénom', 'lastname' => 'Nom', 'email' => 'Email'] as $field => $label): ?>
+                                        <div class="col-12">
+                                            <label class="form-label small" for="<?= $field ?>-<?= (int)$account['id'] ?>"><?= $label ?></label>
+                                            <input class="form-control form-control-sm" id="<?= $field ?>-<?= (int)$account['id'] ?>" name="<?= $field ?>" type="<?= $field === 'email' ? 'email' : 'text' ?>" maxlength="<?= $field === 'email' ? 255 : 100 ?>" required value="<?= htmlspecialchars($account[$field], ENT_QUOTES, 'UTF-8') ?>">
+                                        </div>
+                                    <?php endforeach; ?>
+                                    <?php if ($account['role'] === 'CLIENT'): ?>
+                                        <div class="col-12">
+                                            <label class="form-label small" for="company-<?= (int)$account['id'] ?>">Entreprise</label>
+                                            <select class="form-select form-select-sm" id="company-<?= (int)$account['id'] ?>" name="company_id">
+                                                <option value="">Sans entreprise</option>
+                                                <?php foreach ($companies as $company): ?>
+                                                    <option value="<?= (int)$company['id'] ?>" <?= (int)($account['company_id'] ?? 0) === (int)$company['id'] ? 'selected' : '' ?>><?= htmlspecialchars($company['name'], ENT_QUOTES, 'UTF-8') ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                    <?php endif; ?>
+                                    <div class="col-12"><button class="btn btn-primary btn-sm" type="submit">Enregistrer</button></div>
+                                </form>
+                            </details>
                             <form method="post" action="index.php?action=admin_manage_account" class="mb-2">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
                                 <input type="hidden" name="account_id" value="<?= (int)$account['id'] ?>">

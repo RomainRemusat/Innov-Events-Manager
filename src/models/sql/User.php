@@ -198,8 +198,44 @@ class User
     /** @return array<int, array<string, mixed>> Comptes clients et employés, actifs ou suspendus. */
     public function findManagedAccounts(): array
     {
-        return $this->db->query("SELECT id, firstname, lastname, email, role, is_deleted
+        return $this->db->query("SELECT id, company_id, firstname, lastname, email, role, is_deleted
             FROM users WHERE role IN ('CLIENT', 'EMPLOYEE') ORDER BY role, lastname, firstname, id")->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Modifie l'identité d'un compte administrable sans changer son rôle ni son état.
+     *
+     * @param int $id Identifiant du client ou de l'employé.
+     * @param string $firstname Prénom corrigé.
+     * @param string $lastname Nom corrigé.
+     * @param string $email Adresse de connexion unique.
+     * @param int|null $companyId Entreprise d'un client, ou null.
+     */
+    public function updateManagedAccount(
+        int $id,
+        string $firstname,
+        string $lastname,
+        string $email,
+        ?int $companyId
+    ): bool {
+        try {
+            $stmt = $this->db->prepare("UPDATE users
+                SET firstname=?, lastname=?, email=?, company_id=CASE WHEN role='CLIENT' THEN ? ELSE NULL END
+                WHERE id=? AND role IN ('CLIENT','EMPLOYEE')");
+            $stmt->execute([$firstname, $lastname, $email, $companyId, $id]);
+            if ($stmt->rowCount() === 1) return true;
+
+            $account = $this->findById($id);
+            return $account
+                && in_array($account['role'], ['CLIENT', 'EMPLOYEE'], true)
+                && $account['firstname'] === $firstname
+                && $account['lastname'] === $lastname
+                && $account['email'] === $email
+                && (int)($account['company_id'] ?? 0) === (int)($companyId ?? 0);
+        } catch (PDOException $error) {
+            error_log('[User::updateManagedAccount] ' . $error->getMessage());
+            return false;
+        }
     }
 
     /** @return array<int, array<string, mixed>> Employés actifs disponibles pour une assignation. */

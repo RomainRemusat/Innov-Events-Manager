@@ -105,6 +105,14 @@ def main():
         created = query("echo json_encode((new User())->findByEmail('admin-test@example.test'));")
         assert created['role'] == 'EMPLOYEE' and int(created['must_change_password']) == 1
         assert 'flash_error' in call('AdminAccountController', 'manage($_POST)', account)['session']
+        update = dict(operation='update', account_id=created['id'], firstname='Compte', lastname='Modifié',
+                      email='employee-updated@example.test')
+        assert 'flash_success' in call('AdminAccountController', 'manage($_POST)', update)['session']
+        updated = query(f"echo json_encode((new User())->findById({created['id']}));")
+        assert updated['lastname'] == 'Modifié' and updated['email'] == 'employee-updated@example.test'
+        assert 'flash_error' in call('AdminAccountController', 'manage($_POST)', update | dict(email='chloe@innovevents.fr'))['session']
+        assert query(f"echo json_encode((new User())->findById({created['id']})['email']);") == 'employee-updated@example.test'
+        assert 'flash_error' in call('AdminAccountController', 'manage($_POST)', update | dict(account_id=1))['session']
         for operation, suspended in [('suspend', 1), ('restore', 0)]:
             assert 'flash_success' in call('AdminAccountController', 'manage($_POST)', dict(operation=operation, account_id=created['id']))['session']
             assert query(f"echo json_encode((int)(new User())->findById({created['id']})['is_deleted']);") == suspended
@@ -113,7 +121,7 @@ def main():
         assert 'flash_error' in call('AdminAccountController', 'manage($_POST)', dict(operation='delete', account_id=created['id']))['session']
         assert 'flash_success' in call('AdminAccountController', 'manage($_POST)', dict(operation='delete', account_id=created['id'], confirm_delete='1'))['session']
         assert not query(f"echo json_encode((new User())->findById({created['id']}));")
-        print('OK : comptes, mot de passe obligatoire, échec email signalé, suspension, réactivation et protection administrateur.', flush=True)
+        print('OK : création, modification, suspension, réactivation et protection des comptes.', flush=True)
 
         query(f"$db->exec(\"UPDATE devis SET event_id={event_id} WHERE id_devis=1\"); $db->exec(\"INSERT INTO notes(event_id,user_id,content) VALUES({event_id},2,'Test')\"); echo json_encode(true);")
         assert 'flash_error' in call('AdminEventController', 'deleteEvent($_POST)', dict(event_id=event_id))['session']

@@ -24,7 +24,7 @@ class AdminAccountController extends BaseController
     }
 
     /**
-     * Crée, suspend, réactive ou supprime un compte selon une action explicite.
+     * Crée, modifie, suspend, réactive ou supprime un compte selon une action explicite.
      * @param array $data Champs POST ; l'identité de l'administrateur vient de sa session.
      */
     public function manage(array $data): void
@@ -73,6 +73,35 @@ class AdminAccountController extends BaseController
                 }
                 (new Log())->addLog('CREATION_' . $role, (int)$_SESSION['user_id'], [
                     'client_id' => $role === 'CLIENT' ? $id : null, 'account_id' => $id,
+                    'name' => $firstname . ' ' . $lastname,
+                ]);
+            } elseif ($operation === 'update') {
+                $id = filter_var($data['account_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+                $account = $id ? $users->findById((int)$id) : false;
+                if (!$account || !in_array($account['role'], ['CLIENT', 'EMPLOYEE'], true)) {
+                    throw new InvalidArgumentException('Compte non autorisé.');
+                }
+                $firstname = trim($data['firstname'] ?? '');
+                $lastname = trim($data['lastname'] ?? '');
+                $email = trim($data['email'] ?? '');
+                if ($firstname === '' || mb_strlen($firstname) > 100 || $lastname === '' || mb_strlen($lastname) > 100
+                    || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {
+                    throw new InvalidArgumentException('Renseignez une identité et un email valides.');
+                }
+                $companyId = null;
+                if ($account['role'] === 'CLIENT' && ($data['company_id'] ?? '') !== '') {
+                    $companyId = filter_var($data['company_id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+                    if (!$companyId || !(new Company())->findById((int)$companyId)) {
+                        throw new InvalidArgumentException('L’entreprise sélectionnée est introuvable.');
+                    }
+                }
+                if (!$users->updateManagedAccount((int)$id, $firstname, $lastname, $email, $companyId)) {
+                    throw new InvalidArgumentException('Modification impossible : adresse déjà utilisée ou informations invalides.');
+                }
+                $_SESSION['flash_success'] = 'Les informations du compte ont été mises à jour.';
+                (new Log())->addLog('MODIFICATION_' . $account['role'], (int)$_SESSION['user_id'], [
+                    'client_id' => $account['role'] === 'CLIENT' ? (int)$id : null,
+                    'account_id' => (int)$id,
                     'name' => $firstname . ' ' . $lastname,
                 ]);
             } else {
