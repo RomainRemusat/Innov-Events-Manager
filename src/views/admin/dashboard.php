@@ -99,6 +99,7 @@ $renderProspectTable = function(array $items, string $emptyMsg = "Aucun prospect
         <?php require __DIR__ . '/../partials/sidebar.php'; ?>
 
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+            <?php require __DIR__ . '/../partials/admin_messages.php'; ?>
 
             <!-- En-tête -->
             <div class="d-flex justify-content-between align-items-center pt-3 pb-3 mb-4 border-bottom">
@@ -201,6 +202,14 @@ $renderProspectTable = function(array $items, string $emptyMsg = "Aucun prospect
                         <div class="card-header bg-white py-3 border-bottom">
                             <h5 class="mb-0 fw-bold text-dark" style="font-size: 1.1rem;"><i class="bi bi-journal-text text-primary me-2"></i>Notes d'équipe récentes</h5>
                         </div>
+                        <div class="card-body border-bottom">
+                            <form method="post" action="index.php?action=admin_add_note">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                                <label for="global-note" class="form-label">Nouvelle note globale</label>
+                                <textarea id="global-note" name="content" class="form-control mb-2" rows="2" maxlength="10000" required placeholder="Communication destinée à toute l’équipe"></textarea>
+                                <button class="btn btn-primary btn-sm" type="submit">Publier la note</button>
+                            </form>
+                        </div>
                         <div class="list-group list-group-flush">
                             <?php if (!empty($recentNotes)): ?>
                                 <?php foreach ($recentNotes as $note): ?>
@@ -212,6 +221,17 @@ $renderProspectTable = function(array $items, string $emptyMsg = "Aucun prospect
                                         <div class="small mt-2 p-2 bg-light rounded text-muted fst-italic border-start border-secondary border-2">
                                             "<?= nl2br(htmlspecialchars($note['content'], ENT_QUOTES, 'UTF-8')) ?>"
                                         </div>
+                                        <details class="mt-2"><summary class="small text-primary">Modifier ou supprimer</summary>
+                                            <form method="post" action="index.php?action=admin_update_note" class="mt-2">
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="note_id" value="<?= (int)$note['id'] ?>">
+                                                <textarea name="content" class="form-control form-control-sm mb-2" maxlength="10000" required><?= htmlspecialchars($note['content'], ENT_QUOTES, 'UTF-8') ?></textarea>
+                                                <button class="btn btn-outline-primary btn-sm" type="submit">Enregistrer</button>
+                                            </form>
+                                            <form method="post" action="index.php?action=admin_delete_note" class="mt-2">
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="note_id" value="<?= (int)$note['id'] ?>">
+                                                <button class="btn btn-outline-danger btn-sm" type="submit">Supprimer</button>
+                                            </form>
+                                        </details>
                                     </div>
                                 <?php endforeach; ?>
                             <?php else: ?>

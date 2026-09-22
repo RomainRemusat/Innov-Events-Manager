@@ -3,6 +3,8 @@
 require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../models/sql/Event.php';
 require_once __DIR__ . '/../models/sql/Note.php';
+require_once __DIR__ . '/../models/sql/Task.php';
+require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/sql/Devis.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/EventManagementService.php';
@@ -62,6 +64,8 @@ class AdminEventController extends BaseController
 
         $noteModel = new Note();
         $notes = $noteModel->findByEventId($eventId);
+        $tasks = (new Task())->findByEventId($eventId);
+        $employees = ($_SESSION['user_role'] ?? '') === 'ADMIN' ? (new User())->findActiveEmployees() : [];
 
         // Ne jamais substituer le devis d'un autre projet du même client.
         $devisModel = new Devis();
@@ -178,7 +182,7 @@ class AdminEventController extends BaseController
         $this->validateCsrf($_POST);
 
         $eventId = isset($_POST['event_id']) && (int)$_POST['event_id'] > 0 ? (int)$_POST['event_id'] : null;
-        $content = trim($_POST['content'] ?? '');
+        $content = is_string($_POST['content'] ?? null) ? trim($_POST['content']) : '';
 
         // Restriction : un employé ne peut pas créer de note globale sans événement
         if ($eventId === null && ($_SESSION['user_role'] ?? '') === 'EMPLOYEE') {
@@ -186,21 +190,152 @@ class AdminEventController extends BaseController
             exit();
         }
 
-        if (!empty($content)) {
+        if ($content !== '' && mb_strlen($content) <= 10000) {
             $noteModel = new Note();
             if ($noteModel->create($eventId, (int)$_SESSION['user_id'], $content)) {
                 $_SESSION['flash_success'] = "Note ajoutée avec succès.";
+                (new Log())->addLog('CREATION_NOTE', (int)$_SESSION['user_id'], ['event_id' => $eventId]);
             } else {
                 $_SESSION['flash_error'] = "Erreur lors de l'enregistrement de la note.";
             }
+        } else {
+            $_SESSION['flash_error'] = 'La note est obligatoire et limitée à 10 000 caractères.';
         }
 
         if ($eventId !== null) {
             header("Location: index.php?action=admin_event_detail&id={$eventId}");
         } else {
-            header('Location: index.php?action=admin_events');
+            header('Location: index.php?action=dashboard');
         }
         exit();
+    }
+
+    /** Modifie une note de son auteur ; un administrateur peut modifier toute note. */
+    public function updateNote(): void
+    {
+        $this->checkStaffAccess();
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=admin_events');
+            exit;
+        }
+        $this->validateCsrf($_POST);
+        $id = filter_var($_POST['note_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $content = is_string($_POST['content'] ?? null) ? $_POST['content'] : '';
+        $model = new Note();
+        $note = $id ? $model->findById((int)$id) : null;
+        $isAdmin = ($_SESSION['user_role'] ?? '') === 'ADMIN';
+        if ($note && $model->update((int)$id, (int)$_SESSION['user_id'], $isAdmin, $content)) {
+            $_SESSION['flash_success'] = 'Note modifiée.';
+            (new Log())->addLog('MODIFICATION_NOTE', (int)$_SESSION['user_id'], ['note_id' => (int)$id, 'event_id' => $note['event_id']]);
+        } else {
+            $_SESSION['flash_error'] = 'Note non modifiée : vérifiez son contenu et vos droits.';
+        }
+        $this->redirectAfterNote($note);
+    }
+
+    /** Supprime une note de son auteur ; un administrateur peut supprimer toute note. */
+    public function deleteNote(): void
+    {
+        $this->checkStaffAccess();
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=admin_events');
+            exit;
+        }
+        $this->validateCsrf($_POST);
+        $id = filter_var($_POST['note_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $model = new Note();
+        $note = $id ? $model->findById((int)$id) : null;
+        $isAdmin = ($_SESSION['user_role'] ?? '') === 'ADMIN';
+        if ($note && $model->delete((int)$id, (int)$_SESSION['user_id'], $isAdmin)) {
+            $_SESSION['flash_success'] = 'Note supprimée.';
+            (new Log())->addLog('SUPPRESSION_NOTE', (int)$_SESSION['user_id'], ['note_id' => (int)$id, 'event_id' => $note['event_id']]);
+        } else {
+            $_SESSION['flash_error'] = 'Note non supprimée : elle est introuvable ou appartient à un autre auteur.';
+        }
+        $this->redirectAfterNote($note);
+    }
+
+    /** Crée une tâche et l'assigne à un employé actif. */
+    public function createTask(): void
+    {
+        $this->checkAuth(['ADMIN']);
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=admin_events');
+            exit;
+        }
+        $this->validateCsrf($_POST);
+        $eventId = filter_var($_POST['event_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $employeeId = filter_var($_POST['assigned_user_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $title = is_string($_POST['title'] ?? null) ? $_POST['title'] : '';
+        try {
+            $taskId = $eventId && $employeeId
+                ? (new Task())->create((int)$eventId, (int)$employeeId, (int)$_SESSION['user_id'], $title) : null;
+            if (!$taskId) throw new InvalidArgumentException('Renseignez une tâche et sélectionnez un employé actif.');
+            $_SESSION['flash_success'] = 'Tâche créée et assignée.';
+            (new Log())->addLog('CREATION_TACHE', (int)$_SESSION['user_id'], ['task_id' => $taskId, 'event_id' => (int)$eventId, 'assigned_user_id' => (int)$employeeId]);
+        } catch (Throwable $error) {
+            error_log('[AdminEventController::createTask] ' . $error->getMessage());
+            $_SESSION['flash_error'] = $error instanceof InvalidArgumentException ? $error->getMessage() : 'La tâche n’a pas pu être créée.';
+        }
+        header('Location: index.php?action=admin_event_detail&id=' . ((int)$eventId));
+        exit;
+    }
+
+    /** Met à jour le statut d'une tâche selon le rôle et l'assignation. */
+    public function updateTaskStatus(): void
+    {
+        $this->checkStaffAccess();
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=admin_events');
+            exit;
+        }
+        $this->validateCsrf($_POST);
+        $taskId = filter_var($_POST['task_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $eventId = (int)($_POST['event_id'] ?? 0);
+        $status = is_string($_POST['status'] ?? null) ? trim($_POST['status']) : '';
+        try {
+            if (!$taskId) throw new InvalidArgumentException('Tâche invalide.');
+            $eventId = (new Task())->updateStatus((int)$taskId, $status, (int)$_SESSION['user_id'], ($_SESSION['user_role'] ?? '') === 'ADMIN') ?? $eventId;
+            $_SESSION['flash_success'] = 'Statut de la tâche mis à jour.';
+            (new Log())->addLog('MODIFICATION_STATUT_TACHE', (int)$_SESSION['user_id'], ['task_id' => (int)$taskId, 'event_id' => $eventId, 'status' => $status]);
+        } catch (Throwable $error) {
+            $_SESSION['flash_error'] = $error instanceof InvalidArgumentException ? $error->getMessage() : 'Le statut de la tâche n’a pas pu être modifié.';
+        }
+        if (($_POST['return_to'] ?? '') === 'dashboard') {
+            header('Location: index.php?action=dashboard');
+            exit;
+        }
+        header('Location: index.php?action=' . ($eventId > 0 ? 'admin_event_detail&id=' . $eventId : 'admin_events'));
+        exit;
+    }
+
+    /** Supprime une tâche, action réservée à l'administrateur. */
+    public function deleteTask(): void
+    {
+        $this->checkAuth(['ADMIN']);
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=admin_events');
+            exit;
+        }
+        $this->validateCsrf($_POST);
+        $taskId = filter_var($_POST['task_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $eventId = $taskId ? (new Task())->delete((int)$taskId) : null;
+        if ($eventId) {
+            $_SESSION['flash_success'] = 'Tâche supprimée.';
+            (new Log())->addLog('SUPPRESSION_TACHE', (int)$_SESSION['user_id'], ['task_id' => (int)$taskId, 'event_id' => $eventId]);
+        } else {
+            $_SESSION['flash_error'] = 'La tâche est introuvable ou n’a pas pu être supprimée.';
+        }
+        header('Location: index.php?action=' . ($eventId ? 'admin_event_detail&id=' . $eventId : 'admin_events'));
+        exit;
+    }
+
+    /** Redirige vers le projet de la note ou vers le tableau de bord pour une note globale. */
+    private function redirectAfterNote(?array $note): never
+    {
+        $eventId = (int)($note['event_id'] ?? 0);
+        header('Location: index.php?action=' . ($eventId > 0 ? 'admin_event_detail&id=' . $eventId : 'dashboard'));
+        exit;
     }
 
     /**

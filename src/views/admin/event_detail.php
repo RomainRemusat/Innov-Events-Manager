@@ -9,6 +9,8 @@
  * Variables injectées par le contrôleur (AdminEventController::showEventDetail) :
  * @var array $event Détails complets de l'événement et du client rattaché.
  * @var array $notes Liste chronologique inversée des notes collaboratives de l'événement.
+ * @var array $tasks Tâches opérationnelles et employés assignés.
+ * @var array $employees Employés actifs proposés à l'administrateur.
  * @var array|null $associatedDevis Devis et prestations chiffrées associés au projet.
  * @var string $pageTitle Titre de la page transmis au gabarit global.
  *
@@ -299,6 +301,59 @@
                 </div>
             </section>
 
+            <section class="card shadow-sm border-0 mb-4" aria-labelledby="tasks-section-title">
+                <div class="card-header bg-light py-3">
+                    <h2 class="h6 fw-bold mb-0" id="tasks-section-title"><i class="fa-solid fa-list-check me-2 text-primary" aria-hidden="true"></i>Tâches du projet</h2>
+                </div>
+                <div class="card-body p-4">
+                    <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
+                        <form method="post" action="index.php?action=admin_create_task" class="row g-2 mb-4">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                            <input type="hidden" name="event_id" value="<?= (int)$event['id'] ?>">
+                            <div class="col-md-7"><label for="task-title" class="form-label">Nouvelle tâche *</label><input id="task-title" name="title" class="form-control" maxlength="255" required></div>
+                            <div class="col-md-3"><label for="task-employee" class="form-label">Employé *</label><select id="task-employee" name="assigned_user_id" class="form-select" required>
+                                <option value="">Sélectionner</option>
+                                <?php foreach ($employees as $employee): ?><option value="<?= (int)$employee['id'] ?>"><?= htmlspecialchars($employee['firstname'] . ' ' . $employee['lastname'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?>
+                            </select></div>
+                            <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100" type="submit" <?= !$employees ? 'disabled' : '' ?>>Assigner</button></div>
+                            <?php if (!$employees): ?><p class="text-muted small mb-0">Aucun employé actif n’est disponible.</p><?php endif; ?>
+                        </form>
+                    <?php endif; ?>
+                    <?php if (!$tasks): ?>
+                        <p class="text-muted mb-0">Aucune tâche pour cet événement.</p>
+                    <?php else: ?>
+                        <div class="table-responsive"><table class="table align-middle mb-0">
+                            <thead><tr><th scope="col">Tâche</th><th scope="col">Assignée à</th><th scope="col">Statut</th><th scope="col">Actions</th></tr></thead>
+                            <tbody><?php foreach ($tasks as $task): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($task['title'], ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= htmlspecialchars($task['firstname'] . ' ' . $task['lastname'], ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><span class="badge text-bg-secondary"><?= htmlspecialchars(Task::STATUS_LABELS[$task['status']] ?? $task['status'], ENT_QUOTES, 'UTF-8') ?></span></td>
+                                    <td><div class="d-flex gap-2 flex-wrap">
+                                        <?php
+                                        $isAdmin = ($_SESSION['user_role'] ?? '') === 'ADMIN';
+                                        $isAssigned = (int)$task['assigned_user_id'] === (int)($_SESSION['user_id'] ?? 0);
+                                        $nextStatus = ['à faire' => 'en cours', 'en cours' => 'terminée'][$task['status']] ?? null;
+                                        ?>
+                                        <?php if ($isAdmin || ($isAssigned && $nextStatus)): ?>
+                                            <form method="post" action="index.php?action=admin_update_task_status" class="d-flex gap-2">
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                                                <input type="hidden" name="event_id" value="<?= (int)$event['id'] ?>"><input type="hidden" name="task_id" value="<?= (int)$task['id'] ?>">
+                                                <?php if ($isAdmin): ?><select name="status" class="form-select form-select-sm" aria-label="Statut de la tâche">
+                                                    <?php foreach (Task::STATUS_LABELS as $value => $label): ?><option value="<?= $value ?>" <?= $task['status'] === $value ? 'selected' : '' ?>><?= $label ?></option><?php endforeach; ?>
+                                                </select><button class="btn btn-outline-primary btn-sm" type="submit">Enregistrer</button>
+                                                <?php else: ?><button class="btn btn-outline-primary btn-sm" type="submit" name="status" value="<?= htmlspecialchars($nextStatus, ENT_QUOTES, 'UTF-8') ?>">Passer à « <?= htmlspecialchars(Task::STATUS_LABELS[$nextStatus], ENT_QUOTES, 'UTF-8') ?> »</button><?php endif; ?>
+                                            </form>
+                                        <?php endif; ?>
+                                        <?php if ($isAdmin): ?><form method="post" action="index.php?action=admin_delete_task"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="task_id" value="<?= (int)$task['id'] ?>"><button class="btn btn-outline-danger btn-sm" type="submit">Supprimer</button></form><?php endif; ?>
+                                    </div></td>
+                                </tr>
+                            <?php endforeach; ?></tbody>
+                        </table></div>
+                    <?php endif; ?>
+                </div>
+            </section>
+
             <!-- SECTION COLLABORATIVE : Flux des notes de projet -->
             <section class="card shadow-sm border-0 mb-4" aria-labelledby="notes-section-title">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center py-3">
@@ -319,6 +374,7 @@
                                       id="note_content"
                                       name="content"
                                       rows="3"
+                                      maxlength="10000"
                                       placeholder="Informations prestataires, modifications de timing, contraintes d'accès..."
                                       required></textarea>
                         </div>
@@ -348,6 +404,19 @@
                                     <p class="mb-0 text-secondary small" style="white-space: pre-line;">
                                         <?= htmlspecialchars($n['content'], ENT_QUOTES, 'UTF-8') ?>
                                     </p>
+                                    <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN' || (int)$n['user_id'] === (int)($_SESSION['user_id'] ?? 0)): ?>
+                                        <details class="mt-2"><summary class="small text-primary">Modifier ou supprimer</summary>
+                                            <form method="post" action="index.php?action=admin_update_note" class="mt-2">
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="note_id" value="<?= (int)$n['id'] ?>">
+                                                <textarea name="content" class="form-control form-control-sm mb-2" maxlength="10000" required><?= htmlspecialchars($n['content'], ENT_QUOTES, 'UTF-8') ?></textarea>
+                                                <button class="btn btn-outline-primary btn-sm" type="submit">Enregistrer</button>
+                                            </form>
+                                            <form method="post" action="index.php?action=admin_delete_note" class="mt-2">
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="note_id" value="<?= (int)$n['id'] ?>">
+                                                <button class="btn btn-outline-danger btn-sm" type="submit">Supprimer la note</button>
+                                            </form>
+                                        </details>
+                                    <?php endif; ?>
                                 </article>
                             <?php endforeach; ?>
                         <?php endif; ?>

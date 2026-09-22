@@ -103,6 +103,44 @@ $navigation = [
                 ],
         ],
 ];
+
+if (!$isAdmin) {
+    $navigation = [
+        'Espace employé' => [
+            [
+                'label' => 'Tableau de bord',
+                'url' => 'index.php?action=dashboard',
+                'active' => ['dashboard'],
+                'badge' => null,
+                'badgeClass' => 'bg-secondary',
+            ],
+            [
+                'label' => 'Événements',
+                'url' => 'index.php?action=admin_events',
+                'active' => ['admin_events', 'admin_event_detail'],
+                'badge' => null,
+                'badgeClass' => 'bg-secondary',
+            ],
+            [
+                'label' => 'Clients',
+                'url' => 'index.php?action=admin_clients',
+                'active' => ['admin_clients', 'clients', 'view_client'],
+                'badge' => null,
+                'badgeClass' => 'bg-secondary',
+            ],
+        ],
+        'Compte' => [
+            [
+                'label' => 'Déconnexion',
+                'url' => 'index.php?action=logout',
+                'active' => [],
+                'badge' => null,
+                'itemClass' => 'mt-3',
+                'badgeClass' => 'bg-secondary',
+            ],
+        ],
+    ];
+}
 ?>
 
 <nav class="col-md-3 col-lg-2 d-md-block bg-secondary-subtle border-end min-vh-100 p-4">

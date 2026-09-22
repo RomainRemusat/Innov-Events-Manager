@@ -24,6 +24,7 @@ require_once __DIR__ . '/../models/sql/Devis.php';
 require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/sql/Event.php';
 require_once __DIR__ . '/../models/sql/Note.php';
+require_once __DIR__ . '/../models/sql/Task.php';
 
 class DashboardController extends BaseController
 {
@@ -32,8 +33,24 @@ class DashboardController extends BaseController
         // Vérifie que l'utilisateur est connecté avec les bons droits
         $this->checkAuth(['ADMIN', 'EMPLOYEE']);
         if ($_SESSION['user_role'] === 'EMPLOYEE') {
-            header('Location: index.php?action=admin_events');
-            exit();
+            $taskModel = new Task();
+            $eventModel = new Event();
+            $noteModel = new Note();
+            $assignedTasks = $taskModel->findByAssignedUserId((int)$_SESSION['user_id']);
+            $taskCounts = array_fill_keys(array_keys(Task::STATUS_LABELS), 0);
+            foreach ($assignedTasks as $task) {
+                if (isset($taskCounts[$task['status']])) {
+                    $taskCounts[$task['status']]++;
+                }
+            }
+            $upcomingEvents = $eventModel->findUpcomingEvents(5);
+            $recentNotes = $noteModel->findLatestNotes(5);
+            $pageTitle = "Mon espace employé - Innov'Events";
+
+            require __DIR__ . '/../views/partials/header.php';
+            require __DIR__ . '/../views/employee/dashboard.php';
+            require __DIR__ . '/../views/partials/footer.php';
+            return;
         }
 
         // 1. Instanciation des modèles

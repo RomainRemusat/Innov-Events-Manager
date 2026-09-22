@@ -140,7 +140,9 @@ def main():
             expected_send = f"index.php?action=edit_devis&id={ids['quote']}" if admin else 'index.php?action=' + ('login' if account is None else 'admin_events' if account == ACCOUNTS[1] else 'client_dashboard')
             assert headers['Location'] == expected_send
             if not admin:
-                assert snapshot() == before, 'Une action refusée a modifié les données SQL'
+                after = snapshot()
+                changed = [table for table in before if before[table] != after[table]]
+                assert not changed, f'Une action refusée a modifié les tables SQL : {changed}'
             if account == ACCOUNTS[1]:
                 for route in ['admin_clients', f"view_client&id={ids['user']}", 'admin_events', f"admin_event_detail&id={ids['event']}"]:
                     code, _, body = request(client, route)

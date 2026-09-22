@@ -144,6 +144,11 @@ def main():
             $stmt->execute([$client_user, $company]);
             $prospect = (int)$db->lastInsertId();
 
+            $stmt = $db->prepare("INSERT INTO prospects (user_id, company_id, company_name, contact_name, email, phone, event_type, status)
+                VALUES (?, ?, 'MARKER Qualification', 'Contact CSRF', 'MARKER_qualification@example.test', '0102030405', 'Séminaire', 'à contacter')");
+            $stmt->execute([$client_user, $company]);
+            $qualification_prospect = (int)$db->lastInsertId();
+
             $db->exec("INSERT INTO devis (id_prospect, reference_pdf, montant_ht, tva, status)
                 VALUES ($prospect, 'MARKER_dev.pdf', 100, 20, 'brouillon')");
             $quote = (int)$db->lastInsertId();
@@ -151,13 +156,19 @@ def main():
             $db->exec("INSERT INTO prestations (devis_id, libelle, montant_ht) VALUES ($quote, 'Prestation Test', 100)");
             $prestation = (int)$db->lastInsertId();
 
+            $db->exec("INSERT INTO devis (id_prospect, reference_pdf, montant_ht, tva, status)
+                VALUES ($prospect, 'MARKER_editable.pdf', 100, 20, 'brouillon')");
+            $editable_quote = (int)$db->lastInsertId();
+            $db->exec("INSERT INTO prestations (devis_id, libelle, montant_ht) VALUES ($editable_quote, 'Prestation modifiable', 100)");
+            $editable_prestation = (int)$db->lastInsertId();
+
             $db->exec("INSERT INTO events (client_id, company_id, title, start_date, location, status)\n                VALUES ($client_user, $company, 'MARKER Event', '2026-12-01 10:00:00', 'Paris', 'planifié')");
             $event = (int)$db->lastInsertId();
             $db->exec("INSERT INTO devis (id_prospect, event_id, reference_pdf, montant_ht, tva, status)
                 VALUES ($prospect, $event, 'MARKER_accepted.pdf', 100, 20, 'accepté')");
 
             $db->commit();
-            echo json_encode(compact('company', 'client_user', 'reset_user', 'forced_user', 'prospect', 'quote', 'prestation', 'event'));
+            echo json_encode(compact('company', 'client_user', 'reset_user', 'forced_user', 'prospect', 'qualification_prospect', 'quote', 'prestation', 'editable_quote', 'editable_prestation', 'event'));
         """.replace("MARKER", marker)
         )
 
@@ -411,11 +422,11 @@ def main():
         print("\n--- Test 6 : Statut prospect (update_prospect_status) ---", flush=True)
         # 6.a En GET
         code, headers, _ = request(
-            c_admin, f"update_prospect_status&id={ids['prospect']}&status=en attente"
+            c_admin, f"update_prospect_status&id={ids['qualification_prospect']}&status=en attente"
         )
         prospect_st = php(
             setup
-            + f"echo json_encode($db->query('SELECT status FROM prospects WHERE id = {ids['prospect']}')->fetchColumn());"
+            + f"echo json_encode($db->query('SELECT status FROM prospects WHERE id = {ids['qualification_prospect']}')->fetchColumn());"
         )
         assert prospect_st == "à contacter", "GET ne doit pas modifier le prospect"
 
@@ -423,7 +434,7 @@ def main():
         code, _, body = request(
             c_admin,
             "update_prospect_status",
-            {"id": ids["prospect"], "status": "en attente", "csrf_token": "FAKE"},
+            {"id": ids["qualification_prospect"], "status": "en attente", "csrf_token": "FAKE"},
         )
         assert "Erreur de sécurité" in body or "Jeton CSRF" in body
 
@@ -431,12 +442,12 @@ def main():
         code, headers, _ = request(
             c_admin,
             "update_prospect_status",
-            {"id": ids["prospect"], "status": "en attente", "csrf_token": admin_csrf},
+            {"id": ids["qualification_prospect"], "status": "en attente", "csrf_token": admin_csrf},
         )
         assert code == 302
         prospect_st_ok = php(
             setup
-            + f"echo json_encode($db->query('SELECT status FROM prospects WHERE id = {ids['prospect']}')->fetchColumn());"
+            + f"echo json_encode($db->query('SELECT status FROM prospects WHERE id = {ids['qualification_prospect']}')->fetchColumn());"
         )
         assert prospect_st_ok == "en attente", "Statut attendu : en attente"
         print("OK : update_prospect_status protégé contre GET et CSRF", flush=True)
@@ -519,7 +530,7 @@ def main():
         print("\n--- Test 9 : Prestations devis (add/delete_prestation) ---", flush=True)
         # 9.a add_prestation en GET
         code, headers, _ = request(
-            c_admin, f"add_prestation&devis_id={ids['quote']}&libelle=Hack&montant_ht=50"
+            c_admin, f"add_prestation&devis_id={ids['editable_quote']}&libelle=Hack&montant_ht=50"
         )
         assert code == 302 and "admin_devis" in headers["Location"]
 
@@ -527,7 +538,7 @@ def main():
         code, _, body = request(
             c_admin,
             "add_prestation",
-            {"devis_id": ids["quote"], "libelle": "Hack", "montant_ht": 50, "csrf_token": "BAD"},
+            {"devis_id": ids["editable_quote"], "libelle": "Hack", "montant_ht": 50, "csrf_token": "BAD"},
         )
         assert "Erreur de sécurité" in body or "Jeton CSRF" in body
 
@@ -535,12 +546,12 @@ def main():
         code, headers, _ = request(
             c_admin,
             "add_prestation",
-            {"devis_id": ids["quote"], "libelle": "Prestation 2", "montant_ht": 50, "csrf_token": admin_csrf},
+            {"devis_id": ids["editable_quote"], "libelle": "Prestation 2", "montant_ht": 50, "csrf_token": admin_csrf},
         )
         assert code == 302
         prest_count = php(
             setup
-            + f"echo json_encode((int)$db->query('SELECT COUNT(*) FROM prestations WHERE devis_id = {ids['quote']}')->fetchColumn());"
+            + f"echo json_encode((int)$db->query('SELECT COUNT(*) FROM prestations WHERE devis_id = {ids['editable_quote']}')->fetchColumn());"
         )
         assert prest_count == 2
 
@@ -548,7 +559,7 @@ def main():
         code, _, body = request(
             c_admin,
             "delete_prestation",
-            {"devis_id": ids["quote"], "prestation_id": ids["prestation"], "csrf_token": "BAD"},
+            {"devis_id": ids["editable_quote"], "prestation_id": ids["editable_prestation"], "csrf_token": "BAD"},
         )
         assert "Erreur de sécurité" in body or "Jeton CSRF" in body
 
@@ -556,12 +567,12 @@ def main():
         code, headers, _ = request(
             c_admin,
             "delete_prestation",
-            {"devis_id": ids["quote"], "prestation_id": ids["prestation"], "csrf_token": admin_csrf},
+            {"devis_id": ids["editable_quote"], "prestation_id": ids["editable_prestation"], "csrf_token": admin_csrf},
         )
         assert code == 302
         prest_count_after = php(
             setup
-            + f"echo json_encode((int)$db->query('SELECT COUNT(*) FROM prestations WHERE devis_id = {ids['quote']}')->fetchColumn());"
+            + f"echo json_encode((int)$db->query('SELECT COUNT(*) FROM prestations WHERE devis_id = {ids['editable_quote']}')->fetchColumn());"
         )
         assert prest_count_after == 1
         print("OK : add_prestation et delete_prestation protégés par CSRF et POST", flush=True)
@@ -571,7 +582,7 @@ def main():
         # ---------------------------------------------------------------------
         print("\n--- Test 10 : Suppression de compte client (delete_account) ---", flush=True)
         # 10.a En GET
-        code, headers, _ = request(c_client, "delete_account")
+        code, headers, _ = request(c_client, "client_delete_account")
         assert code == 302 and "client_profile" in headers["Location"]
         client_exists = php(
             setup
@@ -580,7 +591,7 @@ def main():
         assert client_exists == 1, "Le compte ne doit pas être supprimé en GET !"
 
         # 10.b En POST faux CSRF
-        code, _, body = request(c_client, "delete_account", {"csrf_token": "FAKE"})
+        code, _, body = request(c_client, "client_delete_account", {"csrf_token": "FAKE"})
         assert "Erreur de sécurité" in body or "Jeton CSRF" in body
         client_exists = php(
             setup
@@ -589,7 +600,7 @@ def main():
         assert client_exists == 1
 
         # 10.c En POST valide avec CSRF
-        code, headers, _ = request(c_client, "delete_account", {"csrf_token": client_csrf})
+        code, headers, _ = request(c_client, "client_delete_account", {"csrf_token": client_csrf})
         assert code == 302 and ("index.php" in headers["Location"] or headers["Location"] == "index.php")
         client_exists = php(
             setup

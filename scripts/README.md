@@ -1,6 +1,6 @@
 **Scripts SQL — MySQL 8.0**
 
-Ces fichiers ciblent les sept tables actuellement utilisées par l'application.
+Ces fichiers ciblent les huit tables actuellement utilisées par l'application.
 Le schéma de référence est `schema.sql`. Les `update_*.sql` alignent la base
 déjà structurée comme l'export `innovevents_db(6).sql` du 9 septembre 2026.
 Ils ne constituent plus une chaîne d'installation des anciennes versions du projet.
@@ -8,7 +8,7 @@ Ils ne constituent plus une chaîne d'installation des anciennes versions du pro
 | Situation | Scripts à utiliser |
 | --- | --- |
 | Base vide | `schema.sql`, puis `initialise.sql` pour les données de démonstration |
-| Base correspondant à l'export du 09/09/2026 | Les cinq `update_*.sql` ci-dessous, après sauvegarde |
+| Base correspondant à l'export du 09/09/2026 | Les scripts `update_*.sql` ci-dessous, après sauvegarde |
 | Ancienne base avec `events.event_date` ou sans certaines tables/colonnes | Comparer son schéma et préparer une migration adaptée avant exécution |
 
 `schema.sql` ne supprime aucune table et échoue si une table existe déjà.
@@ -50,13 +50,14 @@ docker compose exec -T db sh -c 'exec mysql --default-character-set=utf8mb4 -uro
 **Mise à jour de la base exportée**
 
 Conserver un export récent et vérifier sa restauration avant intervention.
-Les cinq fichiers sont indépendants sur cette version de départ ; ordre conseillé :
+Les scripts sont indépendants sur cette version de départ ; ordre conseillé :
 
 1. `update_companies.sql` : largeur du nom de société alignée à 255 caractères ; liens existants conservés.
 2. `update_users.sql` : rôle et indicateurs de compte obligatoires, avec leurs valeurs par défaut.
 3. `update_prospects.sql` : statut obligatoire, défaut `à contacter`.
 4. `update_devis.sql` : statut obligatoire et montants par défaut à zéro.
 5. `update_event_note.sql` : statut événement obligatoire, notes globales autorisées.
+6. `update_tasks.sql` : tâches d'événement assignées aux employés et suivi de leur statut.
 
 Ces scripts peuvent être rejoués sur l'export indiqué et sur une base créée avec
 `schema.sql`. Ils ne changent ni les montants, ni les statuts déjà renseignés,

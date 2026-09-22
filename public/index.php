@@ -265,6 +265,26 @@ switch (true) {
         (new AdminEventController())->addNote();
         break;
 
+    case ($action === 'admin_update_note'):
+        (new AdminEventController())->updateNote();
+        break;
+
+    case ($action === 'admin_delete_note'):
+        (new AdminEventController())->deleteNote();
+        break;
+
+    case ($action === 'admin_create_task'):
+        (new AdminEventController())->createTask();
+        break;
+
+    case ($action === 'admin_update_task_status'):
+        (new AdminEventController())->updateTaskStatus();
+        break;
+
+    case ($action === 'admin_delete_task'):
+        (new AdminEventController())->deleteTask();
+        break;
+
     case ($action === 'admin_upload_image'):
         (new AdminEventController())->uploadImage();
         break;

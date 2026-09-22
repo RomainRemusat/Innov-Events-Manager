@@ -151,6 +151,14 @@ def main():
                 ALTER TABLE prospects DROP COLUMN rejection_reason;
             """)
 
+        def count_if_column(table, column, condition):
+            exists = rows("migrated", f"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='migrated' AND TABLE_NAME='{table}' AND COLUMN_NAME='{column}'") == ['1']
+            return rows("migrated", f'SELECT COUNT(*) FROM {table} WHERE {condition}') if exists else ['0']
+
+        linked_quotes_before = count_if_column('devis', 'event_id', 'event_id IS NOT NULL')
+        consents_before = count_if_column('events', 'publication_consent_at',
+            'publication_consent_at IS NOT NULL OR publication_consent_by IS NOT NULL')
+
         for database in ("fresh", "migrated"):
             before = snapshot(database)
             for pass_number in (1, 2):
@@ -159,8 +167,8 @@ def main():
                 assert snapshot(database) == before, f"Données modifiées dans {database}, passage {pass_number}"
                 assert structure(database) == expected, f"Schéma divergent dans {database}, passage {pass_number}"
                 if database == 'migrated':
-                    assert rows(database, 'SELECT COUNT(*) FROM devis WHERE event_id IS NOT NULL') == ['0'], 'Lien historique deviné'
-                    assert rows(database, 'SELECT COUNT(*) FROM events WHERE publication_consent_at IS NOT NULL OR publication_consent_by IS NOT NULL') == ['0'], 'Accord historique inventé'
+                    assert rows(database, 'SELECT COUNT(*) FROM devis WHERE event_id IS NOT NULL') == linked_quotes_before, 'Liens devis/événement modifiés'
+                    assert rows(database, 'SELECT COUNT(*) FROM events WHERE publication_consent_at IS NOT NULL OR publication_consent_by IS NOT NULL') == consents_before, 'Accords de publication modifiés'
                 else:
                     assert rows(database, 'SELECT event_id FROM devis ORDER BY id_devis') == ['1', '2', '3', '4', '4'], 'Liens existants modifiés'
                     assert rows(database, 'SELECT id FROM events WHERE publication_consent_at IS NOT NULL AND publication_consent_by = 1 ORDER BY id') == ['1', '2'], 'Accords de démonstration modifiés'
@@ -178,6 +186,7 @@ def main():
 
         # Les clés étrangères et l'unicité de l'email doivent rester actives.
         assert sql("migrated", "START TRANSACTION; INSERT INTO notes (event_id, user_id, content) VALUES (2147483647, 1, 'test');", check=False).returncode != 0
+        assert sql("migrated", "START TRANSACTION; INSERT INTO tasks (event_id, assigned_user_id, created_by, title) VALUES (2147483647, 2, 1, 'test');", check=False).returncode != 0
         assert sql("migrated", "START TRANSACTION; INSERT INTO users (email, password, firstname, lastname) SELECT email, password, firstname, lastname FROM users LIMIT 1;", check=False).returncode != 0
         assert rows("migrated", """
             START TRANSACTION;

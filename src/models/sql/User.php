@@ -202,6 +202,14 @@ class User
             FROM users WHERE role IN ('CLIENT', 'EMPLOYEE') ORDER BY role, lastname, firstname, id")->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /** @return array<int, array<string, mixed>> Employés actifs disponibles pour une assignation. */
+    public function findActiveEmployees(): array
+    {
+        $stmt = $this->db->query("SELECT id, firstname, lastname FROM users
+            WHERE role='EMPLOYEE' AND is_deleted=0 ORDER BY lastname, firstname, id");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     /**
      * Suspend ou réactive un compte non administrateur ; ses dossiers sont conservés.
      * @param int $id Compte cible.

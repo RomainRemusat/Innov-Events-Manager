@@ -102,7 +102,7 @@ class Note
     public function create(?int $eventId, int $userId, string $content): bool
     {
         $content = trim($content);
-        if ($content === '') {
+        if ($content === '' || mb_strlen($content) > 10000) {
             return false;
         }
 
@@ -122,20 +122,49 @@ class Note
         }
     }
 
-    /**
-     * Supprime une note par son identifiant.
-     *
-     * @param int $id
-     * @return bool
-     */
-    public function delete(int $id): bool
+    /** Modifie une note si l'acteur en est l'auteur ou possède le rôle administrateur. */
+    public function update(int $id, int $actorId, bool $isAdmin, string $content): bool
     {
+        $content = trim($content);
+        if ($content === '' || mb_strlen($content) > 10000) return false;
         try {
-            $stmt = $this->db->prepare("DELETE FROM notes WHERE id = :id");
-            return $stmt->execute([':id' => $id]);
+            $stmt = $this->db->prepare('UPDATE notes SET content=:content WHERE id=:id'
+                . ($isAdmin ? '' : ' AND user_id=:actor_id'));
+            $parameters = [':content' => $content, ':id' => $id];
+            if (!$isAdmin) $parameters[':actor_id'] = $actorId;
+            $stmt->execute($parameters);
+            return $stmt->rowCount() === 1;
         } catch (\PDOException $e) {
-            error_log(sprintf("[Note::delete] Erreur SQL suppression note #%d : %s", $id, $e->getMessage()));
+            error_log(sprintf('[Note::update] Erreur SQL note #%d : %s', $id, $e->getMessage()));
             return false;
         }
+    }
+
+    /**
+     * Supprime une note appartenant à l'auteur connecté, ou toute note pour un administrateur.
+     * @return bool Vrai uniquement si une note autorisée a été supprimée.
+     */
+    public function delete(int $id, int $actorId, bool $isAdmin): bool
+    {
+        try {
+            $stmt = $this->db->prepare('DELETE FROM notes WHERE id=:id'
+                . ($isAdmin ? '' : ' AND user_id=:actor_id'));
+            $parameters = [':id' => $id];
+            if (!$isAdmin) $parameters[':actor_id'] = $actorId;
+            $stmt->execute($parameters);
+            return $stmt->rowCount() === 1;
+        } catch (\PDOException $e) {
+            error_log(sprintf('[Note::delete] Erreur SQL suppression note #%d : %s', $id, $e->getMessage()));
+            return false;
+        }
+    }
+
+    /** @return array<string, mixed>|null Note utilisée pour contrôler le retour après une action. */
+    public function findById(int $id): ?array
+    {
+        $stmt = $this->db->prepare('SELECT id,event_id,user_id,content FROM notes WHERE id=?');
+        $stmt->execute([$id]);
+        $note = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $note ?: null;
     }
 }
