@@ -18,6 +18,59 @@ require_once __DIR__ . '/Prestation.php';
 class Devis
 {
     /**
+     * Crée le premier devis d'un événement et conserve ses coordonnées commerciales.
+     * Le verrou de l'événement empêche deux soumissions de créer des doublons.
+     *
+     * @param int $eventId Projet existant appartenant à un client actif.
+     * @param string $phone Téléphone du contact, absent du compte utilisateur.
+     * @return int Identifiant du brouillon créé, sans envoi ni génération de PDF.
+     * @throws Throwable Si le projet est indisponible, déjà chiffré ou si une écriture échoue.
+     */
+    public function createForEvent(int $eventId, string $phone): int
+    {
+        $phone = trim($phone);
+        if (strlen($phone) > 50 || !preg_match('/^\+?[0-9 ().-]+$/D', $phone)
+            || strlen(preg_replace('/\D/', '', $phone)) < 6) {
+            throw new InvalidArgumentException('Renseignez un numéro de téléphone valide pour le contact.');
+        }
+        $this->db->beginTransaction();
+        try {
+            $stmt = $this->db->prepare("SELECT e.*, u.firstname, u.lastname, u.email, c.name AS company_name
+                FROM events e INNER JOIN users u ON u.id=e.client_id
+                LEFT JOIN companies c ON c.id=e.company_id
+                WHERE e.id=? AND u.role='CLIENT' AND u.is_deleted=0 FOR UPDATE");
+            $stmt->execute([$eventId]);
+            $event = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$event) throw new InvalidArgumentException('Événement introuvable ou compte client suspendu.');
+            $stmt = $this->db->prepare('SELECT id_devis FROM devis WHERE event_id=? LIMIT 1');
+            $stmt->execute([$eventId]);
+            if ($stmt->fetchColumn()) throw new InvalidArgumentException('Un devis est déjà associé à cet événement. Rechargez sa fiche pour le consulter.');
+
+            // Un dossier converti fournit au devis son identité commerciale propre,
+            // sans modifier une demande existante ni créer un second événement.
+            $contact = $event['firstname'] . ' ' . $event['lastname'];
+            $stmt = $this->db->prepare("INSERT INTO prospects
+                (user_id,company_id,company_name,contact_name,email,phone,event_type,event_date,
+                 location,estimated_participants,description,status)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,'converti')");
+            $stmt->execute([$event['client_id'], $event['company_id'], $event['company_name'] ?? $contact,
+                $contact, $event['email'], $phone, $event['event_type'], substr($event['start_date'], 0, 10),
+                $event['location'], $event['estimated_participants'], $event['description']]);
+            $prospectId = (int)$this->db->lastInsertId();
+            $reference = 'Devis_Event_' . $eventId . '_' . bin2hex(random_bytes(8)) . '.pdf';
+            $stmt = $this->db->prepare("INSERT INTO devis (id_prospect,event_id,reference_pdf,status)
+                VALUES (?,?,?,'brouillon')");
+            $stmt->execute([$prospectId, $eventId, $reference]);
+            $id = (int)$this->db->lastInsertId();
+            $this->db->commit();
+            return $id;
+        } catch (Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+    }
+
+    /**
      * Instance de connexion PDO partagée (Singleton)
      * @var PDO
      */

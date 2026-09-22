@@ -78,16 +78,22 @@ def main():
             payloads = [
                 ('process_conversion', dict(prospect_id=ids['prospect'], company_name=marker,
                     contact_name='Test Permissions', email=marker+'@example.test', event_title=marker,
-                    start_date='2026-12-02T10:00', location='Paris')),
+                    start_date='2026-12-02T10:00', location='Paris', phone='0102030405',
+                    estimated_participants='20', description='Projet de test des permissions')),
                 ('update_client', dict(client_id=ids['user'], firstname='Modifié', lastname='Permissions', email=marker+'@example.test')),
                 ('delete_client', dict(client_id=ids['user'])),
                 ('add_prestation', dict(devis_id=ids['quote'], libelle='Ajout test', montant_ht=20)),
                 ('delete_prestation', dict(devis_id=ids['quote'], prestation_id=ids['prestation'])),
                 ('admin_event_update_status', dict(event_id=ids['event'], status='en cours')),
                 ('admin_upload_image', dict(event_id=ids['event'])),
+                ('admin_save_event', dict(event_id=ids['event'])),
+                ('admin_delete_event', dict(event_id=ids['event'])),
+                ('admin_manage_account', dict(operation='delete', account_id=ids['user'])),
+                ('admin_create_event_quote', dict(event_id=ids['event'], phone='0102030405')),
             ]
             screens = [f"show_convert_form&id={ids['prospect']}", f"edit_client&id={ids['user']}",
-                       'admin_devis', f"edit_devis&id={ids['quote']}"]
+                       'admin_devis', f"edit_devis&id={ids['quote']}", 'admin_accounts',
+                       'admin_edit_event', f"admin_edit_event&id={ids['event']}"]
             admin = account == ACCOUNTS[0]
             for route in screens:
                 code, headers, _ = request(client, route)
@@ -104,6 +110,8 @@ def main():
                         body += f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'.encode()
                     body += f'--{boundary}\r\nContent-Disposition: form-data; name="event_image"; filename="test.png"\r\nContent-Type: image/png\r\n\r\n'.encode()
                     body += base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jF1sAAAAASUVORK5CYII=')
+                    # Dépasse l'ancienne limite PHP de 2 Mo, sans dépasser celle de l'application.
+                    body += b'\0' * (3 * 1024 * 1024)
                     body += f'\r\n--{boundary}--\r\n'.encode()
                     upload = urllib.request.Request(URL+route, data=body, headers={'Content-Type': 'multipart/form-data; boundary='+boundary})
                     try:
@@ -120,7 +128,9 @@ def main():
                     expected = 'login' if account is None else 'admin_events' if account == ACCOUNTS[1] else 'client_dashboard'
                     assert headers['Location'] == 'index.php?action='+expected, route
                 elif route == 'admin_upload_image':
-                    assert f"admin_event_detail&id={ids['event']}&success=image_updated" in headers['Location']
+                    assert headers['Location'] == f"index.php?action=admin_event_detail&id={ids['event']}"
+                    _, _, feedback = request(client, f"admin_event_detail&id={ids['event']}")
+                    assert 'Illustration mise à jour.' in feedback
                     assert sql(f"$path = $db->query('SELECT image_path FROM events WHERE id={ids['event']}')->fetchColumn(); echo json_encode(is_file('public/' . $path));")
             if admin:
                 code, headers, _ = request(client, "send_quote_to_client", {'id': ids['quote'], 'csrf_token': token})
@@ -135,7 +145,7 @@ def main():
                 for route in ['admin_clients', f"view_client&id={ids['user']}", 'admin_events', f"admin_event_detail&id={ids['event']}"]:
                     code, _, body = request(client, route)
                     assert code == 200 and marker in body, route
-                    for action in ['edit_client', 'delete_client', 'admin_upload_image', 'admin_event_update_status', 'edit_devis', 'mongo_logs']:
+                    for action in ['edit_client', 'delete_client', 'admin_upload_image', 'admin_event_update_status', 'edit_devis', 'mongo_logs', 'admin_accounts', 'admin_edit_event', 'admin_delete_event']:
                         assert 'action='+action not in body, (route, action)
                 code, headers, _ = request(client, 'admin_add_note', {'content': marker, 'csrf_token': token})
                 assert code == 302 and headers['Location'] == 'index.php?action=admin_events'
@@ -164,6 +174,13 @@ def main():
         img_path.unlink(missing_ok=True)
         print('OK : mutations admin exécutées, PDF généré et image uploadée', flush=True)
     finally:
+        paths = sql(f"$stmt=$db->prepare('SELECT image_path FROM events WHERE title LIKE ? AND image_path IS NOT NULL'); $stmt->execute(['{marker}%']); echo json_encode($stmt->fetchAll(PDO::FETCH_COLUMN));")
+        for path in paths:
+            image = (ROOT / 'public' / path).resolve()
+            if image.parent == (ROOT / 'public/uploads/events').resolve():
+                image.unlink(missing_ok=True)
+        for pdf in (ROOT / 'storage/devis').glob(marker + '*.pdf'):
+            pdf.unlink(missing_ok=True)
         sql(f"""
             $stmt = $db->prepare('DELETE FROM users WHERE email LIKE ?');
             $stmt->execute(['{marker}%']);

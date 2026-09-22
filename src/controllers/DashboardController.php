@@ -70,6 +70,7 @@ class DashboardController extends BaseController
         // KPI standards
         $prospectsEnAttente = $prospectsEnCours;
         $clientsActifs = $userModel->countActiveClients();
+        $draftEventsCount = $eventModel->countDrafts();
         $totalProspects = count($allProspects);
         $prospects = $allProspects; // Rétrocompatibilité
 

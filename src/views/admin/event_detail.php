@@ -25,7 +25,7 @@
         <?php require __DIR__ . '/../partials/sidebar.php'; ?>
 
         <!-- Zone de contenu principal (Repère sémantique RGAA pour lecteurs d'écran) -->
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4" id=\"main-content\">
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4" id="main-content">
 
             <!-- Fil d'Ariane contextuel (Critère accessibilité RGAA) -->
             <nav aria-label="Fil d'Ariane" class="mb-3">
@@ -35,40 +35,7 @@
                 </ol>
             </nav>
 
-            <!-- Notifications Flash d'état -->
-            <?php if (isset($_SESSION['flash_success'])): ?>
-                <div class="alert alert-success alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
-                    <i class="fa-solid fa-circle-check me-2" aria-hidden="true"></i>
-                    <div><?= htmlspecialchars($_SESSION['flash_success'], ENT_QUOTES, 'UTF-8') ?></div>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
-                </div>
-                <?php unset($_SESSION['flash_success']); ?>
-            <?php endif; ?>
-
-            <?php if (isset($_SESSION['flash_error'])): ?>
-                <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
-                    <i class="fa-solid fa-triangle-exclamation me-2" aria-hidden="true"></i>
-                    <div><?= htmlspecialchars($_SESSION['flash_error'], ENT_QUOTES, 'UTF-8') ?></div>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
-                </div>
-                <?php unset($_SESSION['flash_error']); ?>
-            <?php endif; ?>
-
-            <?php if (isset($_GET['success']) && $_GET['success'] === 'image_updated'): ?>
-                <div class="alert alert-success alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
-                    <i class="fa-solid fa-circle-check me-2" aria-hidden="true"></i>
-                    <div>L'illustration de l'événement a été mise à jour avec succès.</div>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
-                </div>
-            <?php elseif (isset($_GET['error'])): ?>
-                <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
-                    <i class="fa-solid fa-triangle-exclamation me-2" aria-hidden="true"></i>
-                    <div>
-                        <strong>Erreur :</strong> <?= htmlspecialchars(urldecode($_GET['error']), ENT_QUOTES, 'UTF-8') ?>
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
-                </div>
-            <?php endif; ?>
+            <?php require __DIR__ . '/../partials/admin_messages.php'; ?>
 
             <!-- En-tête de la fiche projet -->
             <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom flex-wrap gap-2">
@@ -78,6 +45,7 @@
                 </div>
                 <div class="d-flex align-items-center gap-2">
                     <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
+                    <a href="index.php?action=admin_edit_event&id=<?= (int)$event['id'] ?>" class="btn btn-primary btn-sm">Modifier</a>
                     <form method="POST" action="index.php?action=admin_update_event_status" class="d-inline-flex align-items-center gap-1">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="event_id" value="<?= (int)$event['id'] ?>">
@@ -133,6 +101,8 @@
                                         : '<span class="badge bg-warning-subtle text-dark border border-warning-subtle">Masqué (Privé)</span>' ?>
                                 </li>
                             </ul>
+                            <h3 class="h6 mt-4">Description</h3>
+                            <p class="mb-0"><?= nl2br(htmlspecialchars(trim($event['description'] ?? '') ?: 'Aucune description renseignée.', ENT_QUOTES, 'UTF-8')) ?></p>
                         </div>
                     </div>
 
@@ -206,19 +176,19 @@
 
                             <div class="d-flex flex-wrap gap-2 mt-auto pt-3 border-top">
                                 <?php if (!empty($event['client_email'])): ?>
-                                    <a href="mailto:<?= htmlspecialchars($event['client_email'], ENT_QUOTES, 'UTF-8') ?>\" class="btn btn-sm btn-outline-primary">
+                                    <a href="mailto:<?= htmlspecialchars($event['client_email'], ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-primary">
                                         <i class="fa-solid fa-envelope me-1" aria-hidden="true"></i>Envoyer un email
                                     </a>
                                 <?php endif; ?>
 
                                 <?php if (!empty($event['phone'])): ?>
-                                    <a href="tel:<?= htmlspecialchars($event['phone'], ENT_QUOTES, 'UTF-8') ?>\" class="btn btn-sm btn-outline-success">
+                                    <a href="tel:<?= htmlspecialchars($event['phone'], ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-outline-success">
                                         <i class="fa-solid fa-phone me-1" aria-hidden="true"></i>Appeler
                                     </a>
                                 <?php endif; ?>
 
                                 <?php if (!empty($event['location'])): ?>
-                                    <a href="https://maps.google.com/?q=<?= urlencode($event['location']) ?>\" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary">
+                                    <a href="https://maps.google.com/?q=<?= urlencode($event['location']) ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary">
                                         <i class="fa-solid fa-map-location-dot me-1" aria-hidden="true"></i>Itinéraire
                                     </a>
                                 <?php endif; ?>
@@ -266,7 +236,17 @@
                             <i class="fa-solid fa-circle-info fs-4 me-3 text-secondary"></i>
                             <div>
                                 <strong>Aucun devis commercial associé.</strong><br>
-                                Ce projet n'a pas encore de devis rattaché ou a été initialisé sans prospect.
+                                Ce projet n'a pas encore de devis rattaché.
+                                <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
+                                    <form method="post" action="index.php?action=admin_create_event_quote" class="mt-3">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
+                                        <input type="hidden" name="event_id" value="<?= (int)$event['id'] ?>">
+                                        <label for="quote-phone" class="form-label">Téléphone du contact *</label>
+                                        <input type="tel" id="quote-phone" name="phone" class="form-control mb-2" maxlength="50" required>
+                                        <p class="small">Le devis reprendra les coordonnées du client et les informations de cet événement. Vous pourrez ensuite ajouter les prestations et l’envoyer.</p>
+                                        <button class="btn btn-primary btn-sm" type="submit">Créer un devis brouillon</button>
+                                    </form>
+                                <?php endif; ?>
                             </div>
                         </div>
                     <?php else: ?>
@@ -374,6 +354,18 @@
                     </div>
                 </div>
             </section>
+            <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
+                <details class="card card-body mt-4 border-danger">
+                    <summary class="text-danger">Supprimer cet événement</summary>
+                    <p class="mt-3">Les notes et l’image non partagée seront supprimées. Les devis et leurs PDF seront conservés.</p>
+                    <form method="post" action="index.php?action=admin_delete_event">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="event_id" value="<?= (int)$event['id'] ?>">
+                        <label class="d-block mb-2"><input type="checkbox" name="confirm_delete" value="1" required> Je confirme la suppression définitive de cet événement.</label>
+                        <button class="btn btn-danger" type="submit">Supprimer l’événement</button>
+                    </form>
+                </details>
+            <?php endif; ?>
         </main>
     </div>
 </div>

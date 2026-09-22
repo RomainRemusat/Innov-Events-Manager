@@ -60,7 +60,7 @@ class User
     /**
      * Insère un nouvel utilisateur (généralement un client) dans la base de données.
      *
-     * @param array $data Tableau associatif contenant les clés : email, password, firstname, lastname, role.
+     * @param array $data Identité, email, mot de passe haché et rôle ; company_id et must_change_password sont facultatifs.
      * @return int|null L'identifiant (ID) généré en base de données, ou null en cas d'échec d'insertion.
      */
     public function create(array $data): ?int
@@ -68,8 +68,8 @@ class User
         try {
             // Préparation de la requête d'insertion sécurisée (Anti-Injection SQL)
             $stmt = $this->db->prepare("
-                INSERT INTO users (email, password, firstname, lastname, role) 
-                VALUES (:email, :password, :firstname, :lastname, :role)
+                INSERT INTO users (email, password, firstname, lastname, role, company_id, must_change_password)
+                VALUES (:email, :password, :firstname, :lastname, :role, :company_id, :must_change)
             ");
 
             // Exécution avec liaison dynamique des paramètres assainis
@@ -78,7 +78,9 @@ class User
                 'password'  => $data['password'], // Doit être déjà haché en amont (Bcrypt)
                 'firstname' => $data['firstname'],
                 'lastname'  => $data['lastname'],
-                'role'      => $data['role'] ?? 'CLIENT'
+                'role'      => $data['role'] ?? 'CLIENT',
+                'company_id' => $data['company_id'] ?? null,
+                'must_change' => !empty($data['must_change_password']) ? 1 : 0,
             ]);
 
             // Retourne l'ID auto-incrémenté généré par MySQL si l'insertion a fonctionné
@@ -146,24 +148,26 @@ class User
     }
 
     /**
-     * Récupère la liste de tous les clients finaux actifs.
+     * Recherche les clients par identité, email ou entreprise, sans inclure les autres rôles.
      *
-     * Exclut les administrateurs, employés et clients supprimés logiquement.
-     *
+     * @param string $search Texte recherché ; vide pour afficher tous les clients.
+     * @param bool $includeSuspended Inclut également les comptes suspendus.
      * @return array Tableau associatif des clients
      */
-    public function findAllClients(): array
+    public function findAllClients(string $search = '', bool $includeSuspended = false): array
     {
         try {
             $req = "
                 SELECT u.*, c.name AS company_name
                 FROM users u
                 LEFT JOIN companies c ON u.company_id = c.id
-                WHERE u.role = 'CLIENT' AND u.is_deleted = 0
+                WHERE u.role = 'CLIENT'
+                  AND (:include_suspended = 1 OR u.is_deleted = 0)
+                  AND (CONCAT(u.firstname, ' ', u.lastname, ' ', u.email, ' ', COALESCE(c.name, '')) LIKE :search)
                 ORDER BY u.created_at DESC
             ";
             $stmt = $this->db->prepare($req);
-            $stmt->execute();
+            $stmt->execute([':include_suspended' => (int)$includeSuspended, ':search' => '%' . $search . '%']);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (\PDOException $e) {
             error_log("Erreur lors de la récupération des clients : " . $e->getMessage());
@@ -189,6 +193,39 @@ class User
             error_log("Erreur lors de la suppression logique du client $id : " . $e->getMessage());
             return false;
         }
+    }
+
+    /** @return array<int, array<string, mixed>> Comptes clients et employés, actifs ou suspendus. */
+    public function findManagedAccounts(): array
+    {
+        return $this->db->query("SELECT id, firstname, lastname, email, role, is_deleted
+            FROM users WHERE role IN ('CLIENT', 'EMPLOYEE') ORDER BY role, lastname, firstname, id")->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Suspend ou réactive un compte non administrateur ; ses dossiers sont conservés.
+     * @param int $id Compte cible.
+     * @param bool $suspended État demandé.
+     * @return bool Vrai uniquement si l'état a changé.
+     */
+    public function setSuspended(int $id, bool $suspended): bool
+    {
+        $stmt = $this->db->prepare("UPDATE users SET is_deleted = ? WHERE id = ?
+            AND role IN ('CLIENT', 'EMPLOYEE') AND is_deleted <> ?");
+        $stmt->execute([(int)$suspended, $id, (int)$suspended]);
+        return $stmt->rowCount() === 1;
+    }
+
+    /**
+     * Supprime un employé et ses notes par cascade SQL ; ne peut pas viser un administrateur.
+     * @param int $id Compte employé à effacer.
+     * @return bool Une ligne supprimée.
+     */
+    public function deleteEmployee(int $id): bool
+    {
+        $stmt = $this->db->prepare("DELETE FROM users WHERE id = ? AND role = 'EMPLOYEE'");
+        $stmt->execute([$id]);
+        return $stmt->rowCount() === 1;
     }
 
     /**
@@ -254,8 +291,7 @@ class User
     }
 
     /**
-     * Compte le nombre de clients distincts ayant un événement actif.
-     * Répond à l'exigence des KPIs du tableau de bord (AT2).
+     * Compte les clients non suspendus ayant au moins un événement en cours.
      *
      * @return int Le nombre de clients actifs.
      */
@@ -267,7 +303,7 @@ class User
                     JOIN events e ON u.id = e.client_id 
                     WHERE u.role = 'CLIENT' 
                     AND u.is_deleted = 0
-                    AND e.status IN ('accepté', 'en cours')";
+                    AND e.status = 'en cours'";
 
             $stmt = $this->db->prepare($sql);
             $stmt->execute();

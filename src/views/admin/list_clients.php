@@ -3,13 +3,10 @@
  * Vue : Liste globale des Clients (Back-Office)
  *
  * Ce composant (Vue) est responsable de l'affichage du portefeuille clients
- * de l'agence (les prospects ayant été convertis avec succès).
+ * de l'agence, y compris les comptes suspendus.
  * Il s'appuie sur la table `users` (filtrée par le rôle 'CLIENT').
  *
- * Normes ECF appliquées :
- * - Accessibilité (RGAA / AT1) : Utilisation des attributs scope="col", aria-label et aria-hidden.
- * - Sécurité (AT1) : Échappement systématique des données dynamiques (htmlspecialchars + ENT_QUOTES).
- * - Exigences Métier (AT2) : Préparation de l'interface pour la création, modification et suppression des clients.
+ * Les actions de modification sont réservées aux administrateurs.
  *
  * @package    InnovEventsManager
  * @subpackage Views/Admin
@@ -47,7 +44,7 @@
                         <i class="fa-solid fa-address-book text-primary me-2" aria-hidden="true"></i>Gestion des Clients
                     </h1>
                     <p class="text-muted small mb-0">
-                        Retrouvez ici l'ensemble de vos clients (prospects convertis). Accédez à leurs fiches pour gérer leurs informations.
+                        Retrouvez ici vos clients actifs ou suspendus. Accédez à leurs fiches pour gérer leurs informations.
                     </p>
                 </div>
             </div>
@@ -55,6 +52,16 @@
             <!-- =============================================================== -->
             <!-- TABLEAU DES DONNÉES (DataGrid)                                  -->
             <!-- =============================================================== -->
+            <form method="get" action="index.php" class="d-flex gap-2 mb-4" role="search">
+                <input type="hidden" name="action" value="admin_clients">
+                <label for="client-search" class="visually-hidden">Nom, email ou entreprise</label>
+                <input type="search" name="q" id="client-search" class="form-control" placeholder="Nom, email ou entreprise" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
+                <button class="btn btn-primary" type="submit">Rechercher</button>
+                <a class="btn btn-outline-secondary" href="index.php?action=admin_clients">Réinitialiser</a>
+            </form>
+            <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
+                <a class="btn btn-outline-primary mb-3" href="index.php?action=admin_accounts">Créer un compte ou gérer ses accès</a>
+            <?php endif; ?>
             <div class="card border-0 shadow-sm rounded-3">
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -74,7 +81,7 @@
                                 <!-- État Vide (Empty State) : Optimisation UX si la table est vierge -->
                                 <tr>
                                     <td colspan="4" class="text-center py-5 text-muted">
-                                        Aucun client enregistré pour le moment. Convertissez un prospect pour commencer.
+                                        Aucun client ne correspond à votre recherche.
                                     </td>
                                 </tr>
                             <?php else: ?>
@@ -83,8 +90,9 @@
                                     <tr>
                                         <td class="px-4 py-3 text-dark">
                                             <!-- Sécurisation XSS stricte lors de l'affichage des identités -->
-                                            <div class="fs-4"><?= htmlspecialchars($client['company_name'], ENT_QUOTES, 'UTF-8') ?></div>
+                                            <div class="fs-4"><?= htmlspecialchars($client['company_name'] ?? '', ENT_QUOTES, 'UTF-8') ?></div>
                                             <div class="fst-italic"><?= htmlspecialchars($client['firstname'] . ' ' . $client['lastname'], ENT_QUOTES, 'UTF-8') ?></div>
+                                            <?php if ($client['is_deleted']): ?><span class="badge text-bg-warning">Suspendu</span><?php endif; ?>
                                         </td>
                                         <td class="px-4 py-3 text-muted">
                                             <!-- Lien mailto sécurisé -->
@@ -104,25 +112,24 @@
                                             </a>
 
                                             <!--
-                                              Bouton d'édition (Exigence AT2 : modification d'un client).
+                                              Modification des coordonnées d'un client actif.
                                               RGAA : aria-label est obligatoire car le bouton ne contient pas de texte, juste une icône.
                                             -->
-                                            <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
+                                            <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN' && !$client['is_deleted']): ?>
                                             <a href="index.php?action=edit_client&id=<?= (int)$client['id'] ?>" class="btn btn-sm btn-outline-primary me-1" title="Éditer le client" aria-label="Éditer le profil de <?= htmlspecialchars($client['firstname'], ENT_QUOTES, 'UTF-8') ?>">
                                                 <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
                                             </a>
                                             <?php endif; ?>
 
                                             <!--
-                                              Bouton de suppression (Exigence AT2 : suppression d'un client).
-                                              Utilisation de la couleur danger (rouge) selon la charte d'interface.
+                                              La suspension conserve les dossiers du client.
                                             -->
-                                            <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
-                                            <form action="index.php?action=delete_client" method="POST" class="d-inline" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer définitivement ce client ? Cette action est irréversible.');">
+                                            <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN' && !$client['is_deleted']): ?>
+                                            <form action="index.php?action=delete_client" method="POST" class="d-inline" onsubmit="return confirm('Suspendre l’accès de ce client ? Ses dossiers seront conservés.');">
                                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                                 <input type="hidden" name="client_id" value="<?= (int)$client['id'] ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer le client" aria-label="Supprimer le client <?= htmlspecialchars($client['firstname'], ENT_QUOTES, 'UTF-8') ?>">
-                                                    <i class="fa-solid fa-trash" aria-hidden="true"></i>
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Suspendre le client" aria-label="Suspendre le client <?= htmlspecialchars($client['firstname'], ENT_QUOTES, 'UTF-8') ?>">
+                                                    <i class="fa-solid fa-pause" aria-hidden="true"></i>
                                                 </button>
                                             </form>
                                             <?php endif; ?>

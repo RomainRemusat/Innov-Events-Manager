@@ -3,6 +3,7 @@
 require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/sql/Prospect.php';
+require_once __DIR__ . '/../models/sql/Event.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 
 /**
@@ -11,12 +12,14 @@ require_once __DIR__ . '/../models/nosql/Log.php';
  */
 class AdminClientController extends BaseController
 {
+    /** Affiche les clients filtrés par identité, email ou entreprise. */
     public function showClientsList(): void
     {
         $this->checkAuth(['ADMIN', 'EMPLOYEE']);
 
         $userModel = new User();
-        $clients = $userModel->findAllClients();
+        $search = is_string($_GET['q'] ?? null) ? trim($_GET['q']) : '';
+        $clients = $userModel->findAllClients($search, true);
 
         $pageTitle = "Gestion des Clients - Innov'Events";
 
@@ -25,6 +28,7 @@ class AdminClientController extends BaseController
         require __DIR__ . '/../views/partials/footer.php';
     }
 
+    /** @param int $clientId Client dont les demandes et événements doivent être consultés. */
     public function showClientDetails(int $clientId): void
     {
         $this->checkAuth(['ADMIN', 'EMPLOYEE']);
@@ -32,13 +36,14 @@ class AdminClientController extends BaseController
         $userModel = new User();
         $client = $userModel->findById($clientId);
 
-        if (!$client || $client['role'] !== 'CLIENT' || !empty($client['is_deleted'])) {
+        if (!$client || $client['role'] !== 'CLIENT') {
             header('Location: index.php?action=admin_clients');
             exit;
         }
 
         $prospectModel = new Prospect();
         $clientQuotes = $prospectModel->findClientRequests($clientId);
+        $clientEvents = (new Event())->findByClientId($clientId);
 
         $pageTitle = "Dossier Client - " . htmlspecialchars($client['firstname'] . ' ' . $client['lastname'], ENT_QUOTES, 'UTF-8');
 
@@ -47,6 +52,7 @@ class AdminClientController extends BaseController
         require __DIR__ . '/../views/partials/footer.php';
     }
 
+    /** @param int $clientId Client actif à modifier. */
     public function showEditClientForm(int $clientId): void
     {
         $this->checkAuth(['ADMIN']);
@@ -66,20 +72,27 @@ class AdminClientController extends BaseController
         require __DIR__ . '/../views/partials/footer.php';
     }
 
+    /** @param array $postData Coordonnées du client et jeton de soumission. */
     public function updateClient(array $postData): void
     {
         $this->checkAuth(['ADMIN']);
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=admin_clients');
+            exit;
+        }
         $this->validateCsrf($postData);
 
-        $clientId  = (int)($postData['client_id'] ?? 0);
-        $firstname = trim($postData['firstname'] ?? '');
-        $lastname  = trim($postData['lastname'] ?? '');
-        $email     = filter_var(trim($postData['email'] ?? ''), FILTER_VALIDATE_EMAIL);
+        $clientId = (int)filter_var($postData['client_id'] ?? null, FILTER_VALIDATE_INT);
+        $firstname = is_string($postData['firstname'] ?? null) ? trim($postData['firstname']) : '';
+        $lastname = is_string($postData['lastname'] ?? null) ? trim($postData['lastname']) : '';
+        $email = is_string($postData['email'] ?? null) ? filter_var(trim($postData['email']), FILTER_VALIDATE_EMAIL) : false;
 
-        if ($clientId > 0 && !empty($firstname) && !empty($lastname) && $email) {
+        if ($clientId > 0 && $firstname !== '' && mb_strlen($firstname) <= 100
+            && $lastname !== '' && mb_strlen($lastname) <= 100 && $email && strlen($email) <= 255) {
             $userModel = new User();
             if ($userModel->updateClient($clientId, $firstname, $lastname, $email)) {
                 $_SESSION['flash_success'] = 'Les informations du client sont enregistrées.';
+                (new Log())->addLog('MODIFICATION_CLIENT', (int)$_SESSION['user_id'], ['client_id' => $clientId]);
             } else {
                 $_SESSION['flash_error'] = 'Les informations n’ont pas pu être enregistrées. Vérifiez le compte et l’adresse email.';
             }
@@ -91,9 +104,14 @@ class AdminClientController extends BaseController
         exit;
     }
 
+    /** Suspend un client ; conserve la route historique sans effectuer d'effacement définitif. */
     public function deleteClient(array $postData): void
     {
         $this->checkAuth(['ADMIN']);
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=admin_clients');
+            exit;
+        }
         $this->validateCsrf($postData);
 
         $clientId = (int)($postData['client_id'] ?? 0);
@@ -111,10 +129,10 @@ class AdminClientController extends BaseController
                     $clientFullName = $clientData['firstname'] . ' ' . $clientData['lastname'];
 
                     $logModel->addLog(
-                        "SUPPRESSION_CLIENT",
+                        "SUSPENSION_CLIENT",
                         (int)$_SESSION['user_id'],
                         [
-                            'message' => "Suppression logique du client #$clientId ($clientFullName)",
+                            'message' => "Suspension du client #$clientId ($clientFullName)",
                             'client_id' => $clientId,
                             'client_name' => $clientFullName
                         ]

@@ -80,4 +80,10 @@ class Company
         $res = $stmt->fetch(PDO::FETCH_ASSOC);
         return $res ?: null;
     }
+
+    /** @return array<int, array{id: int, name: string}> Entreprises disponibles pour rattacher un client. */
+    public function findAll(): array
+    {
+        return $this->db->query('SELECT id, name FROM companies ORDER BY name, id')->fetchAll(PDO::FETCH_ASSOC);
+    }
 }

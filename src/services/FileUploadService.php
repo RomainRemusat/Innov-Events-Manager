@@ -51,8 +51,15 @@ class FileUploadService
             case UPLOAD_ERR_NO_FILE:
                 throw new \InvalidArgumentException("Aucun fichier n'a été sélectionné.");
             case UPLOAD_ERR_INI_SIZE:
+                throw new \InvalidArgumentException('Image refusée : le serveur limite les fichiers à ' . ini_get('upload_max_filesize') . 'o. La limite prévue pour les illustrations est de 5 Mo.');
             case UPLOAD_ERR_FORM_SIZE:
-                throw new \InvalidArgumentException("Le fichier dépasse la taille maximale autorisée par le serveur.");
+                throw new \InvalidArgumentException('Image refusée : le fichier dépasse la limite autorisée par le formulaire (5 Mo).');
+            case UPLOAD_ERR_PARTIAL:
+                throw new \InvalidArgumentException('L’image n’a été reçue que partiellement. Veuillez relancer l’envoi.');
+            case UPLOAD_ERR_NO_TMP_DIR:
+            case UPLOAD_ERR_CANT_WRITE:
+            case UPLOAD_ERR_EXTENSION:
+                throw new \InvalidArgumentException('Le serveur ne peut pas enregistrer l’image. Veuillez contacter l’administrateur.');
             default:
                 throw new \InvalidArgumentException("Erreur lors de la réception du flux de données.");
         }

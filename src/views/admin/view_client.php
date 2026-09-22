@@ -3,6 +3,7 @@
  * Vue : Dossier Client (Informations & Historique des Devis)
  *
  * @var array $client Informations du client (Table Users)
+ * @var array $clientEvents Historique complet des événements du client
  * @var array $clientQuotes Historique des devis du client
  */
 ?>
@@ -30,6 +31,24 @@
             </a>
         </div>
 
+        <section class="card card-body mb-4" aria-labelledby="client-events-heading">
+            <h2 id="client-events-heading" class="h5">Historique des événements</h2>
+            <?php if (!$clientEvents): ?>
+                <p class="text-muted mb-0">Aucun événement rattaché à ce client.</p>
+            <?php else: ?>
+                <div class="table-responsive"><table class="table align-middle">
+                    <thead><tr><th scope="col">Événement</th><th scope="col">Début</th><th scope="col">Lieu</th><th scope="col">Statut</th></tr></thead>
+                    <tbody><?php foreach ($clientEvents as $clientEvent): ?>
+                        <tr>
+                            <td><a href="index.php?action=admin_event_detail&id=<?= (int)$clientEvent['id'] ?>"><?= htmlspecialchars($clientEvent['title'], ENT_QUOTES, 'UTF-8') ?></a></td>
+                            <td><?= date('d/m/Y H:i', strtotime($clientEvent['start_date'])) ?></td>
+                            <td><?= htmlspecialchars($clientEvent['location'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars(Event::STATUS_LABELS[Event::normalizeStatus($clientEvent['status'])] ?? $clientEvent['status'], ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?></tbody>
+                </table></div>
+            <?php endif; ?>
+        </section>
         <div class="row g-4">
             <!-- Bloc Informations Personnelles -->
             <div class="col-md-4">
@@ -59,7 +78,7 @@
                 </div>
             </div>
 
-            <!-- Bloc Historique des Devis (Exigence du cahier des charges) -->
+            <!-- Demandes et propositions commerciales du client -->
             <div class="col-md-8">
                 <div class="card border-0 shadow-sm rounded-3 h-100">
                     <div class="card-header bg-white border-bottom py-3">

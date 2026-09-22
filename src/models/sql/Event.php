@@ -327,6 +327,25 @@ class Event
     }
 
     /**
+     * Renvoie l'historique complet, y compris les événements privés ou annulés.
+     * @param int $clientId Propriétaire des événements.
+     * @return array<int, array<string, mixed>> Événements du plus récent au plus ancien.
+     */
+    public function findByClientId(int $clientId): array
+    {
+        $stmt = $this->db->prepare('SELECT id, title, start_date, end_date, location, status
+            FROM events WHERE client_id = ? ORDER BY start_date DESC, id DESC');
+        $stmt->execute([$clientId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** @return int Nombre de projets encore au statut brouillon. */
+    public function countDrafts(): int
+    {
+        return (int)$this->db->query("SELECT COUNT(*) FROM events WHERE status = 'brouillon'")->fetchColumn();
+    }
+
+    /**
      * Recherche un événement par son identifiant unique (Accès Back-Office).
      *
      * @param int $id Identifiant unique de l'événement.

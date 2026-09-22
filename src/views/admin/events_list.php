@@ -38,6 +38,11 @@
 
         <!-- Zone de contenu principal (Repère pour aides techniques et lecteurs d'écran) -->
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4" id="main-content">
+            <?php require __DIR__ . '/../partials/admin_messages.php'; ?>
+            <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
+                <a href="index.php?action=admin_edit_event" class="btn btn-primary mb-3">Créer un événement</a>
+            <?php endif; ?>
+
 
             <!-- En-tête de section -->
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">

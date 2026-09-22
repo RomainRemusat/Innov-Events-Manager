@@ -19,7 +19,6 @@ if (!isset($_SESSION['user_id'])) {
 // RÉCUPÉRATION DES KPI
 // -----------------------------------------------------------------------------
 $nbClientsActifs = $clientsActifs ?? 0;
-$nbProjetsEnAttente = isset($prospectsEnAttente) ? count($prospectsEnAttente) : 0;
 $totalDemandes = $totalProspects ?? (isset($allProspects) ? count($allProspects) : 0);
 $caPrev = $caPrevisionnel ?? 0;
 
@@ -150,8 +149,8 @@ $renderProspectTable = function(array $items, string $emptyMsg = "Aucun prospect
                     </div>
                     <div class="col-12 col-sm-6 col-xl-3">
                         <div class="card kpi-card bg-white text-dark p-4 h-100 border-start border-warning border-4">
-                            <h2 class="fw-bold mb-1" style="font-size: 2rem; color: #0F172A;"><?= $nbProjetsEnAttente ?></h2>
-                            <h6 class="text-muted mb-0"><i class="bi bi-clock-history me-2"></i>Projets en attente</h6>
+                            <h2 class="fw-bold mb-1" style="font-size: 2rem; color: #0F172A;"><?= (int)$draftEventsCount ?></h2>
+                            <h6 class="text-muted mb-0"><i class="bi bi-clock-history me-2"></i>Événements brouillons</h6>
                         </div>
                     </div>
                     <div class="col-12 col-sm-6 col-xl-3">

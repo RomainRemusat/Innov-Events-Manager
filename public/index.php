@@ -12,6 +12,16 @@
 
 declare(strict_types=1);
 
+// PHP vide les champs POST lorsque la requête entière dépasse sa limite.
+// Signaler ce cas avant le contrôle CSRF évite un faux diagnostic de session expirée.
+$postLimit = ini_parse_quantity(ini_get('post_max_size'));
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $postLimit > 0
+    && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > $postLimit) {
+    http_response_code(413);
+    header('Content-Type: text/plain; charset=UTF-8');
+    exit('Envoi trop volumineux : choisissez une image de 5 Mo maximum, puis revenez au formulaire pour réessayer.');
+}
+
 // -----------------------------------------------------------------------------
 // 1. GESTION STRICTE DES SESSIONS (Conformité OWASP & RGPD)
 // -----------------------------------------------------------------------------
@@ -38,6 +48,7 @@ require_once __DIR__ . '/../src/controllers/QuoteController.php';
 require_once __DIR__ . '/../src/controllers/PdfController.php';
 require_once __DIR__ . '/../src/controllers/ClientController.php';
 require_once __DIR__ . '/../src/controllers/AdminClientController.php';
+require_once __DIR__ . '/../src/controllers/AdminAccountController.php';
 require_once __DIR__ . '/../src/controllers/AdminEventController.php';
 require_once __DIR__ . '/../src/controllers/DashboardController.php';
 
@@ -118,8 +129,33 @@ switch (true) {
         break;
 
     // -------------------------------------------------------------------
-    // ROUTES : ESPACE CLIENT B2B (ClientController)
+    // ROUTES : ADMINISTRATION DES COMPTES ET ÉVÉNEMENTS
     // -------------------------------------------------------------------
+    case ($action === 'admin_accounts'):
+        (new AdminAccountController())->index();
+        break;
+
+    case ($action === 'admin_manage_account'):
+        (new AdminAccountController())->manage($_POST);
+        break;
+
+    case ($action === 'admin_edit_event'):
+        (new AdminEventController())->editEvent((int)($_GET['id'] ?? 0));
+        break;
+
+    case ($action === 'admin_save_event'):
+        (new AdminEventController())->saveEvent($_POST);
+        break;
+
+    case ($action === 'admin_create_event_quote'):
+        (new AdminEventController())->createQuote($_POST);
+        break;
+
+    case ($action === 'admin_delete_event'):
+        (new AdminEventController())->deleteEvent($_POST);
+        break;
+
+    // ROUTES : ESPACE CLIENT B2B (ClientController)
     case ($action === 'client_dashboard'):
         (new ClientController())->showDashboard();
         break;

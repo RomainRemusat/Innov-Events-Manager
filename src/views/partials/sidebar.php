@@ -43,7 +43,7 @@ $navigation = [
                 [
                         'label'  => 'Événements',
                         'url'    => 'index.php?action=admin_events',
-                        'active' => ['admin_events', 'event_detail'],
+                        'active' => ['admin_events', 'admin_event_detail', 'admin_edit_event'],
                         'badge'  => null,
                         'badgeClass' => 'bg-secondary',
                 ],
@@ -64,9 +64,9 @@ $navigation = [
         ],
         'Administration & Système' => [
                 [
-                        'label'  => 'Gestion d\'Équipe',
-                        'url'    => '#',
-                        'active' => ['teams'],
+                        'label'  => 'Comptes clients et employés',
+                        'url'    => 'index.php?action=admin_accounts',
+                        'active' => ['admin_accounts'],
                         'badge'  => null,
                         'badgeClass' => 'bg-secondary',
                 ],
@@ -112,7 +112,7 @@ $navigation = [
 
             <?php foreach ($items as $item): ?>
                 <?php
-                if (!$isAdmin && in_array($item['active'][0] ?? '', ['prospects', 'admin_devis', 'mongo_logs', 'teams'], true)) {
+                if (!$isAdmin && in_array($item['active'][0] ?? '', ['prospects', 'admin_devis', 'mongo_logs', 'admin_accounts'], true)) {
                     continue;
                 }
                 $isActive  = in_array($currentAction, $item['active'], true);
