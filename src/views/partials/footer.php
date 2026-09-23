@@ -2,17 +2,8 @@
 /**
  * Composant : Pied de page global (Footer partial)
  *
- * Ce fichier implémente la structure de fermeture HTML commune à l'ensemble
- * des vues publiques de la plateforme Innov'Events Manager. Conçu de manière
- * modulaire, il assure l'uniformité visuelle du bas de page, fournit des accès de
- * navigation secondaires, affiche les mentions légales et intègre les dépendances
- * JavaScript requises.
- *
- * Spécifications techniques et conformité :
- * - Grille adaptative Bootstrap 5 (Flexbox / multi-colonnes responsive).
- * - Accessibilité sémantique via la balise normative <footer>.
- * - Prise en compte réglementaire des exigences CNIL / RGPD via des liens dédiés.
- * - Centralisation du chargement des modules asynchrones (Bootstrap Bundle).
+ * Ferme la structure HTML commune, affiche les liens secondaires et charge le
+ * bundle JavaScript Bootstrap partagé par les vues.
  *
  * @package    InnovEventsManager
  * @subpackage Views/Partials

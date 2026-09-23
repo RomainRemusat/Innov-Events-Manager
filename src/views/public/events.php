@@ -100,7 +100,7 @@
                                     <i class="fa-regular fa-calendar me-1" aria-hidden="true"></i>
                                     <?= date('d/m/Y', strtotime($ev['start_date'])) ?>
                                 </div>
-                                <!-- Jamais de prix affiché sur la vitrine (CDC p. 7) -->
+                                <!-- La vitrine présente le projet sans information commerciale. -->
                                 <a href="index.php?action=event_detail&id=<?= (int)$ev['id'] ?>" class="btn btn-outline-primary btn-sm fw-semibold">
                                     Découvrir <i class="fa-solid fa-arrow-right ms-1" aria-hidden="true"></i>
                                 </a>

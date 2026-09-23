@@ -9,10 +9,8 @@ require_once __DIR__ . '/../../config/Database.php';
  *
  * Encapsule l'ensemble des opérations relationnelles sur la table `events`.
  *
- * Alignement ECF Studi (Titre CDA) :
- * - AT1 : Requêtes préparées PDO systématiques contre les injections SQL (CWE-89).
- * - AT2 : Respect de la 3NF, masquage strict des données financières en vitrine publique,
- *         et capture étanche des exceptions PDO sans fuite d'informations.
+ * Les lectures publiques ne sélectionnent aucune donnée financière et les écritures
+ * utilisent des requêtes préparées afin de conserver une interface SQL maîtrisée.
  *
  * @package    InnovEventsManager
  * @subpackage Models\SQL
@@ -23,8 +21,8 @@ class Event
 {
     /**
      * Référentiel opérationnel partagé par les formulaires et les écritures SQL.
-     * Les états ECF (p. 7 et 12) sont complétés par « planifié », déjà utilisé
-     * à la conversion : planifier ne vaut pas acceptation commerciale du devis.
+     * L'état « planifié » indique une organisation en préparation et ne vaut pas
+     * acceptation commerciale du devis.
      * @var array<string, string>
      */
     public const STATUS_LABELS = [
@@ -37,7 +35,7 @@ class Event
     ];
 
     /**
-     * Assure la compatibilité avec l'ancien libellé d'annulation de l'énoncé.
+     * Assure la compatibilité avec l'ancien libellé d'annulation enregistré en base.
      * Cette normalisation ne valide pas le statut et ne modifie pas les données stockées.
      *
      * @param string $status Valeur issue du formulaire ou d'un enregistrement historique.
@@ -54,6 +52,7 @@ class Event
      */
     private \PDO $db;
 
+    /** Initialise l'accès aux événements stockés en base. */
     public function __construct()
     {
         $this->db = Database::getInstance();
@@ -62,8 +61,8 @@ class Event
     /**
      * Recherche les événements publics publiés selon les filtres multicritères.
      *
-     * Spécifications CDC (Page 7) : publication demandée et accord client confirmé,
-     * statut != 'brouillon', et STRICTEMENT AUCUNE DONNÉE FINANCIÈRE extraite.
+     * La publication exige un accord client confirmé et exclut les brouillons.
+     * La sélection ne contient aucune donnée financière.
      *
      * @param string|null $dateStart Date minimale (format Y-m-d).
      * @param string|null $dateEnd   Date maximale (format Y-m-d).
@@ -203,7 +202,7 @@ class Event
     }
 
     /**
-     * Extrait les prochains événements à venir (Widget Dashboard Admin Chloé & Espace Client).
+     * Extrait les prochains événements pour les tableaux de bord du personnel et des clients.
      *
      * @param int $limit Nombre maximal d'enregistrements.
      * @param int|null $clientId Si renseigné, limite la liste aux projets à venir de ce client.
@@ -386,7 +385,7 @@ class Event
     /**
      * Met à jour le statut opérationnel d'un événement.
      * L'administrateur peut corriger les états sans ordre imposé ; le démarrage
-     * exige toutefois l'acceptation du dernier devis explicitement associé (ECF p. 12).
+     * exige toutefois l'acceptation du dernier devis explicitement associé.
      * La comparaison avec l'état lu évite de journaliser un ancien état devenu obsolète.
      *
      * @param int $id Identifiant de l'événement.

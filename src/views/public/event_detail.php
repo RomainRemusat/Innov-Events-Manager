@@ -40,7 +40,7 @@
                 </p>
             </section>
 
-            <!-- Section obligatoire CDC : Prestations et Devis (Redirection) -->
+            <!-- Appel à l'action vers une nouvelle demande de devis. -->
             <section class="card bg-primary-subtle border-0 p-4 rounded-3" aria-labelledby="section-quote-cta">
                 <div class="row align-items-center">
                     <div class="col-md-8">

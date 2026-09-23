@@ -2,8 +2,8 @@
 /**
  * Contrôleur : QuoteController (Gestion des demandes de devis & Pilotage financier)
  *
- * Ce contrôleur hybride gère à la fois l'Espace Public (Formulaire de demande)
- * et l'Espace Administration (Création, édition et suppression des prestations AT2).
+ * Ce contrôleur gère le formulaire public ainsi que la création, la modification
+ * et la suppression des prestations depuis l'administration.
  *
  * @package    InnovEventsManager
  * @subpackage Controllers
@@ -21,6 +21,7 @@ require_once __DIR__ . '/../models/sql/Prestation.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
 
+/** Traite les demandes publiques et l'édition administrative des devis. */
 class QuoteController extends BaseController
 {
     // =========================================================================
@@ -52,7 +53,7 @@ class QuoteController extends BaseController
             $this->checkAuth();
         }
 
-        // 1. Validation de sécurité CSRF (AT1)
+        // Valide le jeton avant de traiter les données fournies par le visiteur.
         $this->validateCsrf($data);
 
         // 2. Validation et assainissement des données
@@ -129,7 +130,7 @@ class QuoteController extends BaseController
             'user_id'                => (!empty($_SESSION['user_id']) && ($_SESSION['user_role'] ?? '') === 'CLIENT') ? (int)$_SESSION['user_id'] : null
         ];
 
-        // 3. Persistance relationnelle MySQL (AT2)
+        // Enregistre la demande dans la base relationnelle.
         $prospectModel = new Prospect();
         $result = $prospectModel->create($sanitizedData);
         $notificationSent = false;
@@ -138,7 +139,7 @@ class QuoteController extends BaseController
             // Nettoyage des anciennes saisies
             unset($_SESSION['old_inputs']);
 
-            // 4. Double persistance NoSQL MongoDB (AT2)
+            // Journalise la création sans bloquer le parcours en cas d'indisponibilité de MongoDB.
             try {
                 $logModel = new Log();
                 $logModel->addLog(
@@ -175,6 +176,7 @@ class QuoteController extends BaseController
     // 2. ESPACE ADMINISTRATION : GESTION DES DEVIS
     // =========================================================================
 
+    /** Affiche les devis et leurs totaux dans l'espace administrateur. */
     public function showDevisList(): void
     {
         $this->checkAuth(['ADMIN']);
@@ -189,6 +191,7 @@ class QuoteController extends BaseController
         require __DIR__ . '/../views/partials/footer.php';
     }
 
+    /** Affiche un devis et les prestations qui composent son montant. */
     public function editDevis(int $devisId): void
     {
         $this->checkAuth(['ADMIN']);
@@ -218,6 +221,11 @@ class QuoteController extends BaseController
         require __DIR__ . '/../views/partials/footer.php';
     }
 
+    /**
+     * Ajoute une prestation à un devis encore modifiable.
+     *
+     * @param array<string, mixed> $postData Données validées par le formulaire administrateur.
+     */
     public function addPrestation(array $postData): void
     {
         $this->checkAuth(['ADMIN']);
@@ -253,6 +261,11 @@ class QuoteController extends BaseController
         exit;
     }
 
+    /**
+     * Supprime une prestation appartenant au devis indiqué.
+     *
+     * @param array<string, mixed> $postData Identifiants transmis par le formulaire.
+     */
     public function deletePrestation(array $postData): void
     {
         $this->checkAuth(['ADMIN']);

@@ -11,7 +11,7 @@ require_once __DIR__ . '/../services/EventManagementService.php';
 
 /**
  * Contrôleur : AdminEventController (Back-Office)
- * Gère le cycle de vie des événements côté back-office (Chloé & José).
+ * Gère le cycle de vie des événements pour les administrateurs et les employés.
  */
 class AdminEventController extends BaseController
 {

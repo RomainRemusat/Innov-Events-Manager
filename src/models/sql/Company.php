@@ -16,6 +16,7 @@ class Company
 {
     private PDO $db;
 
+    /** Initialise l'accès à la base relationnelle. */
     public function __construct()
     {
         $this->db = Database::getInstance();

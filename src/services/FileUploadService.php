@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Service transverse : FileUploadService
  *
  * Gère la validation stricte et le stockage sécurisé des téléversements de médias.
- * Conforme aux exigences de sécurité OWASP (CWE-434) et aux critères AT1 / AT2.
+ * Vérifie le type MIME, la taille et le nom de destination avant toute écriture.
  *
  * @package    InnovEventsManager
  * @subpackage Services
@@ -18,6 +18,11 @@ class FileUploadService
     private int $maxSize;
     private array $allowedMimes;
 
+    /**
+     * Configure la taille maximale et les types d'images acceptés.
+     *
+     * @param array<string, string> $allowedMimes Extensions indexées par type MIME.
+     */
     public function __construct(
         int $maxSize = 5242880, // 5 Mo par défaut
         array $allowedMimes = [

@@ -2,8 +2,8 @@
 /**
  * Vue d'administration : Fiche détaillée d'un événement et espace collaboratif.
  *
- * Cette vue constitue l'interface centrale de pilotage opérationnel pour Chloé (ADMIN)
- * et José (EMPLOYEE). Elle rassemble la synthèse logistique, la gestion des médias,
+ * Cette vue constitue l'interface centrale de pilotage pour le personnel. Elle
+ * rassemble la synthèse logistique, la gestion des médias,
  * les actions rapides de contact client, les prestations associées au devis et le flux de notes collaboratives.
  *
  * Variables injectées par le contrôleur (AdminEventController::showEventDetail) :

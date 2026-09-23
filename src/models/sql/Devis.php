@@ -2,9 +2,8 @@
 /**
  * Modèle relationnel : Devis (Gestion du cycle de vie des propositions commerciales)
  *
- * Implémente la persistance et la logique de synchronisation transactionnelle
- * pour l'Activité Type 2 (AT2). Assure l'intégrité financière et la traçabilité
- * des états conformément au référentiel RNCP ECF.
+ * Implémente la persistance et la logique transactionnelle des propositions,
+ * de leurs prestations et de leurs changements de statut.
  *
  * @package    InnovEventsManager
  * @subpackage Models/SQL
@@ -15,6 +14,7 @@
 require_once __DIR__ . '/../../config/Database.php';
 require_once __DIR__ . '/Prestation.php';
 
+/** Fournit les opérations SQL du cycle de vie des devis. */
 class Devis
 {
     /**

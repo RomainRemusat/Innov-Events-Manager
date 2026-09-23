@@ -17,6 +17,7 @@
 require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 
+/** Affiche aux administrateurs les actions techniques conservées dans MongoDB. */
 class LogController extends BaseController
 {
     /**

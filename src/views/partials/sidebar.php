@@ -59,7 +59,7 @@ $navigation = [
                         'url'    => 'index.php?action=admin_devis',
                         'active' => ['admin_devis', 'edit_devis'],
                         'badge'  => $nbPendingModifications > 0 ? $nbPendingModifications : null,
-                        'badgeClass' => 'bg-danger', // Alerte visuelle rouge pour Chloé
+                        'badgeClass' => 'bg-danger', // Met en évidence les demandes de modification en attente.
                 ],
         ],
         'Administration & Système' => [

@@ -6,8 +6,8 @@
  * Il agit comme un point de contrôle (Guard Pattern) en vérifiant systématiquement
  * les habilitations (Session/Rôles) avant d'autoriser l'accès aux données sensibles.
  *
- * Il implémente la logique de l'Activité Type 2 (AT2) en gérant le cycle de vie
- * des prospects, la génération des devis, et la double persistance (MySQL / MongoDB).
+ * Il coordonne le cycle de vie des prospects, la préparation des devis et la
+ * journalisation des actions entre MySQL et MongoDB.
  *
  * @package    InnovEventsManager
  * @subpackage Controllers
@@ -26,8 +26,10 @@ require_once __DIR__ . '/../models/sql/Event.php';
 require_once __DIR__ . '/../models/sql/Note.php';
 require_once __DIR__ . '/../models/sql/Task.php';
 
+/** Prépare les tableaux de bord du personnel et le traitement des prospects. */
 class DashboardController extends BaseController
 {
+    /** Affiche le tableau de bord adapté au rôle administrateur ou employé. */
     public function showDashboard(): void
     {
         // Vérifie que l'utilisateur est connecté avec les bons droits
@@ -142,6 +144,7 @@ class DashboardController extends BaseController
         require __DIR__ . '/../views/partials/footer.php';
     }
 
+    /** Affiche le formulaire de conversion d'une demande qualifiée. */
     public function showConvertForm(int $id): void
     {
         $this->checkAuth(['ADMIN']); // Authentification + contrôle de rôle
@@ -167,6 +170,11 @@ class DashboardController extends BaseController
         require __DIR__ . '/../views/partials/footer.php';
     }
 
+    /**
+     * Convertit une demande en client, événement et devis initial.
+     *
+     * @param array<string, mixed> $postData Données injectées par la route ou un test.
+     */
     public function processConversion(array $postData = []): void
     {
         $this->checkAuth(['ADMIN']);
@@ -205,6 +213,7 @@ class DashboardController extends BaseController
         }
     }
 
+    /** Affiche les informations et l'état de qualification d'une demande. */
     public function showProspectDetails(int $id): void
     {
         $this->checkAuth(['ADMIN']);
@@ -225,7 +234,7 @@ class DashboardController extends BaseController
     }
 
     /**
-     * Qualifie une demande et notifie le prospect en cas de non-faisabilité (ECF p. 9).
+     * Qualifie une demande et notifie le prospect en cas de non-faisabilité.
      * Le motif est conservé en SQL avant toute notification externe ; une panne SMTP
      * ne doit ni perdre la décision ni être présentée comme un envoi réussi.
      */

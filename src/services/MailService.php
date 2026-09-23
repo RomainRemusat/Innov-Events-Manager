@@ -25,6 +25,7 @@ if (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
+/** Prépare et expédie les messages transactionnels de l'application. */
 class MailService
 {
     /**
@@ -166,7 +167,7 @@ class MailService
     }
 
     /**
-     * Notifie l'administration (Chloé) de la réception d'une nouvelle demande de devis prospect.
+     * Notifie l'administration de la réception d'une nouvelle demande de devis.
      *
      * @param array $quoteData Données brutes du prospect saisies sur le formulaire public.
      * @return bool Vrai si la notification administrateur est acceptée.
@@ -272,7 +273,7 @@ class MailService
     }
 
     /**
-     * Notifie la direction (Chloé) de l'acceptation d'un devis par le client.
+     * Notifie la direction de l'acceptation d'un devis par le client.
      */
     public function sendQuoteAcceptedEmail(string $companyName, int $devisId): bool
     {

@@ -69,7 +69,7 @@
                             <!-- Charte graphique Innov'Events : En-tête Slate Dark (#0F172A) -->
                             <thead style="background-color: #0F172A; color: white;">
                             <tr>
-                                <!-- Norme RGAA : scope="col" aide les technologies d'assistance à structurer le tableau -->
+                                <!-- Les attributs scope associent chaque cellule à son en-tête de colonne. -->
                                 <th scope="col" class="py-3 px-4">Nom / Prénom</th>
                                 <th scope="col" class="py-3 px-4">Email de contact</th>
                                 <th scope="col" class="py-3 px-4 text-center">Date d'inscription</th>
@@ -111,10 +111,7 @@
                                                 <i class="fa-solid fa-folder-open" aria-hidden="true"></i>
                                             </a>
 
-                                            <!--
-                                              Modification des coordonnées d'un client actif.
-                                              RGAA : aria-label est obligatoire car le bouton ne contient pas de texte, juste une icône.
-                                            -->
+                                            <!-- Le libellé accessible décrit le bouton représenté uniquement par une icône. -->
                                             <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN' && !$client['is_deleted']): ?>
                                             <a href="index.php?action=edit_client&id=<?= (int)$client['id'] ?>" class="btn btn-sm btn-outline-primary me-1" title="Éditer le client" aria-label="Éditer le profil de <?= htmlspecialchars($client['firstname'], ENT_QUOTES, 'UTF-8') ?>">
                                                 <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>

@@ -1,5 +1,5 @@
 -- =====================================================================
--- PROJET : INNOV'EVENTS MANAGER (ECF Titre CDA - Studi)
+-- PROJET : INNOV'EVENTS MANAGER
 -- FICHIER : scripts/schema.sql
 -- OBJECTIF : DDL - Création manuelle du schéma relationnel courant
 -- USAGE : uniquement sur une base vide (voir scripts/README.md).

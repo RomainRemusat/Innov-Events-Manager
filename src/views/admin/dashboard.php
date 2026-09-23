@@ -4,11 +4,11 @@
  *
  * @package    InnovEventsManager
  * @subpackage Views\Admin
- * @version    3.2.0 (Conformité ECF - Pipeline Commercial & Événements)
+ * @version    3.2.0
  */
 
 // -----------------------------------------------------------------------------
-// CLAUSE DE GARDE : Sécurisation de l'accès à la vue (AT1)
+// Refuse le rendu direct de la vue lorsqu'aucune session n'est active.
 // -----------------------------------------------------------------------------
 if (!isset($_SESSION['user_id'])) {
     header('Location: index.php?action=login');

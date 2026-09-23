@@ -14,6 +14,7 @@
 
 require_once __DIR__ . '/../../config/Database.php';
 
+/** Fournit les opérations SQL liées aux comptes et à leurs accès. */
 class User
 {
     /**

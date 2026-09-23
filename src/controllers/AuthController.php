@@ -25,6 +25,7 @@ require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
 require_once __DIR__ . '/../services/PasswordResetService.php';
 
+/** Coordonne l'inscription, l'authentification et le renouvellement des accès. */
 class AuthController extends BaseController
 {
     /**
@@ -237,6 +238,7 @@ class AuthController extends BaseController
         }
     }
 
+    /** Ferme la session courante après avoir journalisé la déconnexion. */
     public function logout(): void
     {
         $this->startSession();
@@ -267,6 +269,7 @@ class AuthController extends BaseController
         exit();
     }
 
+    /** Traite une demande de mot de passe temporaire sans révéler l'existence du compte. */
     public function resetPasswordRequest(): void
     {
         $this->startSession();
@@ -371,12 +374,18 @@ class AuthController extends BaseController
         require __DIR__ . '/../views/public/force_password_change.php';
     }
 
+    /** Vérifie la politique minimale appliquée aux nouveaux mots de passe. */
     private function isValidPassword(string $password): bool
     {
         $pattern = '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/';
         return (bool)preg_match($pattern, $password);
     }
 
+    /**
+     * Journalise une action d'authentification sans perturber le parcours HTTP.
+     *
+     * @param array<string, mixed> $details Contexte utile au diagnostic de l'action.
+     */
     private function auditAuthAttempt(string $typeAction, ?int $userId, array $details): void
     {
         try {

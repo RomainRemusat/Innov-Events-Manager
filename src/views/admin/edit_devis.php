@@ -3,7 +3,7 @@
  * Vue : Édition du Devis et Gestion des Prestations Commerciales (Back-Office)
  *
  * Interface d'administration permettant la constitution granulaire d'une proposition
- * commerciale (Activité Type 2). Elle offre un récapitulatif du cahier des charges client,
+ * commerciale. Elle offre un récapitulatif du cahier des charges client,
  * la gestion dynamique des lignes de prestation (ajout/suppression) et le calcul
  * automatisé des agrégats financiers (HT, TVA à 20 %, TTC).
  *

@@ -7,7 +7,7 @@
  *
  * @package    InnovEventsManager
  * @author     Romain Remusat
- * @version    3.3.0 (Intégration ECF - AT1 & AT2)
+ * @version    3.3.0
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // -----------------------------------------------------------------------------
-// 2. GÉNÉRATION DU JETON ANTI-CSRF (Conformité AT1 - Sécurité des flux)
+// 2. GÉNÉRATION DU JETON ANTI-CSRF
 // -----------------------------------------------------------------------------
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));

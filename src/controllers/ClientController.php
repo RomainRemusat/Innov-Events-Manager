@@ -6,7 +6,7 @@
  * - Consultation de l'état d'avancement des devis.
  * - Réponse contractuelle (Validation, Refus, Demande de modification).
  * - Traçabilité multi-bases (Mise à jour MySQL et flux d'audit MongoDB).
- * - Notifications e-mail transactionnelles vers l'équipe commerciale (Chloé).
+ * - Notifications transactionnelles vers l'équipe commerciale.
  * - Gestion du profil et droit à l'oubli RGPD (Suppression définitive sécurisée).
  *
  * @package    InnovEventsManager
@@ -26,6 +26,7 @@ require_once __DIR__ . '/../models/sql/Event.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
 
+/** Coordonne le tableau de bord, le profil et les décisions commerciales du client. */
 class ClientController extends BaseController
 {
     /**

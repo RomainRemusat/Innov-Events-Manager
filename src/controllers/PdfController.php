@@ -7,7 +7,7 @@
  * 2. Compilation en document PDF physique via la bibliothèque Dompdf.
  * 3. Persistance du document dans le stockage sécurisé (`/storage/devis/`).
  * 4. Transmission sécurisée par courriel au client (Pièce jointe SMTP).
- * 5. Traçabilité complète des émissions documentaires dans MongoDB (AT2).
+ * 5. Journalisation des émissions documentaires dans MongoDB.
  *
  * @package    InnovEventsManager
  * @subpackage Controllers
@@ -29,6 +29,7 @@ if (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
+/** Génère, transmet et contrôle le téléchargement des devis PDF. */
 class PdfController extends BaseController
 {
     /**
@@ -219,7 +220,7 @@ class PdfController extends BaseController
     }
 
     /**
-     * Génère et expédie le devis PDF par e-mail au client (AT2).
+     * Génère et expédie le devis PDF par e-mail au client.
      * Refuse les devis acceptés et publie une nouvelle version uniquement après
      * acceptation de l'email par SMTP. Le verrou est conservé jusqu'à cette transition.
      *

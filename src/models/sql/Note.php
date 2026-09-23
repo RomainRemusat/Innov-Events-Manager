@@ -7,12 +7,8 @@ require_once __DIR__ . '/../../config/Database.php';
 /**
  * Modèle de données : Note (DAL SQL)
  *
- * Gère le cycle de vie complet des notes collaboratives de projets (Chloé & José)
- * ainsi que les notes globales d'équipe décorrélées (event_id NULL).
- *
- * Exigences respectées (ECF Titre CDA) :
- * - AT1 : Requêtes préparées PDO contre les injections SQL (CWE-89).
- * - AT2 : Clé étrangère event_id nullable conforme au CDC p. 11.
+ * Gère les notes collaboratives rattachées aux projets ainsi que les informations
+ * globales destinées à l'équipe, représentées par un event_id nul.
  *
  * @package    InnovEventsManager
  * @subpackage Models\SQL
@@ -23,6 +19,7 @@ class Note
 {
     private \PDO $db;
 
+    /** Initialise l'accès aux notes collaboratives. */
     public function __construct()
     {
         $this->db = Database::getInstance();
@@ -60,7 +57,7 @@ class Note
     }
 
     /**
-     * Extrait les 5 dernières notes pour le widget Dashboard de Chloé (CDC p. 11).
+     * Extrait les dernières notes destinées au tableau de bord de l'équipe.
      *
      * @param int $limit
      * @return array<int, array<string, mixed>>

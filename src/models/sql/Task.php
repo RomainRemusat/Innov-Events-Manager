@@ -15,6 +15,7 @@ class Task
 
     private PDO $db;
 
+    /** Initialise l'accès aux tâches opérationnelles. */
     public function __construct()
     {
         $this->db = Database::getInstance();

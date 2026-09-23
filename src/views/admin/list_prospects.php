@@ -3,12 +3,12 @@
  * Vue : Liste complète des Prospects (Data Table avec Segmentation)
  *
  * Interface d'administration centralisant le listing tabulaire de l'ensemble
- * des demandes de devis entrantes (Activité Type 2). Elle offre aux gestionnaires
+ * des demandes de devis entrantes. Elle offre aux gestionnaires
  * une vue synthétique des leads commerciaux, le suivi de leur état de qualification
  * et un accès direct au tunnel de conversion B2B.
  *
  * Normes et conventions appliquées :
- * - Sécurité (AT1) : Clause de garde sur la session et protection XSS via htmlspecialchars.
+ * - Sécurité : Clause de garde sur la session et protection XSS via htmlspecialchars.
  * - Accessibilité (RGAA) : Structuration sémantique des tableaux (scope, labels ARIA).
  * - Ergonomie UI/UX : Segmentation par onglets (En cours, Convertis, Refusés) et badges d'état.
  *

@@ -5,11 +5,8 @@
  * Ce composant implémente la structure HTML5, les métadonnées SEO/accessibilité
  * et la barre de navigation supérieure commune à l'ensemble de la vitrine publique.
  *
- * Exigences ECF respectées (AT1) :
- * - Respect strict des entrées du menu imposées par le cahier des charges officiel
- *   (Accueil, Événements, Avis, Contact, Connexion/Déconnexion, Demande de devis).
- * - Sémantique HTML5 et conformité RGAA (attributs ARIA, contrastes, navigation clavier).
- * - Gestion du contexte utilisateur et protection CSRF centralisée.
+ * Le composant fournit une navigation sémantique, adapte les accès au rôle connecté
+ * et initialise le jeton CSRF utilisé par les formulaires.
  *
  * @package    InnovEventsManager
  * @subpackage Views/Partials
@@ -64,7 +61,7 @@ $currentAction = $_GET['action'] ?? 'home';
                 <span class="navbar-toggler-icon"></span>
             </button>
 
-            <!-- Éléments de navigation (Conformes CDC Studi p.4) -->
+            <!-- Navigation principale adaptée au contexte de session -->
             <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
                 <ul class="navbar-nav align-items-center gap-lg-3">
 

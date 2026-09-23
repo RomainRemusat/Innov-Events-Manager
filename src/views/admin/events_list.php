@@ -117,7 +117,7 @@
                                             <?= htmlspecialchars($ev['location'], ENT_QUOTES, 'UTF-8') ?>
                                         </td>
 
-                                        <!-- Visibilité publique (Accord client CDC p. 7) -->
+                                        <!-- La visibilité publique dépend de l'accord enregistré du client. -->
                                         <td>
                                             <?php if ((int)$ev['is_published'] === 1 && !empty($ev['publication_consent_at']) && $ev['status'] !== 'brouillon'): ?>
                                                 <span class="badge bg-success-subtle text-success border border-success-subtle">

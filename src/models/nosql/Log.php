@@ -7,10 +7,8 @@ declare(strict_types=1);
  *
  * Implémente la traçabilité des actions sensibles de sécurité et de gestion.
  *
- * Exigences respectées (ECF Titre CDA) :
- * - AT2 : Traçabilité documentaire NoSQL immuable.
- * - AT1 / RGPD (p. 13) : Anonymisation obligatoire de l'adresse IP collectée.
- * - Structure CDC (p. 12) : Horodatage (ISODate), type_action, id_utilisateur, details.
+ * Chaque entrée conserve son horodatage, le type d'action, l'utilisateur concerné
+ * et des métadonnées contextuelles. Les adresses IP sont anonymisées avant écriture.
  *
  * @package    InnovEventsManager
  * @subpackage Models\NoSQL
@@ -22,6 +20,7 @@ class Log
     private ?\MongoDB\Driver\Manager $manager = null;
     private string $namespace;
 
+    /** Initialise le gestionnaire MongoDB utilisé par le journal applicatif. */
     public function __construct()
     {
         try {
@@ -55,7 +54,7 @@ class Log
                 $idUtilisateur = (int)$_SESSION['user_id'];
             }
 
-            // Anonymisation RGPD du dernier octet IPv4 / prefixe IPv6 (CDC p. 13)
+            // Réduit la précision de l'adresse IP avant sa conservation dans le journal.
             $rawIp = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
             $details['ip_address'] = $this->anonymizeIp($rawIp);
 

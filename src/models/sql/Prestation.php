@@ -1,10 +1,13 @@
 <?php
 require_once __DIR__ . '/../../config/Database.php';
 
+/** Gère les lignes commerciales qui composent un devis. */
 class Prestation
 {
+    /** @var PDO Connexion relationnelle partagée. */
     private $db;
 
+    /** Initialise l'accès aux prestations stockées en base. */
     public function __construct()
     {
         $this->db = Database::getInstance();

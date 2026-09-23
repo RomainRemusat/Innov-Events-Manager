@@ -1,5 +1,5 @@
 -- =====================================================================
--- PROJET : INNOV'EVENTS MANAGER (ECF Titre CDA - Studi)
+-- PROJET : INNOV'EVENTS MANAGER
 -- FICHIER : scripts/initialise.sql
 -- OBJECTIF : DML - Jeu de démonstration (4 comptes et 2 entreprises clientes)
 -- =====================================================================

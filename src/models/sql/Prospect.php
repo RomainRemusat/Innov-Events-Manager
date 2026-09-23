@@ -14,6 +14,7 @@
 
 require_once __DIR__ . '/../../config/Database.php';
 
+/** Fournit les opérations SQL liées aux demandes commerciales. */
 class Prospect
 {
     /**
@@ -132,6 +133,7 @@ class Prospect
         }
     }
 
+    /** @return array<int, array<string, mixed>> Demandes encore ouvertes. */
     public function findAllActive(): array
     {
         try {
@@ -147,6 +149,7 @@ class Prospect
         }
     }
 
+    /** @return array<int, array<string, mixed>> Demandes correspondant au statut fourni. */
     public function findByStatus(string $status): array
     {
         try {
@@ -161,6 +164,7 @@ class Prospect
         }
     }
 
+    /** Compte les demandes qui nécessitent encore un traitement. */
     public function NbActive(): int
     {
         try {

@@ -17,12 +17,14 @@ require_once __DIR__ . '/../models/sql/Event.php';
  */
 class EventController extends BaseController
 {
+    /** Affiche la page d'accueil publique. */
     public function showHome(): void
     {
         $this->startSession();
         require __DIR__ . '/../views/public/home.php';
     }
 
+    /** Redirige les anciennes routes du catalogue vers la liste publique. */
     public function showCatalog(): void
     {
         $query = http_build_query(array_replace($_GET, ['action' => 'events']));

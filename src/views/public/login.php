@@ -1,15 +1,11 @@
 <?php
 /**
- * Vue : Formulaire d'Authentification (Login) - Version Modulaire Épurée
+ * Vue : formulaire d'authentification
  *
- * Ce fichier implémente l'interface de connexion sécurisée pour les utilisateurs
- * de la plateforme (Back-Office de Chloé, collaborateurs et clients corporate)[cite: 93, 261].
+ * Affiche l'interface de connexion commune aux administrateurs, employés et clients.
  *
- * Sécurité et Accessibilité (RGAA v4) :
- * - Chiffrement des flux : Transmission via la méthode HTTP POST[cite: 183].
- * - Attributs ARIA : Notification d'obligation sémantique et rôles d'alerte.
- * - Auto-complétion native : Optimisation de l'UX et réduction de la charge cognitive[cite: 506].
- * - Gestion défensive : Affichage dynamique et sécurisé (XSS protection) des erreurs.
+ * Les erreurs sont échappées avant affichage et les attributs d'auto-complétion
+ * permettent au navigateur de reconnaître les champs d'identification.
  *
  * @package    InnovEventsManager
  * @subpackage Views/Public

@@ -5,8 +5,8 @@ declare(strict_types=1);
 /**
  * Utilitaire : ImageHelper
  *
- * Gère le rendu sécurisé des visuels événementiels et la génération
- * d'un placeholder conforme aux critères d'accessibilité RGAA.
+ * Gère le rendu sécurisé des visuels événementiels et fournit un contenu de
+ * remplacement lorsque le fichier attendu est absent.
  *
  * @package    InnovEventsManager
  * @subpackage Utils
@@ -19,7 +19,7 @@ class ImageHelper
      * Génère le balisage HTML du visuel ou son placeholder de substitution.
      *
      * @param string|null $imagePath      Chemin relatif stocké en base (ex: 'uploads/events/gala.webp').
-     * @param string      $title          Titre de l'événement pour l'alternative textuelle (RGAA).
+     * @param string      $title          Titre utilisé comme alternative textuelle.
      * @param string      $height         Hauteur CSS (ex: '220px', '400px').
      * @param string      $additionalClass Classes CSS complémentaires.
      * @return string Balisage HTML sécurisé.

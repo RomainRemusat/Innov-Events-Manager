@@ -3,8 +3,14 @@
 require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 
+/** Supprime un compte client et ses données propres de manière coordonnée. */
 class AccountDeletionService
 {
+    /**
+     * Supprime les données SQL, les journaux et les fichiers propres au client.
+     *
+     * @return bool Vrai lorsque toutes les opérations ont abouti.
+     */
     public function delete(int $userId): bool
     {
         $db = Database::getInstance();

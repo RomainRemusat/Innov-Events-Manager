@@ -253,7 +253,7 @@ $totalTTC = $totalHT + $totalTVA;
 </table>
 
 <!-- =================================================================== -->
-<!-- PIED DE PAGE (Mentions Légales & Conformité RGPD - AT1)             -->
+<!-- PIED DE PAGE (Mentions légales et information sur les données)      -->
 <!-- =================================================================== -->
 <div class="footer">
     Innov'Events Manager — SARL au capital de 50 000 € — N° TVA Intracommunautaire : FR 12 890123456<br>
