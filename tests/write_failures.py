@@ -16,8 +16,8 @@ def main():
         require 'src/controllers/AuthController.php';
         require 'src/controllers/QuoteController.php';
         require 'src/controllers/AdminClientController.php';
-        require 'src/models/sql/Event.php';
-        require 'src/services/ConversionService.php';
+        require_once 'src/models/sql/Event.php';
+        require_once 'src/services/ConversionService.php';
         $class=new ReflectionClass(Database::class);
         $instance=$class->newInstanceWithoutConstructor();
         $class->getProperty('pdo')->setValue($instance,$db);

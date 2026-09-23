@@ -41,7 +41,12 @@ def request(client, action, data=None):
 
 def php(code):
     cmd = ["docker", "compose", "exec", "-T", "app", "php", "-r", code]
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Exécution PHP impossible ({result.returncode}).\n"
+            f"Sortie : {result.stdout}\nErreur : {result.stderr}"
+        )
     return json.loads(result.stdout.strip())
 
 

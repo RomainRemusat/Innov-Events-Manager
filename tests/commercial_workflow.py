@@ -9,7 +9,10 @@ Ce script teste de bout en bout le workflow commercial :
 6. Sécurisation du téléchargement PDF contre IDOR et Path Traversal.
 """
 
+import atexit
+import html
 import http.cookiejar
+import pathlib
 import re
 import secrets
 import subprocess
@@ -18,6 +21,7 @@ import urllib.parse
 import urllib.request
 
 BASE_URL = "http://localhost:8081/index.php"
+ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 class Session:
@@ -45,6 +49,45 @@ def get_csrf_token(session, url):
     if match:
         return match.group(1)
     return ""
+
+
+def find_prospect_id(page, company_name):
+    """Renvoie l'identifiant porté par la ligne du tableau de la société demandée."""
+    for row in re.findall(r'<tr\b[^>]*>[\s\S]*?</tr>', page, re.IGNORECASE):
+        if company_name not in html.unescape(row):
+            continue
+        match = re.search(r'action=view_prospect&(?:amp;)?id=(\d+)', row)
+        if match:
+            return match.group(1)
+    return None
+
+
+def cleanup_fixtures(suffix):
+    """Supprime les enregistrements et PDF créés par ce scénario."""
+    if not re.fullmatch(r'[0-9a-f]+', suffix):
+        return
+    email = f'client_{suffix}@example.com'
+    refusal_email = f'refusal_{suffix}@example.com'
+    query = (
+        "SELECT reference_pdf FROM devis d JOIN prospects p ON p.id=d.id_prospect "
+        f"WHERE p.email IN ('{email}','{refusal_email}');"
+    )
+    command = ['docker', 'compose', 'exec', '-T', 'db', 'mysql', '-uroot', '-proot_password',
+               '-N', 'innovevents_db', '-e', query]
+    result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
+    for reference in result.stdout.splitlines():
+        pdf = ROOT / 'storage' / 'devis' / pathlib.Path(reference).name
+        pdf.unlink(missing_ok=True)
+
+    cleanup = (
+        f"DELETE FROM users WHERE email='{email}';"
+        f"DELETE FROM prospects WHERE email IN ('{email}','{refusal_email}');"
+        f"DELETE FROM companies WHERE name IN ('Entreprise Test {suffix}','RefusalCorp {suffix}') "
+        "AND NOT EXISTS (SELECT 1 FROM users WHERE users.company_id=companies.id) "
+        "AND NOT EXISTS (SELECT 1 FROM prospects WHERE prospects.company_id=companies.id) "
+        "AND NOT EXISTS (SELECT 1 FROM events WHERE events.company_id=companies.id);"
+    )
+    subprocess.run(command[:-2] + ['-e', cleanup], cwd=ROOT, capture_output=True, text=True, check=False)
 
 
 def test_commercial_lifecycle():
@@ -76,6 +119,8 @@ def test_commercial_lifecycle():
 
     # Soumission valide
     unique_suffix = secrets.token_hex(3)
+    test_siren = str(secrets.randbelow(900_000_000) + 100_000_000)
+    atexit.register(cleanup_fixtures, unique_suffix)
     test_company = f"Entreprise Test {unique_suffix}"
     test_email = f"client_{unique_suffix}@example.com"
 
@@ -112,11 +157,8 @@ def test_commercial_lifecycle():
     _, text_prospects, _ = session_admin.get(f"{BASE_URL}?action=prospects")
     assert test_company in text_prospects
 
-    match_id = re.search(r'href=["\'][^"\']*action=view_prospect&(?:amp;)?id=(\d+)["\'][^>]*>[\s\S]*?' + re.escape(test_company), text_prospects)
-    if not match_id:
-        match_id = re.search(r'action=view_prospect&(?:amp;)?id=(\d+)', text_prospects)
-    assert match_id is not None, "Prospect ID non trouvé"
-    prospect_id = match_id.group(1)
+    prospect_id = find_prospect_id(text_prospects, test_company)
+    assert prospect_id is not None, "Prospect ID non trouvé"
     print(f"  [OK] Prospect repéré avec l'ID #{prospect_id}")
 
     _, text_detail, _ = session_admin.get(f"{BASE_URL}?action=view_prospect&id={prospect_id}")
@@ -141,9 +183,8 @@ def test_commercial_lifecycle():
         'rgpd_consent': 'on'
     })
     _, text_prospects_rej, _ = session_admin.get(f"{BASE_URL}?action=prospects")
-    match_rej_id = re.search(r'href=["\'][^"\']*action=view_prospect&(?:amp;)?id=(\d+)["\'][^>]*>[\s\S]*?' + re.escape(rejection_company), text_prospects_rej)
-    if match_rej_id:
-        rej_id = match_rej_id.group(1)
+    rej_id = find_prospect_id(text_prospects_rej, rejection_company)
+    if rej_id:
         csrf_rej = get_csrf_token(session_admin, f"{BASE_URL}?action=view_prospect&id={rej_id}")
         session_admin.post(f"{BASE_URL}?action=update_prospect_status", {
             'csrf_token': csrf_rej,
@@ -165,7 +206,7 @@ def test_commercial_lifecycle():
         'email': test_email,
         'phone': '0612345678',
         'company_name': test_company,
-        'siren': '987654321',
+        'siren': test_siren,
         'address': '10 quai Rambaud',
         'postal_code': '69002',
         'city': 'Lyon',
@@ -177,8 +218,7 @@ def test_commercial_lifecycle():
         'location': 'Lyon Confluence',
         'estimated_participants': '80',
         'description': 'Séminaire annuel des cadres avec cocktail déjeunatoire.',
-        'event_status': 'brouillon',
-        'is_visible': 'on'
+        'event_status': 'brouillon'
     }
     _, text_conv_res, final_url = session_admin.post(f"{BASE_URL}?action=process_conversion", conv_payload)
     assert "action=edit_devis" in final_url or "Édition Devis" in text_conv_res

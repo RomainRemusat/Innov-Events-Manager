@@ -1,11 +1,11 @@
-"""Test automatisé de validation CSRF et méthodes HTTP (B06 - ECF).
+"""Test automatisé de validation CSRF et des méthodes HTTP.
 
 Ce script vérifie :
 1. Le rejet de toute mutation sans jeton CSRF ou avec jeton invalide.
 2. Le blocage des requêtes GET sur les routes de mutation (ex: send_quote_to_client, delete_account, etc.).
 3. La bonne exécution des mutations légitimes avec un jeton CSRF valide en méthode POST.
 
-Couvre les périmètres de B06 :
+Couvre les opérations sensibles exposées par les contrôleurs :
 - Suppression de compte client (RGPD) et suppression client admin
 - Changement de statut prospect et événement
 - Ajout de note collaborative
@@ -112,7 +112,7 @@ def main():
     setup = "require 'src/config/Database.php'; $db = Database::getInstance();\n"
     clients_to_logout = []
 
-    print("=== DÉBUT DES TESTS CSRF & MÉTHODES HTTP (B06) ===", flush=True)
+    print("=== DÉBUT DES TESTS CSRF & MÉTHODES HTTP ===", flush=True)
 
     try:
         # Création des données synthétiques de test
@@ -610,7 +610,7 @@ def main():
         print("OK : delete_account protégé contre GET et CSRF", flush=True)
 
         print("\n===========================================================", flush=True)
-        print("TOUS LES CONTRÔLES CSRF ET MÉTHODES HTTP (B06) SONT CONFORMES ET VALIDÉS !", flush=True)
+        print("TOUS LES CONTRÔLES CSRF ET MÉTHODES HTTP SONT VALIDÉS !", flush=True)
         print("===========================================================", flush=True)
 
     except Exception as e:

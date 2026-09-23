@@ -139,11 +139,16 @@ def test_conversion_service_upload():
 
     $db = Database::getInstance();
 
-    // Création d'un prospect de test
     $prospectEmail = 'upload_test_' . bin2hex(random_bytes(4)) . '@test.com';
+    $tmpImg = null;
+    $fullDiskPath = null;
+    $success = false;
+    $error = null;
+    try {
+    // Création d'un prospect de test
     $stmt = $db->prepare("
         INSERT INTO prospects (company_name, contact_name, email, phone, event_type, event_date, location, estimated_participants, description, status)
-        VALUES ('Upload Co', 'Upload Tester', ?, '0600000000', 'Gala', '2026-10-15', 'Paris', 50, 'Test upload', 'à contacter')
+        VALUES ('Upload Co', 'Upload Tester', ?, '0600000000', 'Gala', '2027-10-15', 'Paris', 50, 'Test upload', 'à contacter')
     ");
     $stmt->execute([$prospectEmail]);
     $prospectId = (int)$db->lastInsertId();
@@ -169,7 +174,7 @@ def test_conversion_service_upload():
         'email'                  => $prospectEmail,
         'phone'                  => '0600000000',
         'event_title'            => 'Gala Upload Test',
-        'start_date'             => '2026-10-15 19:00:00',
+        'start_date'             => '2027-10-15T19:00:00',
         'location'               => 'Paris',
         'estimated_participants' => 50,
         'description'            => 'Event with secure uploaded image',
@@ -182,27 +187,32 @@ def test_conversion_service_upload():
     $event = $stmtEvt->fetch(PDO::FETCH_ASSOC);
 
     if (!$event || empty($event['image_path'])) {
-        echo json_encode(['success' => false, 'error' => "Aucune image enregistrée pour l'événement"]);
-        exit;
+        throw new RuntimeException("Aucune image enregistrée pour l'événement");
     }
 
     $imagePath = $event['image_path'];
     if (!str_ends_with($imagePath, '.png') || str_contains($imagePath, '.php')) {
-        echo json_encode(['success' => false, 'error' => "Chemin d'image non sécurisé : $imagePath"]);
-        exit;
+        throw new RuntimeException("Chemin d'image non sécurisé : $imagePath");
     }
 
     $fullDiskPath = __DIR__ . '/public/' . $imagePath;
     if (!file_exists($fullDiskPath)) {
-        echo json_encode(['success' => false, 'error' => "Fichier image absent sur le disque : $fullDiskPath"]);
-        exit;
+        throw new RuntimeException("Fichier image absent sur le disque : $fullDiskPath");
     }
 
-    // Nettoyage
-    @unlink($tmpImg);
-    @unlink($fullDiskPath);
+    $success = true;
+    } catch (Throwable $exception) {
+        $error = $exception->getMessage();
+    } finally {
+        if ($tmpImg !== null) @unlink($tmpImg);
+        if ($fullDiskPath !== null) @unlink($fullDiskPath);
+        $stmt = $db->prepare('DELETE FROM users WHERE email = ?');
+        $stmt->execute([$prospectEmail]);
+        $stmt = $db->prepare('DELETE FROM prospects WHERE email = ?');
+        $stmt->execute([$prospectEmail]);
+    }
 
-    echo json_encode(['success' => true]);
+    echo json_encode(['success' => $success, 'error' => $error]);
     '''
 
     res = json.loads(run_php(php_test))
