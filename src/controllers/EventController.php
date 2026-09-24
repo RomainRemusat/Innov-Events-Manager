@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../models/sql/Event.php';
+require_once __DIR__ . '/../models/sql/Review.php';
 
 /**
  * Contrôleur : EventController (Vitrine publique)
@@ -21,6 +22,7 @@ class EventController extends BaseController
     public function showHome(): void
     {
         $this->startSession();
+        $reviews = (new Review())->findApproved(3);
         require __DIR__ . '/../views/public/home.php';
     }
 

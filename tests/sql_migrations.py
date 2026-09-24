@@ -184,9 +184,11 @@ def main():
         assert snapshot("invalid") == before, "La migration en échec a modifié les données"
         print("OK : refus d'un rôle NULL même avec un mode SQL initialement permissif", flush=True)
 
-        # Les clés étrangères et l'unicité de l'email doivent rester actives.
+        # Les clés étrangères et les contraintes d'unicité doivent rester actives.
         assert sql("migrated", "START TRANSACTION; INSERT INTO notes (event_id, user_id, content) VALUES (2147483647, 1, 'test');", check=False).returncode != 0
         assert sql("migrated", "START TRANSACTION; INSERT INTO tasks (event_id, assigned_user_id, created_by, title) VALUES (2147483647, 2, 1, 'test');", check=False).returncode != 0
+        assert sql("migrated", "START TRANSACTION; INSERT INTO reviews (event_id, rating, comment) VALUES (2147483647, 5, 'Avis invalide');", check=False).returncode != 0
+        assert sql("migrated", "START TRANSACTION; INSERT INTO reviews (event_id, rating, comment) VALUES (1, 0, 'Note invalide');", check=False).returncode != 0
         assert sql("migrated", "START TRANSACTION; INSERT INTO users (email, password, firstname, lastname) SELECT email, password, firstname, lastname FROM users LIMIT 1;", check=False).returncode != 0
         assert rows("migrated", """
             START TRANSACTION;
@@ -198,7 +200,13 @@ def main():
             INSERT INTO notes (event_id, user_id, content) VALUES (NULL, 1, 'Note globale de test');
             ROLLBACK;
         """) == ["à contacter", "0.00\t0.00\tbrouillon"]
-        print("OK : clés étrangères, email unique, valeurs par défaut et note globale", flush=True)
+        assert rows("migrated", """
+            START TRANSACTION;
+            INSERT INTO reviews (event_id, rating, comment) VALUES (1, 5, 'Avis SQL valide');
+            SELECT status FROM reviews WHERE id = LAST_INSERT_ID();
+            ROLLBACK;
+        """) == ["en attente"]
+        print("OK : clés étrangères, unicité, valeurs par défaut, note globale et avis", flush=True)
     finally:
         if created:
             run("docker", "rm", "-fv", container)

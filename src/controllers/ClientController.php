@@ -23,6 +23,7 @@ require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/sql/Prospect.php';
 require_once __DIR__ . '/../models/sql/Devis.php';
 require_once __DIR__ . '/../models/sql/Event.php';
+require_once __DIR__ . '/../models/sql/Review.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
 
@@ -45,6 +46,7 @@ class ClientController extends BaseController
         $prospectModel = new Prospect();
         $myQuotes = $prospectModel->findClientRequests($clientId);
         $upcomingEvents = (new Event())->findUpcomingEvents(3, $clientId);
+        $reviewableEvents = (new Review())->findReviewableEvents($clientId);
         foreach ($myQuotes as &$quote) {
             $fileName = $quote['reference_pdf'] ?? '';
             $quote['is_pdf_available'] = $fileName !== ''

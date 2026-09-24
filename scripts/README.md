@@ -1,6 +1,6 @@
 **Scripts SQL — MySQL 8.0**
 
-Ces fichiers ciblent les huit tables actuellement utilisées par l'application.
+Ces fichiers ciblent les neuf tables actuellement utilisées par l'application.
 Le schéma de référence est `schema.sql`. Les `update_*.sql` alignent la base
 déjà structurée comme l'export `innovevents_db(6).sql` du 9 septembre 2026.
 Ils ne constituent plus une chaîne d'installation des anciennes versions du projet.
@@ -58,6 +58,7 @@ Les scripts sont indépendants sur cette version de départ ; ordre conseillé :
 4. `update_devis.sql` : statut obligatoire et montants par défaut à zéro.
 5. `update_event_note.sql` : statut événement obligatoire, notes globales autorisées.
 6. `update_tasks.sql` : tâches d'événement assignées aux employés et suivi de leur statut.
+7. `update_reviews.sql` : avis uniques par événement, note, modération et publication.
 
 Ces scripts peuvent être rejoués sur l'export indiqué et sur une base créée avec
 `schema.sql`. Ils ne changent ni les montants, ni les statuts déjà renseignés,

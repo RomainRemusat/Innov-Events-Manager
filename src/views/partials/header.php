@@ -89,7 +89,8 @@ $currentAction = $_GET['action'] ?? 'home';
                     <li class="nav-item">
                         <a class="nav-link text-uppercase fw-semibold <?= ($currentAction === 'reviews') ? 'active text-white' : 'text-white-50' ?>"
                            style="font-size: 0.85rem;"
-                           href="index.php#reviews">
+                           href="index.php?action=reviews"
+                           <?= ($currentAction === 'reviews') ? 'aria-current="page"' : '' ?>>
                             Avis
                         </a>
                     </li>

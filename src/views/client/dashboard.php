@@ -266,6 +266,57 @@ require __DIR__ . '/../partials/header.php';
                 </div>
             </div>
         </div>
+        <section class="mt-5" id="reviews" aria-labelledby="reviews-heading">
+            <div class="mb-3">
+                <h2 class="h4" id="reviews-heading">Mes avis</h2>
+                <p class="text-secondary">Après un événement terminé, partagez votre expérience. L’avis sera public après validation par notre équipe.</p>
+            </div>
+
+            <?php if (!$reviewableEvents): ?>
+                <p class="alert alert-light border">Aucun événement terminé ne peut encore recevoir un avis.</p>
+            <?php else: ?>
+                <div class="row g-4">
+                    <?php foreach ($reviewableEvents as $event): ?>
+                        <div class="col-lg-6">
+                            <article class="card h-100 shadow-sm">
+                                <div class="card-body">
+                                    <h3 class="h5"><?= htmlspecialchars($event['title'], ENT_QUOTES, 'UTF-8') ?></h3>
+                                    <p class="text-secondary small"><?= htmlspecialchars(date('d/m/Y', strtotime($event['start_date'])), ENT_QUOTES, 'UTF-8') ?></p>
+
+                                    <?php if ($event['status'] === Review::STATUS_APPROVED): ?>
+                                        <p class="badge text-bg-success">Publié</p>
+                                        <p class="text-warning" aria-label="Note : <?= (int)$event['rating'] ?> sur 5"><span aria-hidden="true"><?= str_repeat('★', (int)$event['rating']) ?></span></p>
+                                        <p><?= nl2br(htmlspecialchars($event['comment'], ENT_QUOTES, 'UTF-8')) ?></p>
+                                    <?php elseif ($event['status'] === Review::STATUS_PENDING): ?>
+                                        <p class="badge text-bg-warning">En attente de modération</p>
+                                        <p><?= nl2br(htmlspecialchars($event['comment'], ENT_QUOTES, 'UTF-8')) ?></p>
+                                    <?php else: ?>
+                                        <?php if ($event['status'] === Review::STATUS_REJECTED): ?>
+                                            <p class="alert alert-warning"><strong>Correction demandée :</strong> <?= htmlspecialchars($event['rejection_reason'], ENT_QUOTES, 'UTF-8') ?></p>
+                                        <?php endif; ?>
+                                        <form method="post" action="index.php?action=client_submit_review">
+                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="event_id" value="<?= (int)$event['event_id'] ?>">
+                                            <label class="form-label" for="rating_<?= (int)$event['event_id'] ?>">Note *</label>
+                                            <select class="form-select mb-3" id="rating_<?= (int)$event['event_id'] ?>" name="rating" required>
+                                                <option value="">Choisir</option>
+                                                <?php for ($rating = 5; $rating >= 1; $rating--): ?>
+                                                    <option value="<?= $rating ?>" <?= (int)($event['rating'] ?? 0) === $rating ? 'selected' : '' ?>><?= $rating ?> / 5</option>
+                                                <?php endfor; ?>
+                                            </select>
+                                            <label class="form-label" for="comment_<?= (int)$event['event_id'] ?>">Commentaire *</label>
+                                            <textarea class="form-control mb-2" id="comment_<?= (int)$event['event_id'] ?>" name="comment" minlength="10" maxlength="2000" rows="4" required><?= htmlspecialchars($event['comment'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+                                            <p class="form-text">En envoyant cet avis, vous acceptez sa publication après modération.</p>
+                                            <button class="btn btn-primary" type="submit"><?= $event['review_id'] ? 'Renvoyer mon avis' : 'Envoyer mon avis' ?></button>
+                                        </form>
+                                    <?php endif; ?>
+                                </div>
+                            </article>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </section>
     </main>
 
 <?php

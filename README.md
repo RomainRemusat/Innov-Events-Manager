@@ -22,7 +22,7 @@ ce dépôt.
 | Emails | PHPMailer vers MailHog pour une partie des envois ; certains appels `mail()` restent à corriger |
 | Environnement local | Docker Compose : application, MySQL, MongoDB, MailHog et phpMyAdmin |
 
-Les tâches et les avis ne disposent pas encore de tables ou de parcours complets.
+Les tâches assignées et les avis clients modérés disposent de parcours complets.
 Le stockage MongoDB ne garantit pas, à lui seul, l’immutabilité des journaux.
 
 **Installation locale**
@@ -172,7 +172,8 @@ client (p. 10) imposent un changement à la première connexion, via
 | Réponse client | Acceptation/refus/modification présents ; motif non imposé côté serveur, transitions et notifications à fiabiliser |
 | Clients, événements et notes | Listes, fiches, indicateurs et certaines mutations présents ; mutations structurelles réservées à ADMIN ; consultation et ajout de notes événement conservés pour EMPLOYEE. CRUD et profil à compléter |
 | Journalisation et sécurité | Appels de logs et affichage alignés sur le modèle MongoDB ; couverture des actions à compléter, autres permissions, téléchargement des PDF stockés et protections CSRF à corriger |
-| Mobile, tâches, avis, contact | Parcours dédiés non réalisés ; le dossier mobile est vide |
+| Tâches et avis | Tâches assignées avec progression des statuts ; avis après événement terminé, correction après refus, modération par le personnel et publication vérifiés |
+| Mobile et contact | Parcours dédiés non réalisés ; le dossier mobile est vide |
 | Mentions légales, CGU et CGV | Pages manquantes ; les liens légaux existants ne suffisent pas |
 | Accessibilité | Éléments sémantiques et responsive présents ; recette clavier/visuelle et corrections encore nécessaires, conformité RGAA non établie |
 | Conception | Charte, trois wireframes et trois mockups web, MCD et diagrammes présents ; modèles à actualiser, maquettes mobile et schéma d’architecture complet à fournir |
@@ -262,6 +263,16 @@ par accès direct, les lectures et notes employé, puis les mutations administra
 y compris un téléversement PNG. Il nettoie les dossiers, le PNG et le PDF créés.
 Les journaux et l’email de test envoyé à MailHog restent disponibles localement.
 Les protections CSRF manquantes et les autres fonctionnalités ECF restent à compléter.
+
+Vérification isolée du dépôt, de la modération et de la publication des avis :
+
+```bash
+python -B tests/reviews.py
+```
+
+Ce test crée puis supprime sa propre base SQL et sa collection MongoDB. Il vérifie
+la propriété des événements, le statut terminé, le cycle refus/correction/validation,
+les rôles, le CSRF, l’échappement HTML et les affichages client, personnel et public.
 
 **Git et suivi du projet**
 
