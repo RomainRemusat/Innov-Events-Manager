@@ -206,7 +206,8 @@ def main():
             SELECT status FROM reviews WHERE id = LAST_INSERT_ID();
             ROLLBACK;
         """) == ["en attente"]
-        print("OK : clés étrangères, unicité, valeurs par défaut, note globale et avis", flush=True)
+        assert rows("migrated", "SELECT setting_value FROM site_settings WHERE setting_key='quote_thank_you_message'")[0].startswith("Merci")
+        print("OK : clés étrangères, unicité, valeurs par défaut, note globale, avis et contenu public", flush=True)
     finally:
         if created:
             run("docker", "rm", "-fv", container)

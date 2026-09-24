@@ -31,6 +31,9 @@
                     <li class="mb-2">
                         <a href="index.php#services" class="text-white-50 text-decoration-none">Nos Services</a>
                     </li>
+                    <li class="mb-2">
+                        <a href="index.php?action=contact" class="text-white-50 text-decoration-none">Contact</a>
+                    </li>
 
                     <li class="mb-2">
                         <a href="index.php?action=show_register" class="text-white-50 text-decoration-none fw-semibold text-info">Créer un compte</a>
@@ -68,9 +71,10 @@
                 &copy; 2026 Innov'Events Manager. Tous droits réservés.
             </div>
             <div class="col-md-6 text-center text-md-end">
-                <a href="index.php?action=mentions_legales" class="text-white-50 text-decoration-none me-3">Mentions Légales</a>
-                <span class="text-secondary" aria-hidden="true">|</span>
-                <a href="index.php?action=politique_confidentialite" class="text-white-50 text-decoration-none ms-3">Politique de Confidentialité (RGPD)</a>
+                <a href="index.php?action=mentions_legales" class="text-white-50 text-decoration-none me-2">Mentions légales</a>
+                <a href="index.php?action=cgu" class="text-white-50 text-decoration-none me-2">CGU</a>
+                <a href="index.php?action=cgv" class="text-white-50 text-decoration-none me-2">CGV</a>
+                <a href="index.php?action=politique_confidentialite" class="text-white-50 text-decoration-none">Confidentialité</a>
             </div>
         </div>
     </div>

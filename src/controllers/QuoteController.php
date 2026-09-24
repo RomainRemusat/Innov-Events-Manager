@@ -18,6 +18,7 @@ require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../models/sql/Prospect.php';
 require_once __DIR__ . '/../models/sql/Devis.php';
 require_once __DIR__ . '/../models/sql/Prestation.php';
+require_once __DIR__ . '/../models/sql/SiteSetting.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
 
@@ -164,6 +165,7 @@ class QuoteController extends BaseController
 
         // 6. Délégation à la vue de confirmation
         $isSuccess = (bool)$result;
+        $thankYouMessage = (new SiteSetting())->get(SiteSetting::QUOTE_THANK_YOU, SiteSetting::DEFAULT_QUOTE_THANK_YOU);
         $pageTitle = "Statut de votre demande - Innov'Events";
 
         require __DIR__ . '/../views/partials/header.php';

@@ -59,6 +59,7 @@ Les scripts sont indépendants sur cette version de départ ; ordre conseillé :
 5. `update_event_note.sql` : statut événement obligatoire, notes globales autorisées.
 6. `update_tasks.sql` : tâches d'événement assignées aux employés et suivi de leur statut.
 7. `update_reviews.sql` : avis uniques par événement, note, modération et publication.
+8. `update_public_pages.sql` : contenu administrable du message de remerciement des demandes de devis.
 
 Ces scripts peuvent être rejoués sur l'export indiqué et sur une base créée avec
 `schema.sql`. Ils ne changent ni les montants, ni les statuts déjà renseignés,

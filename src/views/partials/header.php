@@ -98,7 +98,8 @@ $currentAction = $_GET['action'] ?? 'home';
                     <li class="nav-item">
                         <a class="nav-link text-uppercase fw-semibold <?= ($currentAction === 'contact') ? 'active text-white' : 'text-white-50' ?>"
                            style="font-size: 0.85rem;"
-                           href="index.php#contact">
+                           href="index.php?action=contact"
+                           <?= ($currentAction === 'contact') ? 'aria-current="page"' : '' ?>>
                             Contact
                         </a>
                     </li>

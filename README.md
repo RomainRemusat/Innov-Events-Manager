@@ -15,7 +15,7 @@ ce dépôt.
 | --- | --- |
 | Serveur web | PHP 8.2 / Apache, image `php:8.2-apache` |
 | Organisation | Point d’entrée `public/index.php`, contrôleurs, modèles, vues et services PHP |
-| SQL | MySQL 8.0 : `companies`, `users`, `prospects`, `devis`, `events`, `prestations`, `notes` |
+| SQL | MySQL 8.0 : données clients, commerciales, événements, tâches, avis et contenus publics administrables |
 | NoSQL | MongoDB pour les journaux d’actions ; connexion et affichage des journaux vérifiés |
 | Interface | HTML, CSS et Bootstrap 5 ; aucun SCSS trouvé dans le dépôt |
 | PDF | Dompdf |
@@ -173,8 +173,9 @@ client (p. 10) imposent un changement à la première connexion, via
 | Clients, événements et notes | Listes, fiches, indicateurs et certaines mutations présents ; mutations structurelles réservées à ADMIN ; consultation et ajout de notes événement conservés pour EMPLOYEE. CRUD et profil à compléter |
 | Journalisation et sécurité | Appels de logs et affichage alignés sur le modèle MongoDB ; couverture des actions à compléter, autres permissions, téléchargement des PDF stockés et protections CSRF à corriger |
 | Tâches et avis | Tâches assignées avec progression des statuts ; avis après événement terminé, correction après refus, modération par le personnel et publication vérifiés |
-| Mobile et contact | Parcours dédiés non réalisés ; le dossier mobile est vide |
-| Mentions légales, CGU et CGV | Pages manquantes ; les liens légaux existants ne suffisent pas |
+| Contact et pages légales | Formulaire de contact relié au SMTP ; mentions légales, confidentialité, CGU et CGV accessibles publiquement |
+| Contenus publics | Message de remerciement après demande de devis modifiable par l’administrateur |
+| Mobile | Parcours dédié non réalisé ; le dossier mobile est vide |
 | Accessibilité | Éléments sémantiques et responsive présents ; recette clavier/visuelle et corrections encore nécessaires, conformité RGAA non établie |
 | Conception | Charte, trois wireframes et trois mockups web, MCD et diagrammes présents ; modèles à actualiser, maquettes mobile et schéma d’architecture complet à fournir |
 | Tests applicatifs | Contrôles SQL, politique des mots de passe et connexion/journalisation disponibles ; couverture du parcours commercial aux trois niveaux et rapport de couverture encore à réaliser |
@@ -273,6 +274,16 @@ python -B tests/reviews.py
 Ce test crée puis supprime sa propre base SQL et sa collection MongoDB. Il vérifie
 la propriété des événements, le statut terminé, le cycle refus/correction/validation,
 les rôles, le CSRF, l’échappement HTML et les affichages client, personnel et public.
+
+Vérification des pages publiques, du contact et du message de devis administrable :
+
+```bash
+python -B tests/public_pages.py
+```
+
+Le test utilise une base temporaire et MailHog, puis supprime les données et le
+message créés. Il couvre les pages légales, la validation du contact, l’échappement
+HTML, le SMTP et la modification réservée à l’administrateur.
 
 **Git et suivi du projet**
 

@@ -22,9 +22,7 @@
                         <i class="bi bi-check2-circle display-4"></i>
                     </div>
                     <h2 class="fw-bold text-dark mb-3">Demande reçue !</h2>
-                    <p class="text-muted lh-base mb-4">
-                        Merci pour votre confiance. Votre demande est enregistrée et consultable par notre équipe, qui vous recontactera pour discuter de votre projet.
-                    </p>
+                    <p class="text-muted lh-base mb-4"><?= nl2br(htmlspecialchars($thankYouMessage, ENT_QUOTES, 'UTF-8')) ?></p>
                     <?php if (!$notificationSent): ?>
                         <p class="alert alert-warning" role="alert">L’email de notification à notre équipe n’a pas pu être envoyé. Votre demande est conservée ; il est inutile de la soumettre à nouveau.</p>
                     <?php endif; ?>

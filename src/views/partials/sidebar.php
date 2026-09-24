@@ -78,6 +78,13 @@ $navigation = [
                         'badgeClass' => 'bg-secondary',
                 ],
                 [
+                        'label'  => 'Contenus publics',
+                        'url'    => 'index.php?action=admin_site_settings',
+                        'active' => ['admin_site_settings'],
+                        'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
+                ],
+                [
                         'label'  => 'Logs (NoSQL)',
                         'url'    => 'index.php?action=mongo_logs',
                         'active' => ['mongo_logs'],

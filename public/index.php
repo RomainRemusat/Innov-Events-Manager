@@ -52,6 +52,7 @@ require_once __DIR__ . '/../src/controllers/AdminAccountController.php';
 require_once __DIR__ . '/../src/controllers/AdminEventController.php';
 require_once __DIR__ . '/../src/controllers/DashboardController.php';
 require_once __DIR__ . '/../src/controllers/ReviewController.php';
+require_once __DIR__ . '/../src/controllers/PublicPageController.php';
 
 // -----------------------------------------------------------------------------
 // 4. RÉSOLUTION DE L'ACTION ET ROUTAGE (White-list Pattern)
@@ -121,6 +122,18 @@ switch (true) {
         (new ReviewController())->showPublic();
         break;
 
+    case ($action === 'contact'):
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            (new PublicPageController())->submitContact();
+        } else {
+            (new PublicPageController())->showContact();
+        }
+        break;
+
+    case (in_array($action, ['mentions_legales', 'cgu', 'cgv', 'politique_confidentialite'], true)):
+        (new PublicPageController())->showLegal($action);
+        break;
+
     case ($action === 'devis'):
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (new QuoteController())->submitQuote($_POST);
@@ -138,6 +151,14 @@ switch (true) {
     // -------------------------------------------------------------------
     case ($action === 'admin_accounts'):
         (new AdminAccountController())->index();
+        break;
+
+    case ($action === 'admin_site_settings'):
+        (new PublicPageController())->showSettings();
+        break;
+
+    case ($action === 'admin_update_site_settings'):
+        (new PublicPageController())->updateSettings();
         break;
 
     case ($action === 'admin_manage_account'):
