@@ -69,8 +69,8 @@ class User
         try {
             // Préparation de la requête d'insertion sécurisée (Anti-Injection SQL)
             $stmt = $this->db->prepare("
-                INSERT INTO users (email, password, firstname, lastname, role, company_id, must_change_password)
-                VALUES (:email, :password, :firstname, :lastname, :role, :company_id, :must_change)
+                INSERT INTO users (email, password, firstname, lastname, username, role, company_id, must_change_password)
+                VALUES (:email, :password, :firstname, :lastname, :username, :role, :company_id, :must_change)
             ");
 
             // Exécution avec liaison dynamique des paramètres assainis
@@ -79,6 +79,7 @@ class User
                 'password'  => $data['password'], // Doit être déjà haché en amont (Bcrypt)
                 'firstname' => $data['firstname'],
                 'lastname'  => $data['lastname'],
+                'username'  => $data['username'] ?? null,
                 'role'      => $data['role'] ?? 'CLIENT',
                 'company_id' => $data['company_id'] ?? null,
                 'must_change' => !empty($data['must_change_password']) ? 1 : 0,
@@ -92,6 +93,14 @@ class User
             error_log("Erreur SQL lors de la création de l'utilisateur : " . $e->getMessage());
             return null;
         }
+    }
+
+    /** Recherche un compte par pseudo, avec la collation insensible à la casse de la base. */
+    public function findByUsername(string $username)
+    {
+        $stmt = $this->db->prepare('SELECT * FROM users WHERE username = :username LIMIT 1');
+        $stmt->execute(['username' => $username]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
     /**

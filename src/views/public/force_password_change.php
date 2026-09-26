@@ -15,7 +15,7 @@ require __DIR__ . '/../partials/header.php';
                     <div class="rounded-circle bg-warning bg-opacity-10 text-warning mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
                         <i class="bi bi-shield-lock-fill fs-2"></i>
                     </div>
-                    <h2 class="fw-bold text-dark tracking-tight">Sécurité de votre compte</h2>
+                    <h1 class="fw-bold text-dark tracking-tight h2">Sécurité de votre compte</h1>
                     <p class="text-muted small">Vous utilisez actuellement un mot de passe temporaire. Conformément à notre politique de sécurité, vous devez impérativement définir un nouveau mot de passe personnel pour accéder à votre espace.</p>
                 </div>
 

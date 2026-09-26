@@ -11,11 +11,11 @@ INSERT INTO companies (id, name, siren, address, postal_code, city) VALUES
 
 -- 2. Quatre comptes : un ADMIN, un EMPLOYEE, deux CLIENT (mot de passe : 'Password123!').
 -- Les deux clientes ont des dossiers distincts pour tester l'isolation des accès.
-INSERT INTO users (id, company_id, email, password, must_change_password, firstname, lastname, role, is_deleted) VALUES
-    (1, NULL, 'chloe@innovevents.fr', '$2y$10$cfwWHSuakfndahoUJEffxuTativi27EWkeaE4Ufo00LOn0N4Hh2rK', 0, 'Chloé', 'Admin', 'ADMIN', 0),
-    (2, NULL, 'jose@innovevents.fr', '$2y$10$J1yf7klsCmcK5UO72lWye.ubC9DYJOwX9zK5EwOxhE5iCVDEUtijm', 0, 'José', 'Employé', 'EMPLOYEE', 0),
-    (3, 2, 'client@luxe.com', '$2y$10$T3.JkYp.QnOvuV2riuPAjebz8g0GWHwOqnKsS/2BFlKVtMmz0YNpu', 0, 'Alice', 'Vancort', 'CLIENT', 0),
-    (4, 3, 'a.legrand@nextgen.io', '$2y$10$Angr1fW.BGoEUcvC78NJXexrV/8ZO3HXGM7zWq2vR02jk5ygQyHFK', 0, 'Amandine', 'Legrand', 'CLIENT', 0);
+INSERT INTO users (id, company_id, email, password, must_change_password, firstname, lastname, username, role, is_deleted) VALUES
+    (1, NULL, 'chloe@innovevents.fr', '$2y$10$cfwWHSuakfndahoUJEffxuTativi27EWkeaE4Ufo00LOn0N4Hh2rK', 0, 'Chloé', 'Admin', 'chloe_admin', 'ADMIN', 0),
+    (2, NULL, 'jose@innovevents.fr', '$2y$10$J1yf7klsCmcK5UO72lWye.ubC9DYJOwX9zK5EwOxhE5iCVDEUtijm', 0, 'José', 'Employé', 'jose_staff', 'EMPLOYEE', 0),
+    (3, 2, 'client@luxe.com', '$2y$10$T3.JkYp.QnOvuV2riuPAjebz8g0GWHwOqnKsS/2BFlKVtMmz0YNpu', 0, 'Alice', 'Vancort', 'alice_v', 'CLIENT', 0),
+    (4, 3, 'a.legrand@nextgen.io', '$2y$10$Angr1fW.BGoEUcvC78NJXexrV/8ZO3HXGM7zWq2vR02jk5ygQyHFK', 0, 'Amandine', 'Legrand', 'amandine_l', 'CLIENT', 0);
 
 -- 3. Insertion des Demandes de prospects
 INSERT INTO prospects (id, user_id, company_id, company_name, contact_name, email, phone, event_type, event_date, location, estimated_participants, budget, description, status) VALUES
