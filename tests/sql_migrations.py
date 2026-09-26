@@ -55,6 +55,7 @@ def main():
             table: hashlib.sha256(sql(database, "SELECT " + ','.join(
                 '`' + name + '`' for name in rows(database,
                     f"SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{database}' "
+                    "AND NOT (TABLE_NAME = 'users' AND COLUMN_NAME = 'username') "
                     f"AND TABLE_NAME = '{table}' AND NOT (TABLE_NAME = 'devis' AND COLUMN_NAME IN ('event_id', 'revision', 'change_reason')) "
                     "AND NOT (TABLE_NAME = 'prospects' AND COLUMN_NAME = 'rejection_reason') "
                     "AND NOT (TABLE_NAME = 'events' AND COLUMN_NAME IN ('publication_consent_at', 'publication_consent_by')) ORDER BY ORDINAL_POSITION")
@@ -141,6 +142,7 @@ def main():
                 ALTER TABLE users MODIFY role VARCHAR(50) NULL DEFAULT 'CLIENT',
                     MODIFY must_change_password TINYINT(1) NULL DEFAULT 0,
                     MODIFY is_deleted TINYINT(1) NULL DEFAULT 0;
+                ALTER TABLE users DROP COLUMN username;
                 ALTER TABLE prospects MODIFY status VARCHAR(50) NULL DEFAULT 'à contacter';
                 ALTER TABLE events MODIFY status VARCHAR(50) NULL DEFAULT 'brouillon';
                 ALTER TABLE devis MODIFY status VARCHAR(50) NULL DEFAULT 'brouillon',
@@ -184,10 +186,13 @@ def main():
         assert snapshot("invalid") == before, "La migration en échec a modifié les données"
         print("OK : refus d'un rôle NULL même avec un mode SQL initialement permissif", flush=True)
 
-        # Les clés étrangères et l'unicité de l'email doivent rester actives.
+        # Les clés étrangères et les contraintes d'unicité doivent rester actives.
         assert sql("migrated", "START TRANSACTION; INSERT INTO notes (event_id, user_id, content) VALUES (2147483647, 1, 'test');", check=False).returncode != 0
         assert sql("migrated", "START TRANSACTION; INSERT INTO tasks (event_id, assigned_user_id, created_by, title) VALUES (2147483647, 2, 1, 'test');", check=False).returncode != 0
+        assert sql("migrated", "START TRANSACTION; INSERT INTO reviews (event_id, rating, comment) VALUES (2147483647, 5, 'Avis invalide');", check=False).returncode != 0
+        assert sql("migrated", "START TRANSACTION; INSERT INTO reviews (event_id, rating, comment) VALUES (1, 0, 'Note invalide');", check=False).returncode != 0
         assert sql("migrated", "START TRANSACTION; INSERT INTO users (email, password, firstname, lastname) SELECT email, password, firstname, lastname FROM users LIMIT 1;", check=False).returncode != 0
+        assert sql("migrated", "START TRANSACTION; INSERT INTO users (email,password,firstname,lastname,username) VALUES ('pseudo1@example.test','x','P','Test','pseudo_unique'),('pseudo2@example.test','x','P','Test','pseudo_unique');", check=False).returncode != 0
         assert rows("migrated", """
             START TRANSACTION;
             INSERT INTO prospects (company_name, contact_name, email, phone, event_type)
@@ -198,7 +203,14 @@ def main():
             INSERT INTO notes (event_id, user_id, content) VALUES (NULL, 1, 'Note globale de test');
             ROLLBACK;
         """) == ["à contacter", "0.00\t0.00\tbrouillon"]
-        print("OK : clés étrangères, email unique, valeurs par défaut et note globale", flush=True)
+        assert rows("migrated", """
+            START TRANSACTION;
+            INSERT INTO reviews (event_id, rating, comment) VALUES (1, 5, 'Avis SQL valide');
+            SELECT status FROM reviews WHERE id = LAST_INSERT_ID();
+            ROLLBACK;
+        """) == ["en attente"]
+        assert rows("migrated", "SELECT setting_value FROM site_settings WHERE setting_key='quote_thank_you_message'")[0].startswith("Merci")
+        print("OK : clés étrangères, unicité, valeurs par défaut, note globale, avis et contenu public", flush=True)
     finally:
         if created:
             run("docker", "rm", "-fv", container)

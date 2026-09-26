@@ -32,7 +32,7 @@ unset($_SESSION['old_inputs']);
             <div class="col-md-8 col-lg-5">
 
                 <div class="text-center mb-4">
-                    <h2 class="fw-bold text-dark tracking-tight">Rejoignez Innov'Events</h2>
+                    <h1 class="fw-bold text-dark tracking-tight h2">Rejoignez Innov'Events</h1>
                     <p class="text-muted small">Créez votre compte pour suivre vos devis et planifier vos futurs événements.</p>
                 </div>
 
@@ -105,7 +105,8 @@ unset($_SESSION['old_inputs']);
                                    aria-required="true"
                                    placeholder="alice@luxe.com"
                                    autocomplete="email"
-                                   aria-describedby="emailHelp">
+                                   aria-describedby="emailHelp"
+                                   value="<?= htmlspecialchars($old['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                             <div id="emailHelp" class="form-text text-muted" style="font-size: 0.75rem;">Cette adresse servira d'identifiant de connexion.</div>
                             <div class="invalid-feedback">Veuillez saisir une adresse email valide.</div>
                         </div>

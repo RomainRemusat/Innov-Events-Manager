@@ -134,6 +134,33 @@ require __DIR__ . '/../partials/header.php';
         </div>
     </section>
 
+    <section class="py-5" id="reviews" aria-labelledby="home-reviews-heading">
+        <div class="container">
+            <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+                <div>
+                    <h2 class="fw-bold mb-2" id="home-reviews-heading">Ce sont nos clients qui en parlent.</h2>
+                    <p class="text-secondary mb-0">Avis publiés après modération par notre équipe.</p>
+                </div>
+                <a class="btn btn-outline-primary" href="index.php?action=reviews">Voir tous les avis</a>
+            </div>
+            <?php if (!$reviews): ?>
+                <p class="text-secondary">Les premiers témoignages seront bientôt disponibles.</p>
+            <?php else: ?>
+                <div class="row g-4">
+                    <?php foreach ($reviews as $review): ?>
+                        <div class="col-md-4">
+                            <article class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+                                <p class="text-warning mb-2" aria-label="Note : <?= (int)$review['rating'] ?> sur 5"><span aria-hidden="true"><?= str_repeat('★', (int)$review['rating']) ?><?= str_repeat('☆', 5 - (int)$review['rating']) ?></span></p>
+                                <blockquote class="mb-3">« <?= nl2br(htmlspecialchars($review['comment'], ENT_QUOTES, 'UTF-8')) ?> »</blockquote>
+                                <footer class="text-secondary small"><?= htmlspecialchars($review['firstname'], ENT_QUOTES, 'UTF-8') ?></footer>
+                            </div></article>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+    </section>
+
 <?php
 // Architecture Modulaire : Chargement du pied de page global (fermeture HTML incluse)
 require __DIR__ . '/../partials/footer.php';

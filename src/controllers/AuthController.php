@@ -98,9 +98,25 @@ class AuthController extends BaseController
         ];
 
         // 2. PROGRAMMATION DÉFENSIVE : CLAUSES DE GARDE (Guard Clauses)
-        if (empty($firstname) || empty($lastname) || empty($username) || !$email || empty($password)) {
+        $consent = isset($postData['rgpd_consent']);
+        if ($firstname === '' || $lastname === '' || !$email || $password === ''
+            || mb_strlen($firstname) > 100 || mb_strlen($lastname) > 100 || strlen((string)$email) > 255) {
             $_SESSION['old_inputs'] = $oldInputs;
             $_SESSION['register_error'] = "Tous les champs requis (*) doivent être correctement renseignés.";
+            header('Location: index.php?action=show_register');
+            exit();
+        }
+
+        if (!preg_match('/^[a-zA-Z0-9_]{3,20}$/', $username)) {
+            $_SESSION['old_inputs'] = $oldInputs;
+            $_SESSION['register_error'] = "Le pseudo doit contenir de 3 à 20 lettres, chiffres ou caractères _.";
+            header('Location: index.php?action=show_register');
+            exit();
+        }
+
+        if (!$consent) {
+            $_SESSION['old_inputs'] = $oldInputs;
+            $_SESSION['register_error'] = "Votre accord est nécessaire pour créer le compte client.";
             header('Location: index.php?action=show_register');
             exit();
         }
@@ -121,6 +137,13 @@ class AuthController extends BaseController
             exit();
         }
 
+        if ($userModel->findByUsername($username)) {
+            $_SESSION['old_inputs'] = $oldInputs;
+            $_SESSION['register_error'] = "Ce pseudo est déjà utilisé.";
+            header('Location: index.php?action=show_register');
+            exit();
+        }
+
         // 3. CHIFFREMENT STRICT DU MOT DE PASSE (Bcrypt conforme RGPD)
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
@@ -129,6 +152,7 @@ class AuthController extends BaseController
             'password'  => $hashedPassword,
             'firstname' => $firstname,
             'lastname'  => $lastname,
+            'username'  => $username,
             'role'      => 'CLIENT'
         ]);
 
@@ -204,7 +228,8 @@ class AuthController extends BaseController
             $_SESSION['user_email']     = $user['email'];
             $_SESSION['user_role']      = $user['role'];
             $_SESSION['user_firstname'] = $user['firstname'] ?? '';
-            $_SESSION['user_name']      = $user['firstname'] ?? 'Utilisateur';
+            $_SESSION['user_username']  = $user['username'] ?? '';
+            $_SESSION['user_name']      = $user['username'] ?: ($user['firstname'] ?? 'Utilisateur');
 
             $_SESSION['force_password_change'] = !empty($user['must_change_password']);
             if ($_SESSION['force_password_change']) {
@@ -218,11 +243,9 @@ class AuthController extends BaseController
                 'user_role' => $user['role']
             ]);
 
-            if (in_array($user['role'], ['ADMIN', 'EMPLOYEE'], true)) {
-                header('Location: index.php?action=dashboard');
-            } else {
-                header('Location: index.php?action=client_dashboard');
-            }
+            $defaultDestination = in_array($user['role'], ['ADMIN', 'EMPLOYEE'], true)
+                ? 'index.php?action=dashboard' : 'index.php?action=client_dashboard';
+            header('Location: ' . ($this->pullLoginDestination() ?? $defaultDestination));
             exit();
 
         } else {
@@ -364,8 +387,10 @@ class AuthController extends BaseController
             }
 
             // Retirer l'identité authentifiée et renouveler la session avant la reconnexion.
+            $returnTo = $_SESSION['login_return_to'] ?? null;
             $_SESSION = [];
             session_regenerate_id(true);
+            if (is_string($returnTo)) $_SESSION['login_return_to'] = $returnTo;
             $_SESSION['login_success'] = "Votre mot de passe a été personnalisé avec succès ! Veuillez vous reconnecter.";
             header('Location: index.php?action=login');
             exit();

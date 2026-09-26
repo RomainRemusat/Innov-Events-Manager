@@ -25,7 +25,7 @@ require __DIR__ . '/../partials/header.php';
             <div class="col-md-6 col-lg-4">
 
                 <div class="text-center mb-4">
-                    <h2 class="fw-bold text-dark tracking-tight">Espace Gestion</h2>
+                    <h1 class="fw-bold text-dark tracking-tight h2">Espace Gestion</h1>
                     <p class="text-muted small">Accédez à votre console d'administration sécurisée.</p>
                 </div>
 

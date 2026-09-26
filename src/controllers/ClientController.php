@@ -23,6 +23,7 @@ require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/sql/Prospect.php';
 require_once __DIR__ . '/../models/sql/Devis.php';
 require_once __DIR__ . '/../models/sql/Event.php';
+require_once __DIR__ . '/../models/sql/Review.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
 
@@ -45,6 +46,7 @@ class ClientController extends BaseController
         $prospectModel = new Prospect();
         $myQuotes = $prospectModel->findClientRequests($clientId);
         $upcomingEvents = (new Event())->findUpcomingEvents(3, $clientId);
+        $reviewableEvents = (new Review())->findReviewableEvents($clientId);
         foreach ($myQuotes as &$quote) {
             $fileName = $quote['reference_pdf'] ?? '';
             $quote['is_pdf_available'] = $fileName !== ''
@@ -189,6 +191,7 @@ class ClientController extends BaseController
             'firstname' => $_SESSION['user_firstname'],
             'lastname' => $_SESSION['user_lastname'],
             'email' => $_SESSION['user_email'],
+            'username' => $_SESSION['user_username'] ?? '',
         ];
         unset($_SESSION['profile_inputs']);
 
@@ -217,6 +220,7 @@ class ClientController extends BaseController
         $userId = (int)$_SESSION['user_id'];
         $userModel = new User();
         $user = $userModel->findById($userId);
+        $profile['username'] = (string)($user['username'] ?? $_SESSION['user_username'] ?? '');
         $password = is_string($postData['current_password'] ?? null) ? $postData['current_password'] : '';
         unset($_SESSION['client_success'], $_SESSION['client_error']);
 
@@ -261,6 +265,12 @@ class ClientController extends BaseController
         }
 
         $this->validateCsrf($_POST);
+
+        if (($_POST['confirm_delete'] ?? '') !== '1') {
+            $_SESSION['client_error'] = 'Confirmez explicitement la suppression définitive de votre compte.';
+            header('Location: index.php?action=client_profile');
+            exit();
+        }
 
         $userId = (int)($_SESSION['user_id'] ?? 0);
         require_once __DIR__ . '/../services/AccountDeletionService.php';

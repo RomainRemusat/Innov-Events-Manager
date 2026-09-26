@@ -44,6 +44,20 @@ abstract class BaseController
         $this->startSession();
 
         if (empty($_SESSION['user_id'])) {
+            if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+                $action = is_string($_GET['action'] ?? null) ? $_GET['action'] : '';
+                if ($action !== '' && !in_array($action, ['login', 'logout', 'force_password_change'], true)
+                    && preg_match('/^[a-zA-Z0-9_]+$/', $action)) {
+                    $params = ['action' => $action];
+                    foreach ($_GET as $key => $value) {
+                        if ($key !== 'action' && is_string($key) && preg_match('/^[a-zA-Z0-9_]+$/', $key)
+                            && is_scalar($value) && strlen((string)$value) <= 255) {
+                            $params[$key] = (string)$value;
+                        }
+                    }
+                    $_SESSION['login_return_to'] = 'index.php?' . http_build_query($params);
+                }
+            }
             header('Location: index.php?action=login');
             exit();
         }
@@ -73,7 +87,8 @@ abstract class BaseController
         $_SESSION['user_role'] = $user['role'];
         $_SESSION['user_firstname'] = $user['firstname'];
         $_SESSION['user_lastname'] = $user['lastname'];
-        $_SESSION['user_name'] = $user['firstname'];
+        $_SESSION['user_username'] = $user['username'] ?? '';
+        $_SESSION['user_name'] = $user['username'] ?: $user['firstname'];
         $_SESSION['user_email'] = $user['email'];
         $_SESSION['force_password_change'] = !empty($user['must_change_password']);
         if ($_SESSION['force_password_change'] && !$allowPasswordChange) {
@@ -86,6 +101,15 @@ abstract class BaseController
             header('Location: index.php?action=' . $destination);
             exit();
         }
+    }
+
+    /** Consomme la destination interne mémorisée avant l'authentification. */
+    protected function pullLoginDestination(): ?string
+    {
+        $destination = $_SESSION['login_return_to'] ?? null;
+        unset($_SESSION['login_return_to']);
+        return is_string($destination) && str_starts_with($destination, 'index.php?action=')
+            ? $destination : null;
     }
 
     /**

@@ -46,6 +46,8 @@ $currentAction = $_GET['action'] ?? 'home';
 </head>
 <body>
 
+<a class="skip-link d-none" href="#after-navigation">Aller au contenu principal</a>
+
 <header>
     <nav class="navbar navbar-expand-lg navbar-dark bg-navbar-custom sticky-top border-bottom border-secondary py-3" aria-label="Navigation principale">
         <div class="container">
@@ -89,7 +91,8 @@ $currentAction = $_GET['action'] ?? 'home';
                     <li class="nav-item">
                         <a class="nav-link text-uppercase fw-semibold <?= ($currentAction === 'reviews') ? 'active text-white' : 'text-white-50' ?>"
                            style="font-size: 0.85rem;"
-                           href="index.php#reviews">
+                           href="index.php?action=reviews"
+                           <?= ($currentAction === 'reviews') ? 'aria-current="page"' : '' ?>>
                             Avis
                         </a>
                     </li>
@@ -97,7 +100,8 @@ $currentAction = $_GET['action'] ?? 'home';
                     <li class="nav-item">
                         <a class="nav-link text-uppercase fw-semibold <?= ($currentAction === 'contact') ? 'active text-white' : 'text-white-50' ?>"
                            style="font-size: 0.85rem;"
-                           href="index.php#contact">
+                           href="index.php?action=contact"
+                           <?= ($currentAction === 'contact') ? 'aria-current="page"' : '' ?>>
                             Contact
                         </a>
                     </li>
@@ -133,7 +137,7 @@ $currentAction = $_GET['action'] ?? 'home';
                     <?php endif; ?>
 
                     <!-- CTA Principal Demande de devis -->
-                    <li class="nav-item">
+                    <li class="nav-item nav-item mt-3 mt-lg-0">
                         <a class="btn btn-primary btn-sm fw-bold shadow-sm" href="index.php?action=devis">
                             <i class="bi bi-chat-left-dots me-2" aria-hidden="true"></i>Demander un Devis
                         </a>
@@ -143,3 +147,4 @@ $currentAction = $_GET['action'] ?? 'home';
         </div>
     </nav>
 </header>
+<span id="after-navigation" class="content-anchor" tabindex="-1"></span>

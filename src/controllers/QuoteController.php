@@ -18,6 +18,7 @@ require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../models/sql/Prospect.php';
 require_once __DIR__ . '/../models/sql/Devis.php';
 require_once __DIR__ . '/../models/sql/Prestation.php';
+require_once __DIR__ . '/../models/sql/SiteSetting.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
 
@@ -67,6 +68,7 @@ class QuoteController extends BaseController
         $participants = isset($data['estimated_participants']) && $data['estimated_participants'] !== '' ? (int)$data['estimated_participants'] : null;
         $budget       = isset($data['budget']) && $data['budget'] !== '' ? (float)$data['budget'] : null;
         $description  = trim($data['description'] ?? '');
+        $consent      = isset($data['rgpd_consent']);
 
         // Validation des invariants obligatoires
         $errors = [];
@@ -105,8 +107,15 @@ class QuoteController extends BaseController
         if (empty($description) || mb_strlen($description) < 5) {
             $errors[] = "La description du projet doit comporter au moins 5 caractères.";
         }
+        if (mb_strlen($companyName) > 255 || mb_strlen($contactName) > 255 || mb_strlen($phone) > 50
+            || mb_strlen($eventType) > 100 || mb_strlen($location) > 255 || strlen($description) > 65535) {
+            $errors[] = "Un ou plusieurs champs dépassent la longueur autorisée.";
+        }
         if ($budget !== null && $budget < 0) {
             $errors[] = "Le budget estimé ne peut pas être négatif.";
+        }
+        if (!$consent) {
+            $errors[] = "Votre accord est nécessaire pour traiter la demande de devis.";
         }
 
         if (!empty($errors)) {
@@ -164,6 +173,7 @@ class QuoteController extends BaseController
 
         // 6. Délégation à la vue de confirmation
         $isSuccess = (bool)$result;
+        $thankYouMessage = (new SiteSetting())->get(SiteSetting::QUOTE_THANK_YOU, SiteSetting::DEFAULT_QUOTE_THANK_YOU);
         $pageTitle = "Statut de votre demande - Innov'Events";
 
         require __DIR__ . '/../views/partials/header.php';
@@ -239,9 +249,10 @@ class QuoteController extends BaseController
 
         $devisId   = (int)($postData['devis_id'] ?? 0);
         $libelle   = trim($postData['libelle'] ?? '');
-        $montantHt = (float)($postData['montant_ht'] ?? 0);
+        $amount = $postData['montant_ht'] ?? null;
+        $montantHt = is_scalar($amount) && is_numeric((string)$amount) ? (float)$amount : -1;
 
-        if ($devisId > 0 && !empty($libelle) && $montantHt >= 0) {
+        if ($devisId > 0 && $libelle !== '' && mb_strlen($libelle) <= 255 && $montantHt >= 0 && $montantHt <= 99999999.99) {
             // Verrouillage contractuel : modification interdite sur un devis déjà validé/accepté
             $devisModel = new Devis();
             $devis = $devisModel->findWithProspect($devisId);
@@ -254,7 +265,13 @@ class QuoteController extends BaseController
             $prestationModel = new Prestation();
             if (!$prestationModel->create($devisId, $libelle, $montantHt)) {
                 $_SESSION['flash_error'] = "Prestation non ajoutée : devis verrouillé, introuvable ou erreur d'enregistrement.";
+            } else {
+                (new Log())->addLog('CREATION_PRESTATION', (int)$_SESSION['user_id'], [
+                    'devis_id' => $devisId, 'libelle' => $libelle, 'montant_ht' => $montantHt,
+                ]);
             }
+        } else {
+            $_SESSION['flash_error'] = 'Renseignez un libellé de 255 caractères maximum et un montant valide.';
         }
 
         header("Location: index.php?action=edit_devis&id=" . $devisId);
@@ -293,6 +310,10 @@ class QuoteController extends BaseController
             $prestationModel = new Prestation();
             if (!$prestationModel->delete($prestationId, $devisId)) {
                 $_SESSION['flash_error'] = "Prestation non supprimée : devis verrouillé, ligne introuvable ou erreur d'enregistrement.";
+            } else {
+                (new Log())->addLog('SUPPRESSION_PRESTATION', (int)$_SESSION['user_id'], [
+                    'devis_id' => $devisId, 'prestation_id' => $prestationId,
+                ]);
             }
         }
 

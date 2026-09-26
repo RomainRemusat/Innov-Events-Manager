@@ -51,6 +51,11 @@ require __DIR__ . '/../partials/header.php';
                                 <input type="text" id="lastname" name="lastname" class="form-control" autocomplete="family-name" maxlength="100" required value="<?= htmlspecialchars($profile['lastname'], ENT_QUOTES, 'UTF-8') ?>">
                             </div>
                             <div class="mb-3">
+                                <label for="username" class="form-label text-muted small fw-bold">Pseudo</label>
+                                <input type="text" id="username" class="form-control" readonly value="<?= htmlspecialchars($profile['username'] ?: 'Non renseigné', ENT_QUOTES, 'UTF-8') ?>">
+                                <p class="form-text">Le pseudo a été choisi lors de l’inscription.</p>
+                            </div>
+                            <div class="mb-3">
                                 <label for="email" class="form-label text-muted small fw-bold">Adresse email de connexion *</label>
                                 <input type="email" id="email" name="email" class="form-control" autocomplete="email" maxlength="255" required value="<?= htmlspecialchars($profile['email'], ENT_QUOTES, 'UTF-8') ?>">
                             </div>
@@ -78,7 +83,11 @@ require __DIR__ . '/../partials/header.php';
                         </p>
                         <form action="index.php?action=client_delete_account" method="POST">
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
-                            <button type="submit" class="btn btn-danger fw-bold w-100 py-2 shadow-sm" onclick="return confirm('Voulez-vous supprimer définitivement votre compte et les données associées décrites ci-dessus ? Cette action est irréversible.');">
+                            <div class="form-check text-start mb-3">
+                                <input class="form-check-input" type="checkbox" id="confirm-delete-account" name="confirm_delete" value="1" required>
+                                <label class="form-check-label small" for="confirm-delete-account">Je confirme la suppression définitive de mon compte et des données décrites ci-dessus.</label>
+                            </div>
+                            <button type="submit" class="btn btn-danger fw-bold w-100 py-2 shadow-sm">
                                 <i class="bi bi-trash3-fill me-2"></i>SUPPRIMER MON COMPTE
                             </button>
                         </form>

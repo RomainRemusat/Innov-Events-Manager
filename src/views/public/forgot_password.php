@@ -21,7 +21,7 @@ require __DIR__ . '/../partials/header.php';
                     <div class="rounded-circle bg-primary bg-opacity-10 text-primary mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
                         <i class="bi bi-key-fill fs-2" aria-hidden="true"></i>
                     </div>
-                    <h2 class="fw-bold text-dark tracking-tight">Mot de passe oublié ?</h2>
+                    <h1 class="fw-bold text-dark tracking-tight h2">Mot de passe oublié ?</h1>
                     <p class="text-muted small">Saisissez l'adresse e-mail associée à votre compte. Si elle existe dans notre base, nous vous enverrons un mot de passe temporaire.</p>
                 </div>
 

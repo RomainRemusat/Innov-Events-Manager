@@ -220,6 +220,7 @@ def main():
                 "username": "jeanvalide",
                 "email": f"{marker}_reg_ok@test.com",
                 "password": "Password123!",
+                "rgpd_consent": "on",
             },
         )
         assert code == 302 and "login" in headers.get("Location", ""), "Inscription réussie attendue avec token valide"
@@ -575,6 +576,19 @@ def main():
             + f"echo json_encode((int)$db->query('SELECT COUNT(*) FROM prestations WHERE devis_id = {ids['editable_quote']}')->fetchColumn());"
         )
         assert prest_count_after == 1
+        prestation_logs = php(
+            f"""
+            $manager = new MongoDB\\Driver\\Manager('mongodb://mongodb:27017');
+            $query = new MongoDB\\Driver\\Query([
+                'type_action' => ['$in' => ['CREATION_PRESTATION', 'SUPPRESSION_PRESTATION']],
+                'details.devis_id' => {ids['editable_quote']}
+            ]);
+            $types = [];
+            foreach ($manager->executeQuery('innovevents_nosql.logs', $query) as $log) $types[] = $log->type_action;
+            echo json_encode($types);
+            """
+        )
+        assert sorted(prestation_logs) == ["CREATION_PRESTATION", "SUPPRESSION_PRESTATION"]
         print("OK : add_prestation et delete_prestation protégés par CSRF et POST", flush=True)
 
         # ---------------------------------------------------------------------
@@ -600,7 +614,7 @@ def main():
         assert client_exists == 1
 
         # 10.c En POST valide avec CSRF
-        code, headers, _ = request(c_client, "client_delete_account", {"csrf_token": client_csrf})
+        code, headers, _ = request(c_client, "client_delete_account", {"csrf_token": client_csrf, "confirm_delete": "1"})
         assert code == 302 and ("index.php" in headers["Location"] or headers["Location"] == "index.php")
         client_exists = php(
             setup

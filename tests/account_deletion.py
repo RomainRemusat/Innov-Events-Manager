@@ -89,13 +89,13 @@ def main():
         """)
         # Un chemin sortant du dossier autorisé bloque sans effacer le fichier cible.
         php(prefix + f"$db->exec(\"UPDATE events SET image_path = '../storage/devis/{marker}.pdf' WHERE id = {event}\"); echo json_encode(true);")
-        assert request(owner, 'client_delete_account', dict(csrf_token=token))[1]['Location'].endswith('=client_profile')
+        assert request(owner, 'client_delete_account', dict(csrf_token=token, confirm_delete='1'))[1]['Location'].endswith('=client_profile')
         assert "certains éléments ont pu être effacés" in request(owner, 'client_profile')[2]
         assert php(prefix + f"echo json_encode((bool)(new User())->findById({ids[0]}) && file_exists('storage/devis/{marker}.pdf'));")
         php(prefix + f"$db->exec(\"UPDATE events SET image_path = 'uploads/events/{marker}.png' WHERE id = {event}\"); echo json_encode(true);")
         print('OK : échecs contrôlés, rollback SQL et session conservée', flush=True)
 
-        code, headers, body = request(owner, 'client_delete_account', dict(csrf_token=token, user_id=ids[1]))
+        code, headers, body = request(owner, 'client_delete_account', dict(csrf_token=token, user_id=ids[1], confirm_delete='1'))
         assert code == 302 and headers['Location'].endswith('=login'), body
         assert any('PHPSESSID=deleted' in value for value in headers.get_all('Set-Cookie', []))
         assert request(second_session, 'client_profile')[1]['Location'].endswith('=login')

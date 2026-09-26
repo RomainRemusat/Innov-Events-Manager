@@ -394,6 +394,11 @@ class PdfController extends BaseController
             $pdfContent = file_get_contents($filePath);
             if ($pdfContent === false) throw new RuntimeException('Lecture PDF impossible.');
             $db->commit();
+            (new Log())->addLog('TELECHARGEMENT_DEVIS', $userId, [
+                'devis_id' => (int)($document['id_devis'] ?? 0),
+                'file' => $safeFileName,
+                'role' => $userRole,
+            ]);
 
             // Transfert sécurisé du fichier binaire
             header('Content-Type: application/pdf');

@@ -15,14 +15,14 @@ ce dépôt.
 | --- | --- |
 | Serveur web | PHP 8.2 / Apache, image `php:8.2-apache` |
 | Organisation | Point d’entrée `public/index.php`, contrôleurs, modèles, vues et services PHP |
-| SQL | MySQL 8.0 : `companies`, `users`, `prospects`, `devis`, `events`, `prestations`, `notes` |
+| SQL | MySQL 8.0 : données clients, commerciales, événements, tâches, avis et contenus publics administrables |
 | NoSQL | MongoDB pour les journaux d’actions ; connexion et affichage des journaux vérifiés |
 | Interface | HTML, CSS et Bootstrap 5 ; aucun SCSS trouvé dans le dépôt |
 | PDF | Dompdf |
 | Emails | PHPMailer vers MailHog pour une partie des envois ; certains appels `mail()` restent à corriger |
 | Environnement local | Docker Compose : application, MySQL, MongoDB, MailHog et phpMyAdmin |
 
-Les tâches et les avis ne disposent pas encore de tables ou de parcours complets.
+Les tâches assignées et les avis clients modérés disposent de parcours complets.
 Le stockage MongoDB ne garantit pas, à lui seul, l’immutabilité des journaux.
 
 **Installation locale**
@@ -165,16 +165,18 @@ client (p. 10) imposent un changement à la première connexion, via
 | Docker local | Cinq services démarrés lors de l’audit ; build de production et configuration par environnement à finaliser |
 | SQL | Création manuelle, données de démonstration et mises à jour alignées sur l’export du 09/09/2026 ; tests de migration réussis |
 | Événements publics | Liste, détail, filtres dates/type/thème ; brouillons exclus et montants commerciaux non affichés |
-| Inscription et connexion | Connexion des quatre comptes, session régénérée, redirection et journal MongoDB vérifiés ; inscription et mot de passe temporaire présents, contrôles de sécurité et retour à l’action initiale à compléter |
-| Demande de devis | Formulaire et insertion présents, appel de journalisation corrigé ; le PHP force encore `en attente` et ignore certaines validations |
+| Inscription et connexion | Pseudo unique persisté, consentement serveur, session régénérée, retour à la page initiale et journaux MongoDB vérifiés |
+| Demande de devis | Formulaire, consentement et limites contrôlés côté serveur ; insertion, confirmation administrable et journalisation vérifiées |
 | Conversion | Colonne `start_date` corrigée ; conversion avec compte existant et rollback vérifiés sur bases temporaires. Parcours HTTP, nouveau compte et image à compléter |
 | Devis et PDF | Génération réservée à ADMIN et au client propriétaire, testée sur Docker ; envois et téléchargement client restent à corriger |
 | Réponse client | Acceptation/refus/modification présents ; motif non imposé côté serveur, transitions et notifications à fiabiliser |
 | Clients, événements et notes | Listes, fiches, indicateurs et certaines mutations présents ; mutations structurelles réservées à ADMIN ; consultation et ajout de notes événement conservés pour EMPLOYEE. CRUD et profil à compléter |
-| Journalisation et sécurité | Appels de logs et affichage alignés sur le modèle MongoDB ; couverture des actions à compléter, autres permissions, téléchargement des PDF stockés et protections CSRF à corriger |
-| Mobile, tâches, avis, contact | Parcours dédiés non réalisés ; le dossier mobile est vide |
-| Mentions légales, CGU et CGV | Pages manquantes ; les liens légaux existants ne suffisent pas |
-| Accessibilité | Éléments sémantiques et responsive présents ; recette clavier/visuelle et corrections encore nécessaires, conformité RGAA non établie |
+| Journalisation et sécurité | Mutations sensibles et téléchargements PDF journalisés ; permissions, méthodes HTTP, CSRF et confirmations destructives testés |
+| Tâches et avis | Tâches assignées avec progression des statuts ; avis après événement terminé, correction après refus, modération par le personnel et publication vérifiés |
+| Contact et pages légales | Formulaire de contact relié au SMTP ; mentions légales, confidentialité, CGU et CGV accessibles publiquement |
+| Contenus publics | Message de remerciement après demande de devis modifiable par l’administrateur |
+| Mobile | Parcours dédié non réalisé ; le dossier mobile est vide |
+| Accessibilité | Recette structurelle et visuelle effectuée : focus, lien d’évitement, contrastes personnalisés, labels et responsive corrigés ; conformité RGAA non certifiée |
 | Conception | Charte, trois wireframes et trois mockups web, MCD et diagrammes présents ; modèles à actualiser, maquettes mobile et schéma d’architecture complet à fournir |
 | Tests applicatifs | Contrôles SQL, politique des mots de passe et connexion/journalisation disponibles ; couverture du parcours commercial aux trois niveaux et rapport de couverture encore à réaliser |
 | CI/CD et production | Aucun pipeline ni déploiement en ligne documenté dans le dépôt ; hébergeur à choisir/configurer |
@@ -261,7 +263,39 @@ Le test crée des dossiers synthétiques sur le Docker local et contrôle les re
 par accès direct, les lectures et notes employé, puis les mutations administrateur,
 y compris un téléversement PNG. Il nettoie les dossiers, le PNG et le PDF créés.
 Les journaux et l’email de test envoyé à MailHog restent disponibles localement.
-Les protections CSRF manquantes et les autres fonctionnalités ECF restent à compléter.
+Les fonctionnalités mobiles, le déploiement et les autres livrables ECF restent à compléter.
+
+Vérification des finitions web :
+
+```bash
+python -B tests/web_finishing.py
+```
+
+Le test vérifie la persistance du pseudo, le consentement serveur, le retour après
+connexion, la structure HTML des pages publiques, les labels, le focus, les
+contrastes personnalisés et l’inventaire des actions sensibles journalisées. Le
+compte, les messages et les données synthétiques sont supprimés après exécution.
+La recette détaillée est disponible dans `docs/RECETTE_WEB_2026-09-24.md`.
+
+Vérification isolée du dépôt, de la modération et de la publication des avis :
+
+```bash
+python -B tests/reviews.py
+```
+
+Ce test crée puis supprime sa propre base SQL et sa collection MongoDB. Il vérifie
+la propriété des événements, le statut terminé, le cycle refus/correction/validation,
+les rôles, le CSRF, l’échappement HTML et les affichages client, personnel et public.
+
+Vérification des pages publiques, du contact et du message de devis administrable :
+
+```bash
+python -B tests/public_pages.py
+```
+
+Le test utilise une base temporaire et MailHog, puis supprime les données et le
+message créés. Il couvre les pages légales, la validation du contact, l’échappement
+HTML, le SMTP et la modification réservée à l’administrateur.
 
 **Git et suivi du projet**
 

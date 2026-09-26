@@ -57,6 +57,28 @@ class MailService
         return $mail;
     }
 
+    /** Transmet un message du formulaire public à l'équipe. */
+    public function sendContactMessage(string $name, string $email, string $subject, string $message): bool
+    {
+        try {
+            $mail = $this->createMailer();
+            $mail->addAddress('contact@innovevents.fr', "Innov'Events");
+            $mail->addReplyTo($email, $name);
+            $mail->isHTML(true);
+            $mail->Subject = '[Contact site] ' . $subject;
+            $safeName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+            $safeEmail = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
+            $safeSubject = htmlspecialchars($subject, ENT_QUOTES, 'UTF-8');
+            $safeMessage = nl2br(htmlspecialchars($message, ENT_QUOTES, 'UTF-8'));
+            $mail->Body = "<h2>Nouveau message depuis le site</h2><p><strong>Nom :</strong> {$safeName}<br><strong>Email :</strong> {$safeEmail}<br><strong>Objet :</strong> {$safeSubject}</p><p>{$safeMessage}</p>";
+            $mail->AltBody = "Nom : {$name}\nEmail : {$email}\nObjet : {$subject}\n\n{$message}";
+            return $mail->send();
+        } catch (Exception $error) {
+            error_log('Défaut MailService lors du formulaire de contact : ' . $error->getMessage());
+            return false;
+        }
+    }
+
     /**
      * Envoie l'e-mail de bienvenue et de confirmation d'inscription à un nouveau client.
      *
