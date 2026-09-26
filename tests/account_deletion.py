@@ -96,7 +96,10 @@ def main():
         print('OK : échecs contrôlés, rollback SQL et session conservée', flush=True)
 
         code, headers, body = request(owner, 'client_delete_account', dict(csrf_token=token, user_id=ids[1], confirm_delete='1'))
-        assert code == 302 and headers['Location'].endswith('=login'), body
+        location = headers.get('Location', '')
+        assert code == 302 and location.endswith('=login'), (
+            f'Suppression non finalisée : HTTP {code}, Location={location!r}, body={body!r}'
+        )
         assert any('PHPSESSID=deleted' in value for value in headers.get_all('Set-Cookie', []))
         assert request(second_session, 'client_profile')[1]['Location'].endswith('=login')
         assert php(prefix + mongo + rf"""

@@ -29,4 +29,8 @@ RUN a2enmod rewrite
 COPY . /var/www/html/
 COPY public/.user.ini /usr/local/etc/php/conf.d/uploads.ini
 
+# Apache doit pouvoir enregistrer et supprimer les fichiers créés par l'application.
+RUN mkdir -p /var/www/html/storage/devis /var/www/html/public/uploads/events && \
+    chown -R www-data:www-data /var/www/html/storage /var/www/html/public/uploads
+
 EXPOSE 80
