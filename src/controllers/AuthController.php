@@ -15,16 +15,18 @@
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    1.4.0
+ * @version    1.6.0
  */
 
-// Chargement des dépendances métiers de la couche d'accès aux données (DAL) et des services
+// Chargement du contrôleur de base et des dépendances métiers
+require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/MailService.php';
+require_once __DIR__ . '/../services/PasswordResetService.php';
 
-
-class AuthController
+/** Coordonne l'inscription, l'authentification et le renouvellement des accès. */
+class AuthController extends BaseController
 {
     /**
      * Affiche l'interface du formulaire de connexion (Front-Office / Back-Office).
@@ -34,6 +36,14 @@ class AuthController
     public function showLoginForm(): void
     {
         require __DIR__ . '/../views/public/login.php';
+    }
+
+    /**
+     * Alias de routage vers le formulaire de connexion.
+     */
+    public function showLogin(): void
+    {
+        $this->showLoginForm();
     }
 
     /**
@@ -47,34 +57,39 @@ class AuthController
     }
 
     /**
+     * Alias de routage vers le formulaire d'inscription.
+     */
+    public function showRegister(): void
+    {
+        $this->showRegisterForm();
+    }
+
+    /**
+     * Alias de routage vers le traitement de connexion.
+     */
+    public function handleLogin(?array $postData = null): void
+    {
+        $this->login($postData ?? $_POST);
+    }
+
+    /**
      * Traite la soumission du formulaire d'inscription d'un nouveau client.
-     *
-     * Cette méthode orchestre la validation des données d'inscription, applique les
-     * contraintes de sécurité d'intégrité et de chiffrement, gère la persistance locale
-     * des saisies en cas d'échec (UX), initie la double persistance (MySQL et MongoDB)
-     * puis délègue l'envoi du courriel de confirmation de compte au service de messagerie.
      *
      * @param array $postData Payload brut issu du tableau superglobal $_POST.
      * @return void
      */
     public function register(array $postData): void
     {
-        // Initialisation de la session pour véhiculer les états d'erreurs et les anciennes saisies
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+        $this->startSession();
+        $this->validateCsrf($postData);
 
-        // ---------------------------------------------------------------------
         // 1. ASSAINISSEMENT ET NETTOYAGE DES ENTRÉES (Anti-XSS)
-        // ---------------------------------------------------------------------
         $firstname = trim($postData['firstname'] ?? '');
         $lastname  = trim($postData['lastname'] ?? '');
         $username  = trim($postData['username'] ?? '');
         $email     = filter_var(trim($postData['email'] ?? ''), FILTER_VALIDATE_EMAIL);
         $password  = $postData['password'] ?? '';
 
-        // CONTEXTE UX / SÉCURITÉ : Rétention éphémère des saisies en session
-        // Note de sécurité : Pour rester conforme au RGPD et à la CNIL, le mot de passe n'est JAMAIS sauvegardé
         $oldInputs = [
             'firstname' => $firstname,
             'lastname'  => $lastname,
@@ -82,18 +97,30 @@ class AuthController
             'email'     => $postData['email'] ?? ''
         ];
 
-        // ---------------------------------------------------------------------
         // 2. PROGRAMMATION DÉFENSIVE : CLAUSES DE GARDE (Guard Clauses)
-        // ---------------------------------------------------------------------
-        // Contrôle de complétude du formulaire
-        if (empty($firstname) || empty($lastname) || empty($username) || !$email || empty($password)) {
+        $consent = isset($postData['rgpd_consent']);
+        if ($firstname === '' || $lastname === '' || !$email || $password === ''
+            || mb_strlen($firstname) > 100 || mb_strlen($lastname) > 100 || strlen((string)$email) > 255) {
             $_SESSION['old_inputs'] = $oldInputs;
             $_SESSION['register_error'] = "Tous les champs requis (*) doivent être correctement renseignés.";
             header('Location: index.php?action=show_register');
             exit();
         }
 
-        // Validation de la complexité du mot de passe selon la politique de sécurité
+        if (!preg_match('/^[a-zA-Z0-9_]{3,20}$/', $username)) {
+            $_SESSION['old_inputs'] = $oldInputs;
+            $_SESSION['register_error'] = "Le pseudo doit contenir de 3 à 20 lettres, chiffres ou caractères _.";
+            header('Location: index.php?action=show_register');
+            exit();
+        }
+
+        if (!$consent) {
+            $_SESSION['old_inputs'] = $oldInputs;
+            $_SESSION['register_error'] = "Votre accord est nécessaire pour créer le compte client.";
+            header('Location: index.php?action=show_register');
+            exit();
+        }
+
         if (!$this->isValidPassword($password)) {
             $_SESSION['old_inputs'] = $oldInputs;
             $_SESSION['register_error'] = "La sécurité de votre mot de passe est insuffisante. Veuillez respecter les critères exigés.";
@@ -103,7 +130,6 @@ class AuthController
 
         $userModel = new User();
 
-        // Contrôle d'unicité de l'identifiant pour éviter la collision de comptes
         if ($userModel->findByEmail($email)) {
             $_SESSION['old_inputs'] = $oldInputs;
             $_SESSION['register_error'] = "Cette adresse email est déjà associée à un compte.";
@@ -111,75 +137,64 @@ class AuthController
             exit();
         }
 
-        // Si toutes les validations passent, on libère la mémoire tampon de session
-        unset($_SESSION['old_inputs']);
+        if ($userModel->findByUsername($username)) {
+            $_SESSION['old_inputs'] = $oldInputs;
+            $_SESSION['register_error'] = "Ce pseudo est déjà utilisé.";
+            header('Location: index.php?action=show_register');
+            exit();
+        }
 
-        // ---------------------------------------------------------------------
-        // 3. CHIFFREMENT ET PERSISTANCE RELATIONNELLE (MySQL)
-        // ---------------------------------------------------------------------
-        // Hachage du mot de passe via l'algorithme Bcrypt (sécurité native PHP adaptative)
+        // 3. CHIFFREMENT STRICT DU MOT DE PASSE (Bcrypt conforme RGPD)
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
-        $userData = [
+        $userId = $userModel->create([
             'email'     => $email,
             'password'  => $hashedPassword,
             'firstname' => $firstname,
             'lastname'  => $lastname,
-            'role'      => 'CLIENT' // Attribution stricte côté serveur pour empêcher l'élection de privilèges via HTTP
-        ];
+            'username'  => $username,
+            'role'      => 'CLIENT'
+        ]);
 
-        $userId = $userModel->create($userData);
-
+        // 4. GESTION DES RÉSULTATS, AUDIT NOSQL ET EXPÉDITION D'EMAIL
         if ($userId) {
-
-            // ---------------------------------------------------------------------
-            // 4. DÉLÉGATION DE L'ENVOI DE MAIL (Architecture de Services)
-            // ---------------------------------------------------------------------
-            $mailService = new MailService();
-            $mailService->sendRegisterConfirmation($email, $firstname);
-
-            // ---------------------------------------------------------------------
-            // 5. JOURNALISATION COMPLIANCE NOSQL (Audit & Traçabilité MongoDB)
-            // ---------------------------------------------------------------------
             try {
                 $logModel = new Log();
-                $logModel->addLog(
-                    "CREATION_CLIENT",
-                    "Nouvelle inscription d'un client : $firstname $lastname ($email)",
-                    $userId,
-                    ['username' => $username]
-                );
+                $logModel->addLog("INSCRIPTION_CLIENT", (int)$userId, [
+                    'message' => "Création de compte réussie pour : $email",
+                    'user_id' => $userId,
+                    'email'   => $email,
+                    'role'    => 'CLIENT'
+                ]);
             } catch (\Exception $e) {
-                // Stratégie de résilience : une panne du service de log n'interrompt pas l'inscription
-                error_log("Erreur lors de la journalisation NoSQL de l'inscription : " . $e->getMessage());
+                error_log("Alerte NoSQL : Échec de journalisation inscription (User ID $userId) : " . $e->getMessage());
             }
 
-            echo "<div class='container mt-5'><div class='alert alert-success text-center'>Votre compte a été créé avec succès ! Un e-mail de confirmation vous a été envoyé.</div></div>";
-            $this->showLoginForm();
+            $mailService = new MailService();
+            $mailSent = $mailService->sendRegisterConfirmation($email, $firstname);
+
+            $_SESSION['login_success'] = "Votre compte client a été créé. Vous pouvez maintenant vous connecter."
+                . ($mailSent ? '' : " L’email de confirmation n’a pas pu être envoyé.");
+            header('Location: index.php?action=login');
+            exit();
+
         } else {
-            $_SESSION['register_error'] = "Une erreur technique est survenue. Veuillez réessayer ultérieurement.";
+            $_SESSION['old_inputs'] = $oldInputs;
+            $_SESSION['register_error'] = "Une anomalie technique interne est survenue lors de votre enregistrement. Veuillez réessayer.";
             header('Location: index.php?action=show_register');
             exit();
         }
     }
 
     /**
-     * Traite, valide et authentifie la tentative de connexion d'un utilisateur (Login).
+     * Authentifie un utilisateur et initialise son environnement de session.
      *
-     * Mesures de sécurité appliquées :
-     * - Protection contre l'énumération d'utilisateurs par l'usage d'un message d'erreur générique.
-     * - Comparaison temporelle constante via password_verify() pour neutraliser les attaques par canal auxiliaire (Timing Attacks).
-     * - Isolation et traçabilité NoSQL distincte des succès de connexion et des tentatives suspectes.
-     *
-     * @param array $postData Données transmises via le formulaire de connexion.
+     * @param array $postData Payload brut issu du tableau superglobal $_POST.
      * @return void
      */
     public function login(array $postData): void
     {
-
-        if (empty($postData['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $postData['csrf_token'])) {
-            die("Erreur de sécurité : Jeton CSRF invalide ou expiré.");
-        }
+        $this->validateCsrf($postData);
 
         $email = filter_var($postData['email'] ?? '', FILTER_VALIDATE_EMAIL);
         $password = $postData['password'] ?? '';
@@ -194,70 +209,71 @@ class AuthController
         $user = $userModel->findByEmail($email);
 
         if ($user && password_verify($password, $user['password'])) {
-            if (session_status() === PHP_SESSION_NONE) {
-                session_start();
+            if (!empty($user['is_deleted'])) {
+                $this->auditAuthAttempt("TENTATIVE_CONNEXION_REFUSEE", (int)$user['id'], [
+                    'message'   => "Tentative de connexion sur un compte désactivé ou supprimé : $email",
+                    'email'     => $email,
+                    'user_role' => $user['role'] ?? 'CLIENT',
+                    'reason'    => 'Tentative de connexion sur un compte désactivé ou supprimé'
+                ]);
+
+                $_SESSION['login_error'] = "Ce compte a été suspendu ou supprimé. Veuillez contacter l'administrateur.";
+                $this->showLoginForm();
+                return;
             }
 
-            // PROTECTION FIXATION DE SESSION (AT1)
-            // Régénère l'ID de session et supprime l'ancien fichier de session
             session_regenerate_id(true);
 
-            // BARRAGE DE SÉCURITÉ : Le mot de passe est-il temporaire ?
-            if (isset($user['must_change_password']) && $user['must_change_password'] == 1) {
-                // On stocke temporairement l'ID mais on ne l'authentifie pas complètement
-                $_SESSION['temp_user_id'] = $user['id'];
-                $_SESSION['auth_message'] = "Par mesure de sécurité, vous devez définir un nouveau mot de passe personnel.";
+            $_SESSION['user_id']        = $user['id'];
+            $_SESSION['user_email']     = $user['email'];
+            $_SESSION['user_role']      = $user['role'];
+            $_SESSION['user_firstname'] = $user['firstname'] ?? '';
+            $_SESSION['user_username']  = $user['username'] ?? '';
+            $_SESSION['user_name']      = $user['username'] ?: ($user['firstname'] ?? 'Utilisateur');
+
+            $_SESSION['force_password_change'] = !empty($user['must_change_password']);
+            if ($_SESSION['force_password_change']) {
                 header('Location: index.php?action=force_password_change');
                 exit();
             }
 
-            // Si tout est normal, on connecte l'utilisateur
-            $_SESSION['user_id']    = $user['id'];
-            $_SESSION['user_email'] = $user['email'];
-            $_SESSION['user_role']  = $user['role'] ?? 'CLIENT';
-            $_SESSION['user_name']  = $user['firstname'] ?? 'Utilisateur';
+            $this->auditAuthAttempt("CONNEXION_REUSSIE", (int)$user['id'], [
+                'message'   => "Connexion réussie pour l'utilisateur : {$user['email']}",
+                'email'     => $user['email'],
+                'user_role' => $user['role']
+            ]);
 
-            // Audit NoSQL
-            try {
-                $logModel = new Log();
-                $logModel->addLog("CONNEXION_REUSSIE", "Connexion de l'utilisateur : $email", $user['id']);
-            } catch (\Exception $e) {
-                error_log("Erreur NoSQL : " . $e->getMessage());
-            }
-
-            if ($_SESSION['user_role'] === 'ADMIN' || $_SESSION['user_role'] === 'EMPLOYEE') {
-                header('Location: index.php?action=dashboard');
-            } else {
-                header('Location: index.php?action=client_dashboard');
-            }
+            $defaultDestination = in_array($user['role'], ['ADMIN', 'EMPLOYEE'], true)
+                ? 'index.php?action=dashboard' : 'index.php?action=client_dashboard';
+            header('Location: ' . ($this->pullLoginDestination() ?? $defaultDestination));
             exit();
 
         } else {
-            // Échec de connexion... (Garder ton code d'erreur actuel)
-            echo "<div class='container mt-5'><div class='alert alert-danger text-center'>Email ou mot de passe incorrect.</div></div>";
-            $this->showLoginForm();
+            $this->auditAuthAttempt("CONNEXION_ECHOUEE", null, [
+                'message'         => "Connexion échouée pour : $email (identifiants invalides)",
+                'tentative_email' => $email,
+                'motif'           => "Identifiants invalides"
+            ]);
+
+            $_SESSION['login_error'] = "Identifiants de connexion invalides. Veuillez réessayer.";
+            header('Location: index.php?action=login');
+            exit();
         }
     }
-    /**
-     * Clôture de manière hermétique la session active de l'utilisateur (Déconnexion).
-     *
-     * Mesures contre le vol de session et les attaques de fixation :
-     * - Remise à zéro complète du tableau global $_SESSION en mémoire.
-     * - Altération et expiration forcée du cookie de session côté navigateur du client.
-     * - Destruction physique des fichiers et contextes de session côté serveur.
-     *
-     * @return void
-     */
+
+    /** Ferme la session courante après avoir journalisé la déconnexion. */
     public function logout(): void
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
+        $this->startSession();
+
+        if (isset($_SESSION['user_id'])) {
+            $this->auditAuthAttempt("DECONNEXION", (int)$_SESSION['user_id'], [
+                'message' => "Déconnexion de l'utilisateur : " . ($_SESSION['user_email'] ?? 'inconnu'),
+                'email'   => $_SESSION['user_email'] ?? 'inconnu'
+            ]);
         }
 
-        // 1. Vidage total des données stockées en mémoire volatile
-        $_SESSION = array();
-
-        // 2. Éradication complète du cookie d'identification sur le client
+        $_SESSION = [];
         if (ini_get("session.use_cookies")) {
             $params = session_get_cookie_params();
             setcookie(
@@ -267,156 +283,146 @@ class AuthController
                 $params["path"],
                 $params["domain"],
                 $params["secure"],
-                $params["httponly"] // Flag crucial : interdit la lecture du jeton de session via JavaScript (XSS Mitigation)
+                $params["httponly"]
             );
         }
-
-        // 3. Destruction de l'état persistant côté serveur
         session_destroy();
 
-        header('Location: index.php');
+        header('Location: index.php?action=login');
         exit();
     }
 
-    /**
-     * Valide la complexité d'un mot de passe via une expression régulière stricte.
-     *
-     * Structure de la Regex de contrôle de robustesse (Politique CNIL / RGPD) :
-     * - `^`         : Début de la chaîne.
-     * - `(?=.*[a-z])` : Assure la présence d'au moins une lettre minuscule.
-     * - `(?=.*[A-Z])` : Assure la présence d'au moins une lettre majuscule.
-     * - `(?=.*\d)`    : Assure la présence d'au moins un caractère numérique (chiffre).
-     * - `(?=.*[\W_])` : Assure la présence d'au moins un caractère spécial (non alphanumérique).
-     * - `.{8,}`      : Impose un seuil de longueur minimal absolu de 8 caractères.
-     * - `$`         : Fin de la chaîne.
-     *
-     * @param string $password Le mot de passe en clair à analyser.
-     * @return bool Vrai si l'intégralité des critères de sécurité est respectée.
-     */
-    private function isValidPassword(string $password): bool
+    /** Traite une demande de mot de passe temporaire sans révéler l'existence du compte. */
+    public function resetPasswordRequest(): void
     {
-        $regex = '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/';
-        return (bool)preg_match($regex, $password);
-    }
+        $this->startSession();
 
-    /**
-     * Affiche le formulaire de mot de passe oublié.
-     */
-    public function showForgotPasswordForm(): void
-    {
-        require __DIR__ . '/../views/public/forgot_password.php';
-    }
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $this->validateCsrf($_POST);
 
-    /**
-     * Traite la demande de réinitialisation de mot de passe.
-     * Génère un mot de passe temporaire robuste, le hache, l'enregistre
-     * et l'envoie par e-mail via MailHog.
-     *
-     * @param array $postData
-     */
-    public function resetPasswordRequest(array $postData): void
-    {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+            $email = filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL);
 
-        $email = filter_var($postData['email'] ?? '', FILTER_VALIDATE_EMAIL);
+            if (!$email) {
+                $_SESSION['auth_message'] = "Veuillez saisir une adresse email valide.";
+                header('Location: index.php?action=forgot_password');
+                exit();
+            }
 
-        if (!$email) {
-            $_SESSION['auth_message'] = "Veuillez fournir une adresse email valide.";
+            try {
+                $userId = (new PasswordResetService())->reset($email);
+                if ($userId !== null) {
+                    (new Log())->addLog('RESET_PASSWORD_REQUEST', $userId, [
+                        'email' => $email,
+                        'message' => 'Mot de passe temporaire enregistré et accepté par le serveur SMTP.',
+                    ]);
+                }
+            } catch (Throwable $error) {
+                error_log('Échec de réinitialisation du mot de passe : ' . $error->getMessage());
+            }
+
+            // Même réponse pour un compte absent, suspendu ou un échec technique.
+            $_SESSION['auth_message'] = "Si cette adresse correspond à un compte actif et que l'envoi aboutit, vous recevrez un mot de passe temporaire. Sans réception, réessayez plus tard ou contactez l’équipe.";
             header('Location: index.php?action=forgot_password');
             exit();
         }
 
-        $userModel = new User();
-        $user = $userModel->findByEmail($email);
-
-        // Mesure de sécurité (Anti-énumération) :
-        // On affiche TOUJOURS le même message, que l'email existe ou non en base.
-        $_SESSION['auth_message'] = "Si cette adresse existe, un mot de passe temporaire vient de vous être envoyé.";
-
-        if ($user) {
-            // 1. Génération d'un mot de passe temporaire respectant la Regex (Maj, Min, Chiffre, Spécial, 8+ car)
-            // Ex: "Temp_9f8a!Z"
-            $tempPassword = 'Temp_' . bin2hex(random_bytes(4)) . '!Z';
-
-            // 2. Hachage du mot de passe
-            $hashedPassword = password_hash($tempPassword, PASSWORD_BCRYPT);
-
-            // 3. Mise à jour en base et vérification
-            $isUpdated = $userModel->updatePassword($user['id'], $hashedPassword, true);
-
-            if ($isUpdated) {
-                // 4. L'update a réussi, on peut envoyer l'e-mail en toute sécurité
-                try {
-                    $mailService = new MailService();
-                    $mailService->sendTemporaryPassword($email, $tempPassword);
-
-                    // Audit NoSQL (AT2)
-                    $logModel = new Log();
-                    $logModel->addLog("RESET_PASSWORD", "Demande de mot de passe oublié générée pour l'utilisateur ID " . $user['id']);
-                } catch (\Exception $e) {
-                    error_log("Erreur lors de l'envoi de l'e-mail : " . $e->getMessage());
-                }
-            } else {
-                // Gérer l'échec critique (ex: logger l'erreur système sans l'afficher à l'utilisateur)
-                error_log("CRITIQUE : Échec de la mise à jour du mot de passe pour l'ID " . $user['id']);
-            }
-        }
-
-        header('Location: index.php?action=forgot_password');
-        exit();
+        require __DIR__ . '/../views/public/forgot_password.php';
     }
 
     /**
-     * Traite la soumission du nouveau mot de passe obligatoire.
+     * Remplace le mot de passe temporaire après validation du compte et du jeton CSRF.
+     * Seule cette action peut franchir la restriction de changement obligatoire.
+     * Une écriture SQL échouée conserve la restriction ; un succès impose une reconnexion.
      */
-    public function updateForcedPassword(array $postData): void
+    public function updateForcedPassword(): void
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+        $this->checkAuth([], true);
 
-        // Vérification que l'utilisateur est bien dans le processus de changement
-        if (empty($_SESSION['temp_user_id'])) {
+        if (!isset($_SESSION['user_id']) || empty($_SESSION['force_password_change'])) {
             header('Location: index.php?action=login');
             exit();
         }
 
-        $newPassword = $postData['new_password'] ?? '';
-        $confirmPassword = $postData['confirm_password'] ?? '';
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $this->validateCsrf($_POST);
 
-        if ($newPassword !== $confirmPassword) {
-            $_SESSION['auth_error'] = "Les mots de passe ne correspondent pas.";
-            header('Location: index.php?action=force_password_change');
-            exit();
-        }
+            $newPassword     = $_POST['new_password'] ?? '';
+            $confirmPassword = $_POST['confirm_password'] ?? '';
 
-        if (!$this->isValidPassword($newPassword)) {
-            $_SESSION['auth_error'] = "Le mot de passe ne respecte pas les critères de sécurité (8 caractères, 1 maj, 1 min, 1 chiffre, 1 spécial).";
-            header('Location: index.php?action=force_password_change');
-            exit();
-        }
+            if (empty($newPassword) || $newPassword !== $confirmPassword) {
+                $_SESSION['auth_error'] = "Les mots de passe ne correspondent pas ou sont vides.";
+                header('Location: index.php?action=force_password_change');
+                exit();
+            }
 
-        // Hachage et mise à jour en BDD (must_change passe à false/0)
-        $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
-        $userModel = new User();
+            if (!$this->isValidPassword($newPassword)) {
+                $_SESSION['auth_error'] = "Le nouveau mot de passe ne respecte pas les critères de sécurité requis.";
+                header('Location: index.php?action=force_password_change');
+                exit();
+            }
 
-        if ($userModel->updatePassword($_SESSION['temp_user_id'], $hashedPassword, false)) {
-            unset($_SESSION['temp_user_id']); // On nettoie la session temporaire
-            $_SESSION['auth_message'] = "Votre mot de passe a été mis à jour avec succès. Vous pouvez maintenant vous connecter.";
+            $userModel = new User();
+            $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
+            $userId = (int)$_SESSION['user_id'];
+            $user = $userModel->findById($userId);
+            if (!$user || password_verify($newPassword, $user['password'])) {
+                $_SESSION['auth_error'] = "Choisissez un mot de passe différent du mot de passe temporaire.";
+                header('Location: index.php?action=force_password_change');
+                exit();
+            }
 
-            // Audit NoSQL (AT2)
+            if (!$userModel->updatePassword($userId, $hashedPassword, false)) {
+                $_SESSION['auth_error'] = "Le mot de passe n'a pas pu être enregistré. Veuillez réessayer.";
+                header('Location: index.php?action=force_password_change');
+                exit();
+            }
+
             try {
                 $logModel = new Log();
-                $logModel->addLog("PASSWORD_MODIFIE", "L'utilisateur a défini son mot de passe définitif.");
-            } catch (\Exception $e) {}
+                $logModel->addLog("UPDATE_FORCED_PASSWORD", $userId, [
+                    'message' => "Mise à jour obligatoire du mot de passe temporaire effectuée avec succès."
+                ]);
+            } catch (\Exception $e) {
+                error_log("Erreur Log MongoDB update forced pwd : " . $e->getMessage());
+            }
 
+            // Retirer l'identité authentifiée et renouveler la session avant la reconnexion.
+            $returnTo = $_SESSION['login_return_to'] ?? null;
+            $_SESSION = [];
+            session_regenerate_id(true);
+            if (is_string($returnTo)) $_SESSION['login_return_to'] = $returnTo;
+            $_SESSION['login_success'] = "Votre mot de passe a été personnalisé avec succès ! Veuillez vous reconnecter.";
             header('Location: index.php?action=login');
-        } else {
-            $_SESSION['auth_error'] = "Une erreur technique est survenue.";
-            header('Location: index.php?action=force_password_change');
+            exit();
         }
-        exit();
+
+        require __DIR__ . '/../views/public/force_password_change.php';
+    }
+
+    /** Vérifie la politique minimale appliquée aux nouveaux mots de passe. */
+    private function isValidPassword(string $password): bool
+    {
+        $pattern = '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/';
+        return (bool)preg_match($pattern, $password);
+    }
+
+    /**
+     * Journalise une action d'authentification sans perturber le parcours HTTP.
+     *
+     * @param array<string, mixed> $details Contexte utile au diagnostic de l'action.
+     */
+    private function auditAuthAttempt(string $typeAction, ?int $userId, array $details): void
+    {
+        try {
+            $logModel = new Log();
+            if (empty($details['message'])) {
+                $details['message'] = "Connexion réussie de l'utilisateur : " . ($details['email'] ?? 'N/A');
+            }
+            $details['ip_address'] = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+            $details['user_agent'] = $_SERVER['HTTP_USER_AGENT'] ?? 'Inconnu';
+            $logModel->addLog($typeAction, $userId, $details);
+        } catch (\Exception $e) {
+            error_log("Alerte MongoDB (auditAuthAttempt) : " . $e->getMessage());
+        }
     }
 }

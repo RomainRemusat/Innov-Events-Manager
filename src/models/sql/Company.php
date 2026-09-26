@@ -16,6 +16,7 @@ class Company
 {
     private PDO $db;
 
+    /** Initialise l'accès à la base relationnelle. */
     public function __construct()
     {
         $this->db = Database::getInstance();
@@ -79,5 +80,11 @@ class Company
         $stmt->execute([$id]);
         $res = $stmt->fetch(PDO::FETCH_ASSOC);
         return $res ?: null;
+    }
+
+    /** @return array<int, array{id: int, name: string}> Entreprises disponibles pour rattacher un client. */
+    public function findAll(): array
+    {
+        return $this->db->query('SELECT id, name FROM companies ORDER BY name, id')->fetchAll(PDO::FETCH_ASSOC);
     }
 }

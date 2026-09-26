@@ -9,11 +9,12 @@
  * @package    InnovEventsManager
  * @subpackage Models\SQL
  * @author     Romain Remusat
- * @version    1.1.0
+ * @version    1.2.0
  */
 
 require_once __DIR__ . '/../../config/Database.php';
 
+/** Fournit les opérations SQL liées aux comptes et à leurs accès. */
 class User
 {
     /**
@@ -60,7 +61,7 @@ class User
     /**
      * Insère un nouvel utilisateur (généralement un client) dans la base de données.
      *
-     * @param array $data Tableau associatif contenant les clés : email, password, firstname, lastname, role.
+     * @param array $data Identité, email, mot de passe haché et rôle ; company_id et must_change_password sont facultatifs.
      * @return int|null L'identifiant (ID) généré en base de données, ou null en cas d'échec d'insertion.
      */
     public function create(array $data): ?int
@@ -68,8 +69,8 @@ class User
         try {
             // Préparation de la requête d'insertion sécurisée (Anti-Injection SQL)
             $stmt = $this->db->prepare("
-                INSERT INTO users (email, password, firstname, lastname, role) 
-                VALUES (:email, :password, :firstname, :lastname, :role)
+                INSERT INTO users (email, password, firstname, lastname, username, role, company_id, must_change_password)
+                VALUES (:email, :password, :firstname, :lastname, :username, :role, :company_id, :must_change)
             ");
 
             // Exécution avec liaison dynamique des paramètres assainis
@@ -78,7 +79,10 @@ class User
                 'password'  => $data['password'], // Doit être déjà haché en amont (Bcrypt)
                 'firstname' => $data['firstname'],
                 'lastname'  => $data['lastname'],
-                'role'      => $data['role'] ?? 'CLIENT'
+                'username'  => $data['username'] ?? null,
+                'role'      => $data['role'] ?? 'CLIENT',
+                'company_id' => $data['company_id'] ?? null,
+                'must_change' => !empty($data['must_change_password']) ? 1 : 0,
             ]);
 
             // Retourne l'ID auto-incrémenté généré par MySQL si l'insertion a fonctionné
@@ -90,6 +94,15 @@ class User
             return null;
         }
     }
+
+    /** Recherche un compte par pseudo, avec la collation insensible à la casse de la base. */
+    public function findByUsername(string $username)
+    {
+        $stmt = $this->db->prepare('SELECT * FROM users WHERE username = :username LIMIT 1');
+        $stmt->execute(['username' => $username]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
     /**
      * Supprime définitivement un compte utilisateur (Conformité RGPD - Droit à l'oubli).
      * Grâce à la contrainte ON DELETE CASCADE, les prospects et devis associés
@@ -103,13 +116,13 @@ class User
         try {
             $sql = "DELETE FROM users WHERE id = :id";
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([':id' => $userId]);
+            $stmt->execute([':id' => $userId]);
+            return $stmt->rowCount() === 1;
         } catch (PDOException $e) {
             error_log("Erreur critique (RGPD) lors de la suppression du compte $userId : " . $e->getMessage());
             return false;
         }
     }
-
 
     /**
      * Met à jour le mot de passe d'un utilisateur.
@@ -126,15 +139,16 @@ class User
     {
         try {
             // Préparation de la requête pour éviter les injections SQL
-            $sql = "UPDATE users SET password = :password, must_change_password = :must_change WHERE id = :id";
+            $sql = "UPDATE users SET password = :password, must_change_password = :must_change WHERE id = :id AND is_deleted = 0";
             $stmt = $this->db->prepare($sql);
 
             // Exécution avec liaison dynamique des paramètres
-            return $stmt->execute([
+            $stmt->execute([
                 ':password'    => $hashedPassword,
                 ':must_change' => $mustChange ? 1 : 0, // Conversion du booléen en entier pour MySQL
                 ':id'          => $userId
             ]);
+            return $stmt->rowCount() === 1;
 
         } catch (PDOException $e) {
             // Journalisation silencieuse de l'erreur
@@ -144,32 +158,32 @@ class User
     }
 
     /**
-     * Récupère la liste de tous les clients finaux.
+     * Recherche les clients par identité, email ou entreprise, sans inclure les autres rôles.
      *
-     * Exclut les administrateurs et employés grâce à la clause WHERE role = 'CLIENT'.
-     *
+     * @param string $search Texte recherché ; vide pour afficher tous les clients.
+     * @param bool $includeSuspended Inclut également les comptes suspendus.
      * @return array Tableau associatif des clients
      */
-    public function findAllClients(): array
+    public function findAllClients(string $search = '', bool $includeSuspended = false): array
     {
         try {
-
             $req = "
                 SELECT u.*, c.name AS company_name
                 FROM users u
                 LEFT JOIN companies c ON u.company_id = c.id
-                WHERE u.role = 'CLIENT' AND u.is_deleted = 0
+                WHERE u.role = 'CLIENT'
+                  AND (:include_suspended = 1 OR u.is_deleted = 0)
+                  AND (CONCAT(u.firstname, ' ', u.lastname, ' ', u.email, ' ', COALESCE(c.name, '')) LIKE :search)
                 ORDER BY u.created_at DESC
             ";
             $stmt = $this->db->prepare($req);
-            $stmt->execute();
+            $stmt->execute([':include_suspended' => (int)$includeSuspended, ':search' => '%' . $search . '%']);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (\PDOException $e) {
             error_log("Erreur lors de la récupération des clients : " . $e->getMessage());
             return [];
         }
     }
-
 
     /**
      * Effectue une suppression logique (Soft Delete) du client.
@@ -181,17 +195,92 @@ class User
     public function softDeleteClient(int $id): bool
     {
         try {
-            // On part du principe que tu as ajouté une colonne 'is_deleted' (TINYINT par défaut à 0)
-            // ou que tu gères un statut de compte.
-            $sql = "UPDATE users SET is_deleted = 1 WHERE id = :id AND role = 'CLIENT'";
+            $sql = "UPDATE users SET is_deleted = 1 WHERE id = :id AND role = 'CLIENT' AND is_deleted = 0";
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([':id' => $id]);
+            $stmt->execute([':id' => $id]);
+            return $stmt->rowCount() === 1;
         } catch (\PDOException $e) {
             error_log("Erreur lors de la suppression logique du client $id : " . $e->getMessage());
             return false;
         }
     }
 
+    /** @return array<int, array<string, mixed>> Comptes clients et employés, actifs ou suspendus. */
+    public function findManagedAccounts(): array
+    {
+        return $this->db->query("SELECT id, company_id, firstname, lastname, email, role, is_deleted
+            FROM users WHERE role IN ('CLIENT', 'EMPLOYEE') ORDER BY role, lastname, firstname, id")->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Modifie l'identité d'un compte administrable sans changer son rôle ni son état.
+     *
+     * @param int $id Identifiant du client ou de l'employé.
+     * @param string $firstname Prénom corrigé.
+     * @param string $lastname Nom corrigé.
+     * @param string $email Adresse de connexion unique.
+     * @param int|null $companyId Entreprise d'un client, ou null.
+     */
+    public function updateManagedAccount(
+        int $id,
+        string $firstname,
+        string $lastname,
+        string $email,
+        ?int $companyId
+    ): bool {
+        try {
+            $stmt = $this->db->prepare("UPDATE users
+                SET firstname=?, lastname=?, email=?, company_id=CASE WHEN role='CLIENT' THEN ? ELSE NULL END
+                WHERE id=? AND role IN ('CLIENT','EMPLOYEE')");
+            $stmt->execute([$firstname, $lastname, $email, $companyId, $id]);
+            if ($stmt->rowCount() === 1) return true;
+
+            $account = $this->findById($id);
+            return $account
+                && in_array($account['role'], ['CLIENT', 'EMPLOYEE'], true)
+                && $account['firstname'] === $firstname
+                && $account['lastname'] === $lastname
+                && $account['email'] === $email
+                && (int)($account['company_id'] ?? 0) === (int)($companyId ?? 0);
+        } catch (PDOException $error) {
+            error_log('[User::updateManagedAccount] ' . $error->getMessage());
+            return false;
+        }
+    }
+
+    /** @return array<int, array<string, mixed>> Employés actifs disponibles pour une assignation. */
+    public function findActiveEmployees(): array
+    {
+        $stmt = $this->db->query("SELECT id, firstname, lastname FROM users
+            WHERE role='EMPLOYEE' AND is_deleted=0 ORDER BY lastname, firstname, id");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Suspend ou réactive un compte non administrateur ; ses dossiers sont conservés.
+     * @param int $id Compte cible.
+     * @param bool $suspended État demandé.
+     * @return bool Vrai uniquement si l'état a changé.
+     */
+    public function setSuspended(int $id, bool $suspended): bool
+    {
+        $stmt = $this->db->prepare("UPDATE users SET is_deleted = ? WHERE id = ?
+            AND role IN ('CLIENT', 'EMPLOYEE') AND is_deleted <> ?");
+        $stmt->execute([(int)$suspended, $id, (int)$suspended]);
+        return $stmt->rowCount() === 1;
+    }
+
+    /**
+     * Supprime un employé et ses notes par cascade SQL ; ne peut pas viser un administrateur.
+     * @param int $id Compte employé à effacer.
+     * @return bool Une ligne supprimée.
+     */
+    public function deleteEmployee(int $id): bool
+    {
+        $stmt = $this->db->prepare("DELETE FROM users WHERE id = ? AND role = 'EMPLOYEE'");
+        $stmt->execute([$id]);
+        return $stmt->rowCount() === 1;
+    }
 
     /**
      * Met à jour les informations d'un utilisateur (Client).
@@ -205,14 +294,18 @@ class User
     public function updateClient(int $id, string $firstname, string $lastname, string $email): bool
     {
         try {
-            $sql = "UPDATE users SET firstname = :firstname, lastname = :lastname, email = :email WHERE id = :id AND role = 'CLIENT'";
+            $sql = "UPDATE users SET firstname = :firstname, lastname = :lastname, email = :email WHERE id = :id AND role = 'CLIENT' AND is_deleted = 0";
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([
+            $stmt->execute([
                 ':firstname' => $firstname,
                 ':lastname'  => $lastname,
                 ':email'     => $email,
                 ':id'        => $id
             ]);
+            if ($stmt->rowCount() === 1) return true;
+            $client = $this->findById($id);
+            return $client && $client['role'] === 'CLIENT' && !(int)$client['is_deleted']
+                && $client['firstname'] === $firstname && $client['lastname'] === $lastname && $client['email'] === $email;
         } catch (\PDOException $e) {
             error_log("Erreur lors de la mise à jour du client $id : " . $e->getMessage());
             return false;
@@ -229,7 +322,6 @@ class User
     public function findById(int $id)
     {
         try {
-
             $query = "SELECT u.*, 
                              c.name AS company_name, 
                              c.siren, 
@@ -252,10 +344,8 @@ class User
         }
     }
 
-
     /**
-     * Compte le nombre de clients distincts ayant un événement actif.
-     * Répond à l'exigence des KPIs du tableau de bord (AT2).
+     * Compte les clients non suspendus ayant au moins un événement en cours.
      *
      * @return int Le nombre de clients actifs.
      */
@@ -266,7 +356,8 @@ class User
                     FROM users u 
                     JOIN events e ON u.id = e.client_id 
                     WHERE u.role = 'CLIENT' 
-                    AND e.status IN ('accepté', 'en cours')";
+                    AND u.is_deleted = 0
+                    AND e.status = 'en cours'";
 
             $stmt = $this->db->prepare($sql);
             $stmt->execute();
@@ -278,7 +369,4 @@ class User
             return 0;
         }
     }
-
 }
-
-

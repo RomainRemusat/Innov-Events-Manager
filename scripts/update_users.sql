@@ -1,20 +1,11 @@
--- =====================================================================
--- SCRIPT DE MIGRATION SQL : INNOV'EVENTS MANAGER
--- Objectif : Mise à jour de la table 'users'
--- Contexte : Implémentation de la politique de sécurité des mots de passe
--- (Forcer le changement du mot de passe temporaire à la première connexion)
--- =====================================================================
+-- MySQL 8.0 : alignement de users depuis l'export du 09/09/2026.
+-- Rejouable sur cette version ou sur schema.sql ; voir scripts/README.md.
+-- Le mode strict refuse les NULL existants au lieu de les convertir en silence.
+-- Les ALTER TABLE ne sont pas annulables par un ROLLBACK global.
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
+SET SESSION sql_mode = CONCAT_WS(',', NULLIF(@@SESSION.sql_mode, ''), 'STRICT_ALL_TABLES');
 
--- Démarrage d'une transaction pour garantir l'intégrité de la base
--- (Si une erreur survient, aucune modification ne sera appliquée)
-START TRANSACTION;
-
--- Ajout de la colonne 'must_change_password' (type booléen simulé par TINYINT)
--- La valeur par défaut est '0' (Faux) pour ne pas bloquer les comptes déjà existants (Chloé, José, Alice)
-ALTER TABLE `users`
-    ADD `must_change_password` TINYINT(1) NOT NULL DEFAULT '0' AFTER `password`;
-
--- Validation des modifications
-COMMIT;
-
--- Note de versioning : Migration à exécuter après le déploiement du AuthController v1.4
+ALTER TABLE users
+    MODIFY COLUMN must_change_password TINYINT(1) NOT NULL DEFAULT 0,
+    MODIFY COLUMN role VARCHAR(50) NOT NULL DEFAULT 'CLIENT',
+    MODIFY COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0;

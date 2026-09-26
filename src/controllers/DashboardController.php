@@ -6,53 +6,54 @@
  * Il agit comme un point de contrôle (Guard Pattern) en vérifiant systématiquement
  * les habilitations (Session/Rôles) avant d'autoriser l'accès aux données sensibles.
  *
- * Il implémente la logique de l'Activité Type 2 (AT2) en gérant le cycle de vie
- * des prospects, la génération des devis, et la double persistance (MySQL / MongoDB).
+ * Il coordonne le cycle de vie des prospects, la préparation des devis et la
+ * journalisation des actions entre MySQL et MongoDB.
  *
  * @package    InnovEventsManager
  * @subpackage Controllers
  * @author     Romain Remusat
- * @version    1.3.0
+ * @version    2.6.0
  */
 
 require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../models/sql/Prospect.php';
-require_once __DIR__ . '/../models/nosql/Log.php'; // Nécessaire pour la journalisation MongoDB
+require_once __DIR__ . '/../models/nosql/Log.php';
 require_once __DIR__ . '/../services/ConversionService.php';
+require_once __DIR__ . '/../services/MailService.php';
 require_once __DIR__ . '/../models/sql/Devis.php';
 require_once __DIR__ . '/../models/sql/User.php';
 require_once __DIR__ . '/../models/sql/Event.php';
 require_once __DIR__ . '/../models/sql/Note.php';
+require_once __DIR__ . '/../models/sql/Task.php';
 
-
+/** Prépare les tableaux de bord du personnel et le traitement des prospects. */
 class DashboardController extends BaseController
 {
-    public function showDashboard_old(): void
-    {
-        $this->checkAuth(['ADMIN', 'EMPLOYEE']); // Vérifie que l'utilisateur est connecté
-
-        $prospectModel = new Prospect();
-        $prospects = $prospectModel->findAllActive();
-
-        require_once __DIR__ . '/../models/sql/Event.php';
-        $eventModel = new Event();
-        $upcomingEvents = $eventModel->findUpcomingEvents(3);
-
-        $logModel = new Log();
-        $activityLogs = $logModel->getLatestLogs(5);
-
-        $pageTitle = "Tableau de Bord - Innov'Events";
-
-        require __DIR__ . '/../views/partials/header.php';
-        require __DIR__ . '/../views/admin/dashboard.php';
-        require __DIR__ . '/../views/partials/footer.php';
-    }
-
-
+    /** Affiche le tableau de bord adapté au rôle administrateur ou employé. */
     public function showDashboard(): void
     {
         // Vérifie que l'utilisateur est connecté avec les bons droits
         $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+        if ($_SESSION['user_role'] === 'EMPLOYEE') {
+            $taskModel = new Task();
+            $eventModel = new Event();
+            $noteModel = new Note();
+            $assignedTasks = $taskModel->findByAssignedUserId((int)$_SESSION['user_id']);
+            $taskCounts = array_fill_keys(array_keys(Task::STATUS_LABELS), 0);
+            foreach ($assignedTasks as $task) {
+                if (isset($taskCounts[$task['status']])) {
+                    $taskCounts[$task['status']]++;
+                }
+            }
+            $upcomingEvents = $eventModel->findUpcomingEvents(5);
+            $recentNotes = $noteModel->findLatestNotes(5);
+            $pageTitle = "Mon espace employé - Innov'Events";
+
+            require __DIR__ . '/../views/partials/header.php';
+            require __DIR__ . '/../views/employee/dashboard.php';
+            require __DIR__ . '/../views/partials/footer.php';
+            return;
+        }
 
         // 1. Instanciation des modèles
         $devisModel = new Devis();
@@ -62,27 +63,35 @@ class DashboardController extends BaseController
         $noteModel = new Note();
         $logModel = new Log();
 
-        // 2. Récupération des données pour les KPI standards (V3)
-        $devisAcceptes = $devisModel->findByStatus('accepté');
-        $prospectsEnAttente = $prospectModel->findByStatus('à contacter');
-        $clientsActifs = $userModel->countActiveClients();
+        // 2. Récupération de l'ensemble des prospects pour le pipeline
+        $allProspects = $prospectModel->findAll();
 
-        // Récupération de tous les prospects actifs pour le tableau
-        $prospects = $prospectModel->findAllActive();
+        $prospectsEnCours   = [];
+        $prospectsConvertis = [];
+        $prospectsEchoues   = [];
+        $caPrevisionnel     = 0;
 
-        // Calcul des KPI manquants gérés désormais par le contrôleur (MVC)
-        $totalProspects = is_array($prospects) ? count($prospects) : 0;
-        $caPrevisionnel = 0;
+        foreach ($allProspects as $p) {
+            $status = strtolower($p['status'] ?? '');
 
-        if (is_array($prospects)) {
-            foreach ($prospects as $p) {
-                // On exclut les projets refusés du CA prévisionnel
-                if (isset($p['status']) && strtolower($p['status']) !== 'refusé') {
-                    $caPrevisionnel += (float) ($p['budget'] ?? 0);
-                }
+            if (in_array($status, ['échoué', 'refusé'], true)) {
+                $prospectsEchoues[] = $p;
+            } elseif (in_array($status, ['converti', 'accepté'], true)) {
+                $prospectsConvertis[] = $p;
+                $caPrevisionnel += (float)($p['budget'] ?? 0);
+            } else {
+                // 'à contacter', 'en cours', etc.
+                $prospectsEnCours[] = $p;
+                $caPrevisionnel += (float)($p['budget'] ?? 0);
             }
         }
-        // ------------------------------------------
+
+        // KPI standards
+        $prospectsEnAttente = $prospectsEnCours;
+        $clientsActifs = $userModel->countActiveClients();
+        $draftEventsCount = $eventModel->countDrafts();
+        $totalProspects = count($allProspects);
+        $prospects = $allProspects; // Rétrocompatibilité
 
         // 4. Widgets de la colonne de droite (V3 + V2)
         $upcomingEvents = $eventModel->findUpcomingEvents(3);
@@ -90,7 +99,6 @@ class DashboardController extends BaseController
         $activityLogs = $logModel->getLatestLogs(5); // Flux d'audit NoSQL
 
         // Récupération des devis en attente de modification
-        $devisModel = new Devis();
         $pendingModifications = $devisModel->findByStatus('modification');
         $pendingModificationsCount = count($pendingModifications);
 
@@ -102,185 +110,33 @@ class DashboardController extends BaseController
         require __DIR__ . '/../views/partials/footer.php';
     }
 
-    public function showConvertForm(int $id): void
-    {
-        $this->checkAuth(['ADMIN', 'EMPLOYEE']); // Authentification + contrôle de rôle
-
-        $prospectModel = new Prospect();
-        $prospect = $prospectModel->find($id);
-
-        if (!$prospect) {
-            header('Location: index.php?action=dashboard');
-            exit;
-        }
-
-        $pageTitle = "Convertir Prospect - " . htmlspecialchars($prospect['company_name'], ENT_QUOTES, 'UTF-8');
-
-        require __DIR__ . '/../views/partials/header.php';
-        require __DIR__ . '/../views/admin/convert_prospect.php';
-        require __DIR__ . '/../views/partials/footer.php';
-    }
-
-    public function processConversion(array $postData): void
-    {
-        $this->checkAuth(['ADMIN', 'EMPLOYEE']); // RBAC strict
-        $this->validateCsrf($postData);           // Validation Anti-CSRF
-
-        // Validation des champs obligatoires
-        if (
-            empty($postData['prospect_id']) ||
-            empty($postData['company_name']) ||
-            empty($postData['contact_name']) ||
-            empty($postData['email']) ||
-            empty($postData['event_title']) ||
-            empty($postData['start_date']) ||
-            empty($postData['location'])
-        ) {
-            die("Erreur de validation : Tous les champs obligatoires (*) doivent être complétés.");
-        }
-
-        try {
-            $conversionService = new ConversionService();
-
-            // Délégation au service avec passage de $_FILES pour l'image
-            $eventImage = $_FILES['event_image'] ?? null;
-            $devisId = $conversionService->convertProspectToClient($postData, $eventImage, (int)$_SESSION['user_id']);
-
-            // Pattern Post-Redirect-Get vers l'éditeur de devis
-            header("Location: index.php?action=edit_devis&id=" . $devisId);
-            exit();
-
-        } catch (\InvalidArgumentException $e) {
-            die("Erreur de données : " . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'));
-        } catch (\Exception $e) {
-            error_log("Crash transactionnel Conversion : " . $e->getMessage());
-            $_SESSION['flash_error'] = "Une erreur technique est survenue lors de la conversion.";
-            header('Location: index.php?action=dashboard');
-            exit();
-        }
-    }
-
     /**
-     * Affiche les détails complets d'un prospect spécifique.
-     *
-     * Agit en tant qu'interface décisionnelle permettant à l'administrateur
-     * d'engager le tunnel de conversion ou de modifier le statut du lead.
-     *
-     * @param int $id Identifiant unique du prospect (Clé primaire)
-     * @return void
-     */
-    public function showProspectDetails(int $id): void
-    {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (empty($_SESSION['user_id'])) {
-            header('Location: index.php?action=login');
-            exit;
-        }
-
-        $prospectModel = new Prospect();
-        $prospect = $prospectModel->find($id);
-
-        // Fallback de sécurité (Soft 404) si l'ID a été manipulé ou purgé (RGPD)
-        if (!$prospect) {
-            header('Location: index.php?action=dashboard');
-            exit;
-        }
-
-        $pageTitle = "Détails du Prospect - " . htmlspecialchars($prospect['company_name'], ENT_QUOTES, 'UTF-8');
-
-        require __DIR__ . '/../views/partials/header.php';
-        require __DIR__ . '/../views/admin/view_prospect.php';
-        require __DIR__ . '/../views/partials/footer.php';
-    }
-
-    /**
-     * Met à jour l'état d'un prospect (ex: "en attente" -> "refusé").
-     *
-     * Implémentation du pattern de Persistance Polyglotte : met à jour l'entité
-     * structurée dans MySQL et trace l'événement immuable dans MongoDB.
-     *
-     * @return void
-     */
-    /**
-     * Met à jour l'état de qualification d'un prospect (ex: "à contacter" -> "échoué").
-     */
-    public function updateProspectStatus(): void
-    {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (empty($_SESSION['user_id'])) {
-            header('Location: index.php?action=login');
-            exit;
-        }
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['id']) && !empty($_POST['status'])) {
-            $id = (int)$_POST['id'];
-            $status = trim($_POST['status']);
-
-            // Contrôle des statuts autorisés en phase prospect
-            $allowedStatuses = ['à contacter', 'en attente', 'échoué'];
-            if (!in_array($status, $allowedStatuses, true)) {
-                $status = 'en attente';
-            }
-
-            $prospectModel = new Prospect();
-            $prospect = $prospectModel->find($id);
-            $success = $prospectModel->updateStatus($id, $status);
-
-            if ($success) {
-                // Si le devis n'est pas possible, envoi du courriel d'échec exigé par le CDC
-                if ($status === 'échoué' && $prospect && !empty($prospect['email'])) {
-                    try {
-                        require_once __DIR__ . '/../services/MailService.php';
-                        $mailService = new MailService();
-                        $mailService->sendRejectionEmail($prospect['email'], $prospect['contact_name']);
-                    } catch (\Exception $e) {
-                        error_log("Erreur envoi email échec prospect : " . $e->getMessage());
-                    }
-                }
-
-                // Journalisation Audit NoSQL
-                try {
-                    $logModel = new Log();
-                    $logModel->addLog("UPDATE_PROSPECT", "Statut du prospect #$id modifié en : $status", $_SESSION['user_id'] ?? null);
-                } catch (\Exception $e) {
-                    error_log("Erreur Log MongoDB : " . $e->getMessage());
-                }
-
-                header("Location: index.php?action=view_prospect&id=" . $id);
-                exit;
-            }
-        }
-
-        header('Location: index.php?action=dashboard');
-        exit;
-    }
-
-    /**
-     * Extrait et affiche le listing global des prospects.
-     *
-     * @see Prospect::findAll() Logique métier sous-jacente.
-     * @return void
+     * Affiche l'interface dédiée de gestion et segmentation des prospects.
      */
     public function showProspectsList(): void
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (empty($_SESSION['user_id'])) {
-            header('Location: index.php?action=login');
-            exit;
-        }
+        $this->checkAuth(['ADMIN']);
 
         $prospectModel = new Prospect();
-        $prospects = $prospectModel->findAllActive();
+        $allProspects = $prospectModel->findAll();
 
+        $prospectsEnCours   = [];
+        $prospectsConvertis = [];
+        $prospectsEchoues   = [];
+
+        foreach ($allProspects as $p) {
+            $status = strtolower($p['status'] ?? '');
+
+            if (in_array($status, ['échoué', 'refusé'], true)) {
+                $prospectsEchoues[] = $p;
+            } elseif (in_array($status, ['converti', 'accepté'], true)) {
+                $prospectsConvertis[] = $p;
+            } else {
+                $prospectsEnCours[] = $p;
+            }
+        }
+
+        $prospects = $allProspects;
         $pageTitle = "Gestion des Prospects - Innov'Events";
 
         require __DIR__ . '/../views/partials/header.php';
@@ -288,4 +144,162 @@ class DashboardController extends BaseController
         require __DIR__ . '/../views/partials/footer.php';
     }
 
+    /** Affiche le formulaire de conversion d'une demande qualifiée. */
+    public function showConvertForm(int $id): void
+    {
+        $this->checkAuth(['ADMIN']); // Authentification + contrôle de rôle
+
+        $prospectModel = new Prospect();
+        $prospect = $prospectModel->find($id);
+
+        if (!$prospect) {
+            header('Location: index.php?action=dashboard');
+            exit;
+        }
+
+        if (strtolower($prospect['status'] ?? '') === 'converti') {
+            $_SESSION['flash_warning'] = "Ce prospect a déjà été converti en client.";
+            header('Location: index.php?action=view_prospect&id=' . $id);
+            exit();
+        }
+
+        $pageTitle = "Conversion du Prospect : " . htmlspecialchars($prospect['company_name']);
+
+        require __DIR__ . '/../views/partials/header.php';
+        require __DIR__ . '/../views/admin/convert_prospect.php';
+        require __DIR__ . '/../views/partials/footer.php';
+    }
+
+    /**
+     * Convertit une demande en client, événement et devis initial.
+     *
+     * @param array<string, mixed> $postData Données injectées par la route ou un test.
+     */
+    public function processConversion(array $postData = []): void
+    {
+        $this->checkAuth(['ADMIN']);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=dashboard');
+            exit();
+        }
+
+        $data = !empty($postData) ? $postData : $_POST;
+        $this->validateCsrf($data);
+
+        $prospectId = (int)($data['prospect_id'] ?? $data['id'] ?? 0);
+        if ($prospectId <= 0) {
+            $_SESSION['flash_error'] = "Identifiant de dossier invalide.";
+            header('Location: index.php?action=dashboard');
+            exit();
+        }
+
+        try {
+            $conversionService = new ConversionService();
+            $file = $_FILES['event_image'] ?? null;
+            $actorId = (int)($_SESSION['user_id'] ?? 1);
+            $devisId = $conversionService->convertProspectToClient($data, $file, $actorId);
+
+            $_SESSION['flash_success'] = "Prospect converti avec succès en client et projet événementiel créé.";
+            if ($conversionService->wasCredentialsEmailSent() === false) {
+                $_SESSION['flash_warning'] = "La conversion est enregistrée, mais l’email d’accès au nouveau compte n’a pas pu être envoyé. Le client pourra utiliser « Mot de passe oublié » pour obtenir ses accès.";
+            }
+            header("Location: index.php?action=edit_devis&id=" . $devisId);
+            exit();
+        } catch (\Exception $e) {
+            $_SESSION['flash_error'] = $e->getMessage();
+            header("Location: index.php?action=show_convert_form&id=" . $prospectId);
+            exit();
+        }
+    }
+
+    /** Affiche les informations et l'état de qualification d'une demande. */
+    public function showProspectDetails(int $id): void
+    {
+        $this->checkAuth(['ADMIN']);
+
+        $prospectModel = new Prospect();
+        $prospect = $prospectModel->find($id);
+
+        if (!$prospect) {
+            header('Location: index.php?action=dashboard');
+            exit();
+        }
+
+        $pageTitle = "Détail Prospect - " . htmlspecialchars($prospect['company_name']);
+
+        require __DIR__ . '/../views/partials/header.php';
+        require __DIR__ . '/../views/admin/view_prospect.php';
+        require __DIR__ . '/../views/partials/footer.php';
+    }
+
+    /**
+     * Qualifie une demande et notifie le prospect en cas de non-faisabilité.
+     * Le motif est conservé en SQL avant toute notification externe ; une panne SMTP
+     * ne doit ni perdre la décision ni être présentée comme un envoi réussi.
+     */
+    public function updateProspectStatus(): void
+    {
+        $this->checkAuth(['ADMIN']);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=dashboard');
+            exit();
+        }
+
+        $this->validateCsrf($_POST);
+
+        $prospectId = (int)($_POST['prospect_id'] ?? $_POST['id'] ?? 0);
+        $newStatus = $_POST['status'] ?? '';
+        $newStatus = is_string($newStatus) ? trim($newStatus) : '';
+        $refusalReason = $_POST['rejection_reason'] ?? $_POST['refusal_reason'] ?? '';
+        $refusalReason = is_string($refusalReason) ? trim($refusalReason) : '';
+
+        if ($prospectId > 0 && !empty($newStatus)) {
+            $prospectModel = new Prospect();
+            $prospect = $prospectModel->find($prospectId);
+
+            if ($prospect && $prospectModel->updateStatus($prospectId, $newStatus, $refusalReason, $prospect['status'])) {
+                $mailSent = null;
+                if ($newStatus === 'échoué') {
+                    $mailSent = (new MailService())->sendQuoteRefusal(
+                        $prospect['email'], $prospect['contact_name'], $refusalReason
+                    );
+                }
+
+                // Journalisation MongoDB
+                try {
+                    $logModel = new Log();
+                    $logDetails = [
+                        'prospect_id'   => $prospectId,
+                        'ancien_statut' => $prospect['status'],
+                        'nouveau_statut'=> $newStatus,
+                        'company_name'  => $prospect['company_name']
+                    ];
+                    if ($newStatus === 'échoué') {
+                        $logDetails['motif_refus'] = $refusalReason;
+                        $logDetails['email_sent'] = $mailSent;
+                    }
+                    $logModel->addLog("QUALIFICATION_PROSPECT", (int)$_SESSION['user_id'], $logDetails);
+                } catch (\Exception $e) {
+                    error_log("Erreur Log MongoDB qualification : " . $e->getMessage());
+                }
+
+                if ($mailSent === false) {
+                    $_SESSION['flash_error'] = "Refus et motif enregistrés, mais l'email n'a pas pu être envoyé. Soumettez à nouveau le formulaire pour réessayer.";
+                } else {
+                    $_SESSION['flash_success'] = $mailSent === true
+                        ? "Refus et motif enregistrés. L'email a été transmis au serveur de messagerie."
+                        : "Statut du prospect mis à jour avec succès.";
+                }
+            } else {
+                $_SESSION['flash_error'] = "Qualification non enregistrée : vérifiez le statut et le motif (obligatoire pour un échec, 10 000 octets maximum). Un dossier converti, associé à un devis ou modifié entre-temps ne peut pas être requalifié.";
+            }
+        } else {
+            $_SESSION['flash_error'] = "Demande ou statut manquant.";
+        }
+
+        header("Location: index.php?action=view_prospect&id=" . $prospectId);
+        exit();
+    }
 }

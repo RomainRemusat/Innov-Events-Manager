@@ -7,10 +7,6 @@
  * et télécharger les propositions commerciales au format PDF, et d'exécuter
  * les arbitrages décisionnels (acceptation, demande de modification, refus).
  *
- * Exigences respectées (ECF) :
- * - AT1 : Interface responsive, contrôles CSRF, sécurisation XSS et gestion des identifiants uniques.
- * - AT2 : Gestion du cycle de vie des devis et des demandes de modification.
- *
  * @package    InnovEventsManager
  * @subpackage Views\Client
  * @author     Innov'Events
@@ -18,6 +14,7 @@
  *
  * @var string $clientName Nom/Prénom ou raison sociale du client connecté.
  * @var array  $myQuotes   Liste des devis et projets rattachés au compte client.
+ * @var array  $upcomingEvents Les trois prochains événements du client.
  */
 
 // -----------------------------------------------------------------------------
@@ -27,7 +24,7 @@ $pageTitle = "Mon Espace Client - Innov'Events";
 require __DIR__ . '/../partials/header.php';
 ?>
 
-    <div class="container my-5 py-4">
+    <main class="container my-5 py-4">
 
         <!-- =================================================================== -->
         <!-- EN-TÊTE DE BIENVENUE ET IDENTIFICATION DE L'ESPACE                  -->
@@ -38,6 +35,7 @@ require __DIR__ . '/../partials/header.php';
                     Bonjour, <?= htmlspecialchars($clientName ?? 'Client', ENT_QUOTES, 'UTF-8'); ?> 👋
                 </h1>
                 <p class="text-muted">Bienvenue dans votre espace personnel. Suivez l'avancement de vos projets événementiels.</p>
+                <a href="index.php?action=client_profile" class="btn btn-outline-primary btn-sm">Modifier mon profil</a>
             </div>
             <div class="col-2 text-end align-self-center">
                 <span class="badge bg-secondary px-3 py-2 text-uppercase fw-semibold" style="font-size: 0.8rem;">Espace Client</span>
@@ -56,6 +54,13 @@ require __DIR__ . '/../partials/header.php';
             </div>
         <?php endif; ?>
 
+        <?php if (!empty($_SESSION['client_warning'])): ?>
+            <div class="alert alert-warning" role="alert">
+                <?= htmlspecialchars($_SESSION['client_warning'], ENT_QUOTES, 'UTF-8') ?>
+            </div>
+            <?php unset($_SESSION['client_warning']); ?>
+        <?php endif; ?>
+
         <?php if (isset($_SESSION['client_error'])): ?>
             <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
                 <i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>
@@ -68,12 +73,36 @@ require __DIR__ . '/../partials/header.php';
         <!-- =================================================================== -->
         <!-- TABLEAU DE BORD : DEVIS ET PROJETS ÉVÉNEMENTIELS                    -->
         <!-- =================================================================== -->
+        <section class="mb-4" aria-labelledby="upcoming-heading">
+            <h2 id="upcoming-heading" class="h4">Mes prochains événements</h2>
+            <?php if (empty($upcomingEvents)): ?>
+                <p class="text-muted">Aucun événement à venir pour le moment.</p>
+            <?php else: ?>
+                <div class="row g-3">
+                    <?php foreach ($upcomingEvents as $event): ?>
+                        <div class="col-md-4">
+                            <article class="card h-100 shadow-sm">
+                                <div class="card-body">
+                                    <h3 class="h5"><?= htmlspecialchars($event['title'], ENT_QUOTES, 'UTF-8') ?></h3>
+                                    <p class="mb-2">
+                                        <time datetime="<?= htmlspecialchars(str_replace(' ', 'T', $event['start_date']), ENT_QUOTES, 'UTF-8') ?>"><?= date('d/m/Y à H:i', strtotime($event['start_date'])) ?></time>
+                                    </p>
+                                    <p class="text-muted"><?= htmlspecialchars($event['location'], ENT_QUOTES, 'UTF-8') ?></p>
+                                    <span class="badge text-bg-secondary"><?= htmlspecialchars(Event::STATUS_LABELS[Event::normalizeStatus($event['status'])] ?? $event['status'], ENT_QUOTES, 'UTF-8') ?></span>
+                                </div>
+                            </article>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </section>
+
         <div class="row g-4">
             <div class="col-lg-12">
                 <div class="card shadow-sm border-0 rounded-3">
                     <div class="card-header bg-white border-bottom py-3">
                         <h2 class="card-title h5 fw-bold mb-0 text-dark">
-                            <i class="bi bi-folder-check text-primary me-2" aria-hidden="true"></i>Mes Devis & Événements
+                            <i class="bi bi-folder-check text-primary me-2" aria-hidden="true"></i>Mes demandes & devis
                         </h2>
                     </div>
                     <div class="card-body p-0">
@@ -92,7 +121,7 @@ require __DIR__ . '/../partials/header.php';
                                         <th scope="col" class="ps-4">N° Dossier</th>
                                         <th scope="col">Type d'Événement</th>
                                         <th scope="col">Date</th>
-                                        <th scope="col">Statut Devis</th>
+                                        <th scope="col">Suivi</th>
                                         <th scope="col" class="text-end pe-4">Actions</th>
                                     </tr>
                                     </thead>
@@ -101,12 +130,13 @@ require __DIR__ . '/../partials/header.php';
                                         <?php
                                         // Normalisation du statut et résolution de l'identifiant unique
                                         $st = strtolower($quote['status'] ?? 'brouillon');
+                                        $hasQuote = !empty($quote['id_devis']);
                                         $quoteUniqueId = (int)($quote['id_devis'] ?? $quote['prospect_id'] ?? $quote['id'] ?? 0);
                                         ?>
                                         <tr>
                                             <!-- Identifiant unique du dossier -->
                                             <td class="ps-4 fw-semibold text-secondary">
-                                                #<?= $quoteUniqueId; ?>
+                                                <?= $hasQuote ? 'Devis' : 'Demande' ?> #<?= $quoteUniqueId; ?>
                                             </td>
 
                                             <!-- Libellé de l'événement et entreprise -->
@@ -123,7 +153,18 @@ require __DIR__ . '/../partials/header.php';
 
                                             <!-- Badges sémantiques indiquant l'état du dossier -->
                                             <td>
-                                                <?php if (in_array($st, ['étude côté client', 'devis envoyé'], true)): ?>
+                                                <?php if (!$hasQuote): ?>
+                                                    <span class="badge text-bg-secondary"><?= htmlspecialchars(match ($st) {
+                                                        'à contacter' => 'Demande reçue',
+                                                        'en attente' => 'En cours de qualification',
+                                                        'échoué' => 'Demande non retenue',
+                                                        'converti' => 'Projet créé',
+                                                        default => ucfirst($st),
+                                                    }, ENT_QUOTES, 'UTF-8') ?></span>
+                                                    <?php if ($st === 'échoué' && !empty($quote['rejection_reason'])): ?>
+                                                        <p class="small mt-2 mb-0"><?= nl2br(htmlspecialchars($quote['rejection_reason'], ENT_QUOTES, 'UTF-8')) ?></p>
+                                                    <?php endif; ?>
+                                                <?php elseif (in_array($st, ['étude côté client', 'devis envoyé'], true)): ?>
                                                     <span class="badge text-bg-info px-2.5 py-1.5 rounded-pill">
                                                     <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i> Proposition reçue
                                                 </span>
@@ -149,12 +190,7 @@ require __DIR__ . '/../partials/header.php';
                                             <!-- Actions : Téléchargement PDF et Tunnel décisionnel -->
                                             <td class="text-end pe-4">
 
-                                                <?php
-                                                $pdfPhysicalPath = __DIR__ . '/../../storage/devis/' . ($quote['reference_pdf'] ?? '');
-                                                $isPdfAvailable = !empty($quote['reference_pdf']) && $st !== 'brouillon' && file_exists($pdfPhysicalPath);
-                                                ?>
-
-                                                <?php if ($isPdfAvailable): ?>
+                                                <?php if ($quote['is_pdf_available']): ?>
                                                     <a href="index.php?action=download_pdf&file=<?= urlencode($quote['reference_pdf']); ?>"
                                                        class="btn btn-outline-primary btn-sm rounded-2 mb-1"
                                                        aria-label="Télécharger le PDF du devis #<?= $quoteUniqueId; ?>">
@@ -163,13 +199,17 @@ require __DIR__ . '/../partials/header.php';
                                                 <?php endif; ?>
 
                                                 <!-- Tunnel d'interaction réservé aux devis en attente d'arbitrage -->
-                                                <?php if (in_array($st, ['étude côté client', 'devis envoyé'], true)): ?>
+                                                <?php if (!$hasQuote): ?>
+                                                    <span class="text-muted small">Aucun devis émis</span>
+                                                <?php endif; ?>
+                                                <?php if ($hasQuote && in_array($st, ['étude côté client', 'devis envoyé'], true)): ?>
                                                     <div class="mt-2 d-flex justify-content-end gap-1">
 
                                                         <!-- Formulaire 1 : Acceptation ferme du devis -->
                                                         <form action="index.php?action=respond_to_quote" method="POST" class="d-inline">
                                                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                                                             <input type="hidden" name="devis_id" value="<?= $quoteUniqueId; ?>">
+                                                            <input type="hidden" name="revision" value="<?= (int)$quote['revision'] ?>">
                                                             <button type="submit" name="quote_action" value="accept" class="btn btn-success btn-sm"
                                                                     onclick="return confirm('En acceptant ce devis, vous validez la prestation et engagez le projet. Confirmer ?');">
                                                                 <i class="bi bi-check-lg" aria-hidden="true"></i> Accepter
@@ -189,6 +229,7 @@ require __DIR__ . '/../partials/header.php';
                                                         <form action="index.php?action=respond_to_quote" method="POST" class="d-inline">
                                                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                                                             <input type="hidden" name="devis_id" value="<?= $quoteUniqueId; ?>">
+                                                            <input type="hidden" name="revision" value="<?= (int)$quote['revision'] ?>">
                                                             <button type="submit" name="quote_action" value="reject" class="btn btn-danger btn-sm"
                                                                     onclick="return confirm('Confirmez-vous le refus définitif de ce devis ?');">
                                                                 <i class="bi bi-x-lg" aria-hidden="true"></i> Refuser
@@ -202,6 +243,7 @@ require __DIR__ . '/../partials/header.php';
                                                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                                                             <input type="hidden" name="devis_id" value="<?= $quoteUniqueId; ?>">
                                                             <input type="hidden" name="quote_action" value="request_change">
+                                                            <input type="hidden" name="revision" value="<?= (int)$quote['revision'] ?>">
 
                                                             <label for="change_reason_<?= $quoteUniqueId; ?>" class="form-label small fw-bold mb-1">Motif des modifications souhaitées :</label>
                                                             <textarea id="change_reason_<?= $quoteUniqueId; ?>" name="change_reason" class="form-control form-control-sm mb-2" rows="2" required placeholder="Précisez les prestations ou les dates à ajuster..."></textarea>
@@ -224,7 +266,58 @@ require __DIR__ . '/../partials/header.php';
                 </div>
             </div>
         </div>
-    </div>
+        <section class="mt-5" id="reviews" aria-labelledby="reviews-heading">
+            <div class="mb-3">
+                <h2 class="h4" id="reviews-heading">Mes avis</h2>
+                <p class="text-secondary">Après un événement terminé, partagez votre expérience. L’avis sera public après validation par notre équipe.</p>
+            </div>
+
+            <?php if (!$reviewableEvents): ?>
+                <p class="alert alert-light border">Aucun événement terminé ne peut encore recevoir un avis.</p>
+            <?php else: ?>
+                <div class="row g-4">
+                    <?php foreach ($reviewableEvents as $event): ?>
+                        <div class="col-lg-6">
+                            <article class="card h-100 shadow-sm">
+                                <div class="card-body">
+                                    <h3 class="h5"><?= htmlspecialchars($event['title'], ENT_QUOTES, 'UTF-8') ?></h3>
+                                    <p class="text-secondary small"><?= htmlspecialchars(date('d/m/Y', strtotime($event['start_date'])), ENT_QUOTES, 'UTF-8') ?></p>
+
+                                    <?php if ($event['status'] === Review::STATUS_APPROVED): ?>
+                                        <p class="badge text-bg-success">Publié</p>
+                                        <p class="text-warning" aria-label="Note : <?= (int)$event['rating'] ?> sur 5"><span aria-hidden="true"><?= str_repeat('★', (int)$event['rating']) ?></span></p>
+                                        <p><?= nl2br(htmlspecialchars($event['comment'], ENT_QUOTES, 'UTF-8')) ?></p>
+                                    <?php elseif ($event['status'] === Review::STATUS_PENDING): ?>
+                                        <p class="badge text-bg-warning">En attente de modération</p>
+                                        <p><?= nl2br(htmlspecialchars($event['comment'], ENT_QUOTES, 'UTF-8')) ?></p>
+                                    <?php else: ?>
+                                        <?php if ($event['status'] === Review::STATUS_REJECTED): ?>
+                                            <p class="alert alert-warning"><strong>Correction demandée :</strong> <?= htmlspecialchars($event['rejection_reason'], ENT_QUOTES, 'UTF-8') ?></p>
+                                        <?php endif; ?>
+                                        <form method="post" action="index.php?action=client_submit_review">
+                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="event_id" value="<?= (int)$event['event_id'] ?>">
+                                            <label class="form-label" for="rating_<?= (int)$event['event_id'] ?>">Note *</label>
+                                            <select class="form-select mb-3" id="rating_<?= (int)$event['event_id'] ?>" name="rating" required>
+                                                <option value="">Choisir</option>
+                                                <?php for ($rating = 5; $rating >= 1; $rating--): ?>
+                                                    <option value="<?= $rating ?>" <?= (int)($event['rating'] ?? 0) === $rating ? 'selected' : '' ?>><?= $rating ?> / 5</option>
+                                                <?php endfor; ?>
+                                            </select>
+                                            <label class="form-label" for="comment_<?= (int)$event['event_id'] ?>">Commentaire *</label>
+                                            <textarea class="form-control mb-2" id="comment_<?= (int)$event['event_id'] ?>" name="comment" minlength="10" maxlength="2000" rows="4" required><?= htmlspecialchars($event['comment'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+                                            <p class="form-text">En envoyant cet avis, vous acceptez sa publication après modération.</p>
+                                            <button class="btn btn-primary" type="submit"><?= $event['review_id'] ? 'Renvoyer mon avis' : 'Envoyer mon avis' ?></button>
+                                        </form>
+                                    <?php endif; ?>
+                                </div>
+                            </article>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </section>
+    </main>
 
 <?php
 // -----------------------------------------------------------------------------

@@ -15,10 +15,11 @@
  * @package    InnovEventsManager
  * @subpackage Views/Admin
  * @author     Romain Remusat
- * @version    2.1.0
- * * @var array  $prospect  Données du modèle relationnel injectées par le DashboardController.
+ * @version    2.2.0
+ * @var array  $prospect  Données du modèle relationnel injectées par le DashboardController.
  * @var string $pageTitle Titre dynamique injecté pour le référencement interne.
  */
+$isConverted = ($prospect['status'] ?? '') === 'converti';
 ?>
 
 <div class="container-fluid bg-light min-vh-100">
@@ -28,25 +29,49 @@
 
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-2">
 
+            <?php foreach (['flash_error' => 'danger', 'flash_success' => 'success'] as $key => $color): ?>
+                <?php if (isset($_SESSION[$key])): ?>
+                    <div class="alert alert-<?= $color ?>" role="<?= $color === 'danger' ? 'alert' : 'status' ?>">
+                        <?= htmlspecialchars($_SESSION[$key], ENT_QUOTES, 'UTF-8') ?>
+                    </div>
+                    <?php unset($_SESSION[$key]); ?>
+                <?php endif; ?>
+            <?php endforeach; ?>
+
             <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-4 border-bottom">
                 <div>
                     <h1 class="h3 fw-bold text-dark mb-1">
-                        <i class="bi bi-person-lines-fill text-primary me-2"></i>Qualification du Prospect
+                        <i class="bi bi-person-lines-fill text-primary me-2"></i>Qualification du Prospect #<?= (int)$prospect['id'] ?>
                     </h1>
                     <p class="text-muted small mb-0">
                         Qualifiez la demande entrante. Si le projet est faisable, convertissez le prospect en client B2B.
                     </p>
                 </div>
                 <div>
-                    <a href="index.php?action=show_convert_form&id=<?= (int)$prospect['id'] ?>" class="btn btn-primary shadow-sm me-2" style="background-color: #3B82F6; border: none;">
-                        <i class="bi bi-magic me-2"></i>Convertir en Client
-                    </a>
+                    <?php if (!$isConverted): ?>
+                        <a href="index.php?action=show_convert_form&id=<?= (int)$prospect['id'] ?>" class="btn btn-primary shadow-sm me-2" style="background-color: #3B82F6; border: none;">
+                            <i class="bi bi-magic me-2"></i>Convertir en Client
+                        </a>
+                    <?php else: ?>
+                        <span class="badge bg-success-subtle text-success border border-success px-3 py-2 me-2">
+                            <i class="bi bi-check-circle-fill me-1"></i>Prospect Déjà Converti
+                        </span>
+                    <?php endif; ?>
 
-                    <a href="index.php?action=dashboard" class="btn btn-outline-secondary btn-sm shadow-sm">
-                        <i class="bi bi-arrow-left me-2"></i>Retour
+                    <a href="index.php?action=prospects" class="btn btn-outline-secondary btn-sm shadow-sm">
+                        <i class="bi bi-arrow-left me-2"></i>Retour aux prospects
                     </a>
                 </div>
             </div>
+
+            <?php if (!empty($_SESSION['flash_warning'])): ?>
+                <div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <?= htmlspecialchars($_SESSION['flash_warning'], ENT_QUOTES, 'UTF-8'); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+                </div>
+                <?php unset($_SESSION['flash_warning']); ?>
+            <?php endif; ?>
 
             <div class="row g-4">
 
@@ -63,7 +88,8 @@
                             <p class="mb-2"><strong>Entreprise :</strong> <?= htmlspecialchars($prospect['company_name'] ?? '', ENT_QUOTES, 'UTF-8') ?></p>
                             <p class="mb-2"><strong>Nom du contact :</strong> <?= htmlspecialchars($prospect['contact_name'] ?? '', ENT_QUOTES, 'UTF-8') ?></p>
                             <p class="mb-2"><strong>Email :</strong> <a href="mailto:<?= htmlspecialchars($prospect['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($prospect['email'] ?? '', ENT_QUOTES, 'UTF-8') ?></a></p>
-                            <p class="mb-0"><strong>Téléphone :</strong> <?= htmlspecialchars($prospect['phone'] ?? '', ENT_QUOTES, 'UTF-8') ?></p>
+                            <p class="mb-2"><strong>Téléphone :</strong> <?= htmlspecialchars($prospect['phone'] ?? '', ENT_QUOTES, 'UTF-8') ?></p>
+                            <p class="mb-0"><strong>Lieu :</strong> <?= htmlspecialchars($prospect['location'] ?? 'Non spécifié', ENT_QUOTES, 'UTF-8') ?></p>
                         </div>
                     </div>
 
@@ -87,22 +113,35 @@
                             <hr>
 
                             <!-- Formulaire restreint aux seuls états de qualification prospect -->
+                            <?php if ($status !== 'converti'): ?>
                             <form action="index.php?action=update_prospect_status" method="POST">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                 <input type="hidden" name="id" value="<?= (int)$prospect['id'] ?>">
 
-                                <label class="form-label fw-bold text-muted small">Changer l'état du prospect :</label>
-                                <div class="input-group shadow-sm mb-2">
-                                    <select class="form-select form-select-sm" name="status" aria-label="Sélection du statut prospect">
+                                <div class="mb-3">
+                                    <label for="status_select" class="form-label fw-bold text-muted small">Changer l'état du prospect :</label>
+                                    <select class="form-select form-select-sm shadow-sm" id="status_select" name="status" aria-label="Sélection du statut prospect">
                                         <option value="à contacter" <?= $status === 'à contacter' ? 'selected' : '' ?>>À contacter</option>
                                         <option value="en attente" <?= $status === 'en attente' ? 'selected' : '' ?>>En attente (Échanges en cours)</option>
                                         <option value="échoué" <?= $status === 'échoué' ? 'selected' : '' ?>>Échoué (Projet infaisable)</option>
                                     </select>
-                                    <button class="btn btn-sm btn-primary fw-bold" type="submit">Mettre à jour</button>
                                 </div>
-                                <small class="text-muted d-block" style="font-size: 0.75rem;">
-                                    <i class="bi bi-info-circle me-1"></i>Passer le statut sur « Échoué » informe le prospect de l'impossibilité de donner suite à sa demande.
+
+                                <div class="mb-3" id="rejection_block">
+                                    <label for="rejection_reason" class="form-label fw-bold text-muted small">Motif du refus / non-faisabilité (envoyé par email) :</label>
+                                    <textarea class="form-control form-control-sm" id="rejection_reason" name="rejection_reason" rows="2" placeholder="Ex: Dates indisponibles, budget insuffisant pour la formule demandée..."><?= htmlspecialchars($prospect['rejection_reason'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+                                </div>
+
+                                <button class="btn btn-sm btn-primary w-100 fw-bold" type="submit">
+                                    <i class="bi bi-arrow-repeat me-1"></i>Mettre à jour le statut
+                                </button>
+                                <small class="text-muted d-block mt-2" style="font-size: 0.75rem;">
+                                    <i class="bi bi-info-circle me-1"></i>Pour « Échoué », le motif est obligatoire. Chaque soumission enregistre le motif et tente son envoi par email, y compris lors d'une nouvelle tentative.
                                 </small>
                             </form>
+                            <?php else: ?>
+                                <p class="text-muted">Ce prospect est converti. La qualification ne peut plus être modifiée.</p>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>

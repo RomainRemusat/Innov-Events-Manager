@@ -55,21 +55,11 @@ if (!isset($_SESSION['user_id'])) {
                                         <tr>
                                             <td class="fw-bold text-secondary text-nowrap">
                                                 <i class="fa-regular fa-calendar-days me-1"></i>
-                                                <?php
-                                                if (isset($log['created_at'])) {
-                                                    if (is_object($log['created_at']) && method_exists($log['created_at'], 'toDateTime')) {
-                                                        echo $log['created_at']->toDateTime()->setTimezone(new DateTimeZone('Europe/Paris'))->format('d/m/Y - H:i:s');
-                                                    } else {
-                                                        echo date('d/m/Y - H:i:s', strtotime((string)$log['created_at']));
-                                                    }
-                                                } else {
-                                                    echo 'Inconnue';
-                                                }
-                                                ?>
+                                                <?= htmlspecialchars($log['timestamp'] ?? 'Date inconnue', ENT_QUOTES, 'UTF-8') ?>
                                             </td>
                                             <td>
                                                 <?php
-                                                $actionType = htmlspecialchars($log['action'] ?? 'Non défini', ENT_QUOTES, 'UTF-8');
+                                                $actionType = htmlspecialchars($log['type_action'] ?? 'Non défini', ENT_QUOTES, 'UTF-8');
                                                 $badgeClass = 'bg-primary';
                                                 if (strpos(strtolower($actionType), 'erreur') !== false) $badgeClass = 'bg-danger';
                                                 if (strpos(strtolower($actionType), 'succès') !== false) $badgeClass = 'bg-success';
@@ -77,10 +67,10 @@ if (!isset($_SESSION['user_id'])) {
                                                 <span class="badge <?= $badgeClass ?>"><?= $actionType ?></span>
                                             </td>
                                             <td class="text-dark">
-                                                <?= htmlspecialchars($log['message'] ?? '-', ENT_QUOTES, 'UTF-8') ?>
+                                                <?= htmlspecialchars($log['details']['message'] ?? json_encode($log['details'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>
                                             </td>
                                             <td class="text-muted font-monospace small">
-                                                <?= htmlspecialchars($log['ip_address'] ?? 'N/A', ENT_QUOTES, 'UTF-8') ?>
+                                                <?= htmlspecialchars($log['details']['ip_address'] ?? 'N/A', ENT_QUOTES, 'UTF-8') ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

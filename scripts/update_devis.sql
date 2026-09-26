@@ -1,13 +1,10 @@
--- =====================================================================
--- PROJET : INNOV'EVENTS MANAGER
--- FICHIER : update.sql (Script de mise à jour ALTER TABLE)
--- OBJECTIF : AT2 - Mise en conformité du cycle de vie métier (Devis)
--- =====================================================================
+-- MySQL 8.0 : alignement de devis depuis l'export du 09/09/2026.
+-- Ne recrée ni la table ni status. Les montants et décisions déjà enregistrés
+-- sont conservés ; les valeurs par défaut concernent les futures insertions.
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
+SET SESSION sql_mode = CONCAT_WS(',', NULLIF(@@SESSION.sql_mode, ''), 'STRICT_ALL_TABLES');
 
--- Ajout de la colonne status à la table devis pour respecter le cahier des charges
 ALTER TABLE devis
-    ADD COLUMN status VARCHAR(50) DEFAULT 'brouillon' AFTER tva;
-
--- Optionnel : si on souhaite directement passer les anciens devis existants
--- dans l'état "étude côté client" pour la rétrocompatibilité des données :
--- UPDATE devis SET status = 'étude côté client' WHERE status = 'brouillon';
+    MODIFY COLUMN montant_ht DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    MODIFY COLUMN tva DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'brouillon';

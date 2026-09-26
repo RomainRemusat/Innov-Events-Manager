@@ -8,7 +8,7 @@
 ?>
 <div class="container-fluid bg-light min-vh-100 py-4">
 
-        <div class="d-flex justify-content-betw een align-items-center mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h1 class="h3 fw-bold text-dark mb-1">
                     <i class="fa-solid fa-user-pen text-primary me-2" aria-hidden="true"></i>Modifier le client
@@ -28,10 +28,10 @@
                 <div class="card border-0 shadow-sm rounded-3">
                     <div class="card-body p-4">
 
-                        <!-- Le formulaire pointe vers une future route de traitement POST -->
+                        <!-- Mise à jour des coordonnées du compte client -->
                         <form action="index.php?action=update_client" method="POST">
 
-                            <!-- Sécurité AT1 : Jeton Anti-CSRF et ID caché -->
+                            <!-- Jeton de soumission et identifiant du client -->
                             <input type="hidden" name="csrf_token"
                                    value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                             <input type="hidden" name="client_id" value="<?= (int)$client['id'] ?>">
@@ -75,4 +75,3 @@
         </div>
 
     </div>
-</div>

@@ -1,15 +1,11 @@
 <?php
 /**
- * Vue : Formulaire d'Authentification (Login) - Version Modulaire Épurée
+ * Vue : formulaire d'authentification
  *
- * Ce fichier implémente l'interface de connexion sécurisée pour les utilisateurs
- * de la plateforme (Back-Office de Chloé, collaborateurs et clients corporate)[cite: 93, 261].
+ * Affiche l'interface de connexion commune aux administrateurs, employés et clients.
  *
- * Sécurité et Accessibilité (RGAA v4) :
- * - Chiffrement des flux : Transmission via la méthode HTTP POST[cite: 183].
- * - Attributs ARIA : Notification d'obligation sémantique et rôles d'alerte.
- * - Auto-complétion native : Optimisation de l'UX et réduction de la charge cognitive[cite: 506].
- * - Gestion défensive : Affichage dynamique et sécurisé (XSS protection) des erreurs.
+ * Les erreurs sont échappées avant affichage et les attributs d'auto-complétion
+ * permettent au navigateur de reconnaître les champs d'identification.
  *
  * @package    InnovEventsManager
  * @subpackage Views/Public
@@ -29,11 +25,18 @@ require __DIR__ . '/../partials/header.php';
             <div class="col-md-6 col-lg-4">
 
                 <div class="text-center mb-4">
-                    <h2 class="fw-bold text-dark tracking-tight">Espace Gestion</h2>
+                    <h1 class="fw-bold text-dark tracking-tight h2">Espace Gestion</h1>
                     <p class="text-muted small">Accédez à votre console d'administration sécurisée.</p>
                 </div>
 
                 <div class="pt-4 border-top">
+
+                    <?php if (isset($_SESSION['login_success'])): ?>
+                        <div class="alert alert-success" role="status">
+                            <?= htmlspecialchars($_SESSION['login_success'], ENT_QUOTES, 'UTF-8'); ?>
+                            <?php unset($_SESSION['login_success']); ?>
+                        </div>
+                    <?php endif; ?>
 
                     <?php if (isset($_SESSION['login_error'])): ?>
                         <div class="alert alert-danger text-center small mb-4" role="alert">

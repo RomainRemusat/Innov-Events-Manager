@@ -2,17 +2,8 @@
 /**
  * Composant : Pied de page global (Footer partial)
  *
- * Ce fichier implémente la structure de fermeture HTML commune à l'ensemble
- * des vues publiques de la plateforme Innov'Events Manager. Conçu de manière
- * modulaire, il assure l'uniformité visuelle du bas de page, fournit des accès de
- * navigation secondaires, affiche les mentions légales et intègre les dépendances
- * JavaScript requises.
- *
- * Spécifications techniques et conformité :
- * - Grille adaptative Bootstrap 5 (Flexbox / multi-colonnes responsive).
- * - Accessibilité sémantique via la balise normative <footer>.
- * - Prise en compte réglementaire des exigences CNIL / RGPD via des liens dédiés.
- * - Centralisation du chargement des modules asynchrones (Bootstrap Bundle).
+ * Ferme la structure HTML commune, affiche les liens secondaires et charge le
+ * bundle JavaScript Bootstrap partagé par les vues.
  *
  * @package    InnovEventsManager
  * @subpackage Views/Partials
@@ -39,6 +30,9 @@
                     </li>
                     <li class="mb-2">
                         <a href="index.php#services" class="text-white-50 text-decoration-none">Nos Services</a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="index.php?action=contact" class="text-white-50 text-decoration-none">Contact</a>
                     </li>
 
                     <li class="mb-2">
@@ -77,9 +71,10 @@
                 &copy; 2026 Innov'Events Manager. Tous droits réservés.
             </div>
             <div class="col-md-6 text-center text-md-end">
-                <a href="index.php?action=mentions_legales" class="text-white-50 text-decoration-none me-3">Mentions Légales</a>
-                <span class="text-secondary" aria-hidden="true">|</span>
-                <a href="index.php?action=politique_confidentialite" class="text-white-50 text-decoration-none ms-3">Politique de Confidentialité (RGPD)</a>
+                <a href="index.php?action=mentions_legales" class="text-white-50 text-decoration-none me-2">Mentions légales</a>
+                <a href="index.php?action=cgu" class="text-white-50 text-decoration-none me-2">CGU</a>
+                <a href="index.php?action=cgv" class="text-white-50 text-decoration-none me-2">CGV</a>
+                <a href="index.php?action=politique_confidentialite" class="text-white-50 text-decoration-none">Confidentialité</a>
             </div>
         </div>
     </div>

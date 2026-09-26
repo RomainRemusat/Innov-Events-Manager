@@ -2,19 +2,13 @@
 /**
  * Vue : Formulaire de Conversion (Prospect -> Client, Entreprise & Événement)
  *
- * Cette interface d'administration est l'étape centrale du workflow commercial (AT2).
- * Elle permet à Chloé de convertir un prospect en client B2B tout en qualifiant
- * l'adresse postale légale et les paramètres complets du projet événementiel.
- *
- * Normes appliquées :
- * - Sécurité (AT1) : Jeton Anti-CSRF et échappement strict (XSS) via ENT_QUOTES.
- * - Accessibilité (RGAA) : Labels explicites, structuration sémantique et attributs ARIA.
- * - UI/UX : Charte Slate Dark (#0F172A) et Bleu (#3B82F6).
+ * Permet de compléter les coordonnées du client et les informations du projet
+ * avant la création du devis. Les valeurs affichées sont échappées en HTML.
  *
  * @package    InnovEventsManager
  * @subpackage Views/Admin
  * @author     Romain Remusat
- * @version    1.3.0
+ * @version    2.3.0
  *
  * @var array $prospect Données brutes du prospect récupérées depuis MySQL
  */
@@ -28,21 +22,30 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h1 class="h3 fw-bold text-dark mb-1">
-                    <i class="bi bi-magic text-primary me-2" aria-hidden="true"></i>Convertir le Prospect
+                    <i class="bi bi-magic text-primary me-2" aria-hidden="true"></i>Convertir le Prospect #<?= (int)$prospect['id'] ?>
                 </h1>
                 <p class="text-muted small mb-0">Création du compte client B2B, enregistrement légal de la société et initialisation du projet.</p>
             </div>
-            <a href="index.php?action=dashboard" class="btn btn-outline-secondary btn-sm" aria-label="Retour au tableau de bord">
-                <i class="bi bi-arrow-left me-2" aria-hidden="true"></i>Retour au tableau de bord
+            <a href="index.php?action=view_prospect&id=<?= (int)$prospect['id'] ?>" class="btn btn-outline-secondary btn-sm" aria-label="Retour au prospect">
+                <i class="bi bi-arrow-left me-2" aria-hidden="true"></i>Retour à la qualification
             </a>
         </div>
+
+        <?php if (!empty($_SESSION['flash_error'])): ?>
+            <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>
+                <?= htmlspecialchars($_SESSION['flash_error'], ENT_QUOTES, 'UTF-8'); ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+            </div>
+            <?php unset($_SESSION['flash_error']); ?>
+        <?php endif; ?>
 
         <!-- =============================================================== -->
         <!-- FORMULAIRE DE CONVERSION (POST MULTIPART)                       -->
         <!-- =============================================================== -->
         <form action="index.php?action=process_conversion" method="POST" enctype="multipart/form-data" class="row g-4">
 
-            <!-- Jeton de sécurité Anti-CSRF (Validation AT1) -->
+            <!-- Jeton de protection contre les soumissions intersites -->
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
             <!-- ID caché du prospect pour la liaison SQL -->
             <input type="hidden" name="prospect_id" value="<?= (int)$prospect['id'] ?>">
@@ -140,6 +143,24 @@
 
                         <div class="row mb-3">
                             <div class="col-md-6">
+                                <label for="event_type" class="form-label small fw-bold text-muted">Type d'événement</label>
+                                <select class="form-select" id="event_type" name="event_type">
+                                    <?php $selectedType = $prospect['event_type'] ?? 'Autre'; ?>
+                                    <option value="Séminaire" <?= $selectedType === 'Séminaire' ? 'selected' : '' ?>>Séminaire</option>
+                                    <option value="Soirée de Gala" <?= $selectedType === 'Soirée de Gala' ? 'selected' : '' ?>>Soirée de Gala</option>
+                                    <option value="Lancement de produit" <?= $selectedType === 'Lancement de produit' ? 'selected' : '' ?>>Lancement de produit</option>
+                                    <option value="Team Building" <?= $selectedType === 'Team Building' ? 'selected' : '' ?>>Team Building</option>
+                                    <option value="Autre" <?= !in_array($selectedType, ['Séminaire', 'Soirée de Gala', 'Lancement de produit', 'Team Building']) ? 'selected' : '' ?>>Autre</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="theme" class="form-label small fw-bold text-muted">Thématique / Style</label>
+                                <input type="text" class="form-control" id="theme" name="theme" placeholder="Ex: Futuriste, Nature & RSE, Gatsby...">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
                                 <label for="start_date" class="form-label small fw-bold text-muted">Date & Heure de début *</label>
                                 <input type="datetime-local" class="form-control" id="start_date" name="start_date"
                                        value="<?= !empty($prospect['event_date']) ? htmlspecialchars($prospect['event_date'], ENT_QUOTES, 'UTF-8') . 'T08:00' : '' ?>" required aria-required="true">
@@ -161,40 +182,49 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label for="estimated_participants" class="form-label small fw-bold text-muted">Participants prévus</label>
+                                <label for="estimated_participants" class="form-label small fw-bold text-muted">Participants prévus *</label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light text-muted"><i class="bi bi-people"></i></span>
                                     <input type="number" class="form-control" id="estimated_participants" name="estimated_participants"
-                                           value="<?= (int)($prospect['estimated_participants'] ?? 0) ?>" min="1">
+                                           value="<?= (int)($prospect['estimated_participants'] ?? 0) ?>" min="1" max="2147483647" required aria-required="true">
                                 </div>
-                            </div
+                            </div>
                         </div>
 
-                        <div class="mb-3 mt-3">
+                        <div class="mb-3">
                             <label for="event_image" class="form-label small fw-bold text-muted">Illustration de l'événement (Lieu, Affiche...)</label>
                             <input type="file" class="form-control" id="event_image" name="event_image" accept="image/jpeg,image/png,image/webp">
                             <div class="form-text small">Facultatif. Format JPEG, PNG ou WebP.</div>
                         </div>
 
                         <div class="mb-3">
-                            <label for="description" class="form-label small fw-bold text-muted">Cahier des charges & spécifications</label>
-                            <textarea class="form-control" id="description" name="description" rows="4"><?= htmlspecialchars($prospect['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+                            <label for="description" class="form-label small fw-bold text-muted">Cahier des charges & spécifications *</label>
+                            <textarea class="form-control" id="description" name="description" rows="4" minlength="5" required aria-required="true"><?= htmlspecialchars($prospect['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
                             <div class="form-text small">Pré-rempli avec la demande initiale. Vous pouvez compléter selon vos échanges de qualification.</div>
                         </div>
 
                         <div class="row mb-4">
                             <div class="col-md-6">
-                                <!-- Champ caché : l'événement débute obligatoirement en brouillon -->
-                                <input type="hidden" name="event_status" value="brouillon">
-                                <label class="form-label small fw-bold text-muted">Statut initial du projet</label>
-                                <input type="text" class="form-control bg-light" value="Brouillon (Édition des prestations)" readonly>
+                                <label for="event_status" class="form-label small fw-bold text-muted">Statut initial du projet</label>
+                                <select class="form-select" id="event_status" name="event_status">
+                                    <?php foreach (Event::STATUS_LABELS as $value => $label): ?>
+                                        <?php if ($value === 'en cours') continue; // Nécessite un devis accepté, absent à la conversion. ?>
+                                        <option value="<?= $value ?>" <?= $value === 'brouillon' ? 'selected' : '' ?>><?= $label ?></option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
                             <div class="col-md-6 d-flex align-items-end">
                                 <div class="form-check form-switch mb-2">
-                                    <input class="form-check-input" type="checkbox" role="switch" id="is_visible" name="is_visible" checked>
-                                    <label class="form-check-label small" for="is_visible">Visible sur la galerie publique (une fois validé)</label>
+                                    <input class="form-check-input" type="checkbox" role="switch" id="is_visible" name="is_visible" value="1">
+                                    <label class="form-check-label small" for="is_visible">Publier sur la galerie (hors brouillon)</label>
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" id="publication_consent" name="publication_consent" value="1">
+                            <label class="form-check-label" for="publication_consent">Je confirme avoir recueilli l'accord du client pour la publication de cet événement et de son illustration.</label>
+                            <div class="form-text">Obligatoire si la publication est demandée. La confirmation sera datée et rattachée à votre compte.</div>
                         </div>
 
                         <hr class="text-muted opacity-25">

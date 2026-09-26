@@ -9,11 +9,12 @@
  * @package    InnovEventsManager
  * @subpackage Models\SQL
  * @author     Romain Remusat
- * @version    1.1.0
+ * @version    1.3.0
  */
 
 require_once __DIR__ . '/../../config/Database.php';
 
+/** Fournit les opérations SQL liées aux demandes commerciales. */
 class Prospect
 {
     /**
@@ -57,7 +58,7 @@ class Prospect
                 }
             }
 
-            // B. Insertion dans la table prospects
+            // B. Insertion dans la table prospects (Statut initial réglementaire : 'à contacter')
             $sql = "INSERT INTO prospects (
                         user_id,
                         company_id,
@@ -85,7 +86,7 @@ class Prospect
                         :estimated_participants, 
                         :budget, 
                         :description,
-                        'en attente'
+                        'à contacter'
                     )";
 
             $stmt = $this->db->prepare($sql);
@@ -120,61 +121,67 @@ class Prospect
     public function findAll(): array
     {
         try {
-            // Préparation de la requête SQL (Tri par ID décroissant pour avoir les plus récents)
             $query = "SELECT * FROM prospects ORDER BY created_at DESC";
             $stmt = $this->db->prepare($query);
             $stmt->execute();
 
-            // Récupération de tous les résultats sous forme de tableau associatif
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         } catch (\PDOException $e) {
-            // Enregistrement de l'erreur dans les logs du serveur sans bloquer l'application
             error_log("Erreur lors de la récupération des prospects : " . $e->getMessage());
-            return []; // Retourne un tableau vide en cas d'échec pour éviter un crash de la vue
+            return [];
         }
     }
 
+    /** @return array<int, array<string, mixed>> Demandes encore ouvertes. */
     public function findAllActive(): array
     {
         try {
-            // Préparation de la requête SQL (Tri par ID décroissant pour avoir les plus récents)
-            $query = "SELECT * FROM prospects WHERE status NOT IN ('accepté', 'refusé')  ORDER BY created_at DESC";
+            $query = "SELECT * FROM prospects WHERE status NOT IN ('accepté', 'refusé', 'échoué', 'converti') ORDER BY created_at DESC";
             $stmt = $this->db->prepare($query);
             $stmt->execute();
 
-            // Récupération de tous les résultats sous forme de tableau associatif
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         } catch (\PDOException $e) {
-            // Enregistrement de l'erreur dans les logs du serveur sans bloquer l'application
             error_log("Erreur lors de la récupération des prospects : " . $e->getMessage());
-            return []; // Retourne un tableau vide en cas d'échec pour éviter un crash de la vue
+            return [];
         }
     }
 
+    /** @return array<int, array<string, mixed>> Demandes correspondant au statut fourni. */
+    public function findByStatus(string $status): array
+    {
+        try {
+            $query = "SELECT * FROM prospects WHERE status = :status ORDER BY created_at DESC";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':status' => $status]);
 
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) {
+            error_log("Erreur findByStatus Prospect : " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /** Compte les demandes qui nécessitent encore un traitement. */
     public function NbActive(): int
     {
         try {
-
-            // Préparation de la requête SQL (Tri par ID décroissant pour avoir les plus récents)
-            $query = "SELECT count(id) FROM prospects WHERE status NOT IN ('accepté', 'refusé')  ORDER BY created_at DESC";
+            $query = "SELECT count(id) FROM prospects WHERE status NOT IN ('accepté', 'refusé', 'échoué', 'converti') ORDER BY created_at DESC";
             $stmt = $this->db->prepare($query);
             $stmt->execute();
 
             return (int) $stmt->fetchColumn();
 
         } catch (\PDOException $e) {
-            // Enregistrement de l'erreur dans les logs du serveur sans bloquer l'application
             error_log("Erreur lors de la récupération des prospects : " . $e->getMessage());
-            return []; // Retourne un tableau vide en cas d'échec pour éviter un crash de la vue
+            return 0;
         }
     }
 
     /**
      * Recherche et récupère un prospect unique par son identifiant.
-     * Utilise une requête préparée pour faire barrage aux injections SQL.
      *
      * @param int $id L'identifiant unique du prospect.
      * @return array|false Tableau associatif des données du prospect ou false si non trouvé.
@@ -193,30 +200,49 @@ class Prospect
         }
     }
 
-
     /**
-     * Met à jour le statut d'un prospect spécifique.
+     * Enregistre une qualification et son motif sans rouvrir un dossier converti.
+     * Le verrou SQL protège la vérification de l'état attendu jusqu'à l'écriture.
+     * Une soumission identique reste valide pour réessayer une notification échouée.
      *
      * @param int    $id     L'identifiant unique du prospect.
      * @param string $status Le nouveau statut à appliquer.
+     * @param string $reason Motif obligatoire pour l'état « échoué ».
+     * @param string $expectedStatus État lu par le contrôleur avant la modification.
      * @return bool True en cas de succès, false sinon.
      */
-    public function updateStatus(int $id, string $status): bool
+    public function updateStatus(int $id, string $status, string $reason, string $expectedStatus): bool
     {
+        $reason = trim($reason);
+        if (!in_array($status, ['à contacter', 'en attente', 'échoué'], true)
+            || ($status === 'échoué' && ($reason === '' || strlen($reason) > 10000))) {
+            return false;
+        }
         try {
-            $query = "UPDATE prospects SET status = :status WHERE id = :id";
-            $stmt = $this->db->prepare($query);
-
-            return $stmt->execute([
-                ':status' => $status,
-                ':id'     => $id
-            ]);
+            $this->db->beginTransaction();
+            $stmt = $this->db->prepare('SELECT status FROM prospects WHERE id = ? FOR UPDATE');
+            $stmt->execute([$id]);
+            $currentStatus = $stmt->fetchColumn();
+            $stmt = $this->db->prepare('SELECT id_devis FROM devis WHERE id_prospect = ? LIMIT 1');
+            $stmt->execute([$id]);
+            if ($currentStatus === false || $currentStatus === 'converti'
+                || $currentStatus !== $expectedStatus || $stmt->fetchColumn() !== false) {
+                $this->db->rollBack();
+                return false;
+            }
+            $stmt = $this->db->prepare("UPDATE prospects SET status = ?,
+                rejection_reason = CASE WHEN ? = 'échoué' THEN ? ELSE rejection_reason END WHERE id = ?");
+            $stmt->execute([$status, $status, $reason, $id]);
+            $this->db->commit();
+            return true;
         } catch (\PDOException $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("Erreur lors de la mise à jour du statut pour le prospect $id : " . $e->getMessage());
             return false;
         }
     }
-
 
     /**
      * Met à jour le statut d'un devis/prospect côté client.
@@ -245,60 +271,42 @@ class Prospect
         }
     }
 
+    /**
+     * Liste les demandes affectées au client, avec leurs devis lorsqu'ils existent.
+     * L'appartenance repose sur user_id, jamais sur une simple correspondance d'email.
+     *
+     * @param int $clientId Identifiant du propriétaire des demandes.
+     * @return array<int, array<string, mixed>> Une ligne par devis, ou par demande sans devis.
+     */
     public function findClientRequests(int $clientId): array
     {
         try {
             $stmt = $this->db->prepare("
             SELECT 
                 d.id_devis,
+                d.revision,
+                COALESCE(d.status, p.status) AS status,
+                p.status AS prospect_status,
+                p.rejection_reason,
+                d.reference_pdf,
+                d.montant_ht,
+                d.tva,
                 p.id AS prospect_id,
                 p.company_name,
                 p.contact_name,
                 p.email,
                 p.event_type,
                 p.event_date,
-                d.reference_pdf,
-                COALESCE(d.montant_ht, 0.00) AS montant_ht,
-                COALESCE(d.tva, 0.00) AS tva,
-                COALESCE(d.status, p.status) AS status,
-                d.status AS devis_status,
-                p.status AS prospect_status,
-                COALESCE(d.date_creation, p.created_at) AS created_at
+                p.created_at
             FROM prospects p
-            LEFT JOIN devis d ON p.id = d.id_prospect
-            WHERE p.user_id = :user_id
-            ORDER BY COALESCE(d.date_creation, p.created_at) DESC
+            LEFT JOIN devis d ON d.id_prospect = p.id
+            WHERE p.user_id = ?
+            ORDER BY p.created_at DESC, p.id DESC, d.id_devis DESC
         ");
-
-            $stmt->execute([':user_id' => $clientId]);
-
-            return $stmt->fetchAll(\PDO::FETCH_ASSOC);
-
-        } catch (\PDOException $e) {
-            error_log("Erreur SQL (findClientRequests) pour le client $clientId : " . $e->getMessage());
-            return [];
-        }
-    }
-
-
-    /**
-     * Récupère les prospects selon leur statut métier.
-     * Utilise une requête préparée PDO pour contrer les injections SQL (AT1).
-     *
-     * @param string $status Le statut à rechercher (ex: 'à contacter').
-     * @return array La liste des prospects correspondants.
-     */
-    public function findByStatus(string $status): array
-    {
-        try {
-            $sql = "SELECT * FROM prospects WHERE status = :status ORDER BY created_at DESC";
-            $stmt = $this->db->prepare($sql);
-            $stmt->bindValue(':status', $status, PDO::PARAM_STR);
-            $stmt->execute();
-
+            $stmt->execute([$clientId]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (\PDOException $e) {
-            error_log("Erreur SQL Prospect::findByStatus : " . $e->getMessage());
+        } catch (PDOException $e) {
+            error_log("Erreur SQL findClientRequests : " . $e->getMessage());
             return [];
         }
     }

@@ -14,16 +14,11 @@
  */
 
 
-/*
-J'ai commencé par tout grouper, mais je me suis vite rendu compte que mon contrôleur principal s'alourdissait.
-Pour respecter le principe de Responsabilité Unique (SRP) et isoler ma logique NoSQL,
-j'ai refactorisé mon code en créant un LogController dédié. Cela rend mon code beaucoup plus évolutif.
-*/
-
-
+require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../models/nosql/Log.php';
 
-class LogController
+/** Affiche aux administrateurs les actions techniques conservées dans MongoDB. */
+class LogController extends BaseController
 {
     /**
      * Orchestre l'affichage de la page d'audit complet (Logs MongoDB).
@@ -32,16 +27,7 @@ class LogController
      */
     public function showMongoLogs(): void
     {
-        // 1. Contrôle de sécurité restrictif
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (empty($_SESSION['user_id']) || $_SESSION['user_role'] !== 'ADMIN') {
-            // José ou un client sera bloqué ici
-            header('Location: index.php?action=dashboard');
-            exit;
-        }
+        $this->checkAuth(['ADMIN']);
 
         // 2. Extraction des données via le modèle NoSQL
         $logModel = new Log();

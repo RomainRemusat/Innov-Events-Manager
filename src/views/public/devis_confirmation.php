@@ -7,6 +7,7 @@
  * @package    InnovEventsManager
  * @subpackage Views/Public
  * @var bool   $isSuccess Booléen injecté par le contrôleur indiquant l'état de la transaction.
+ * @var bool   $notificationSent Indique si SMTP a accepté la notification à l'équipe.
  */
 ?>
 
@@ -21,9 +22,10 @@
                         <i class="bi bi-check2-circle display-4"></i>
                     </div>
                     <h2 class="fw-bold text-dark mb-3">Demande reçue !</h2>
-                    <p class="text-muted lh-base mb-4">
-                        Merci pour votre confiance. Chloé vient de recevoir vos informations et étudie déjà la faisabilité de votre projet. Vous serez recontacté sous 48 heures ouvrées.
-                    </p>
+                    <p class="text-muted lh-base mb-4"><?= nl2br(htmlspecialchars($thankYouMessage, ENT_QUOTES, 'UTF-8')) ?></p>
+                    <?php if (!$notificationSent): ?>
+                        <p class="alert alert-warning" role="alert">L’email de notification à notre équipe n’a pas pu être envoyé. Votre demande est conservée ; il est inutile de la soumettre à nouveau.</p>
+                    <?php endif; ?>
                     <div class="pt-2">
                         <a href="index.php" class="btn btn-primary px-4 shadow-sm"><i class="bi bi-house me-2"></i>Retour à l'accueil</a>
                     </div>

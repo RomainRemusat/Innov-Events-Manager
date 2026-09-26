@@ -27,5 +27,6 @@ RUN a2enmod rewrite
 
 # Copie l'intégralité du code source dans le conteneur de travail
 COPY . /var/www/html/
+COPY public/.user.ini /usr/local/etc/php/conf.d/uploads.ini
 
 EXPOSE 80

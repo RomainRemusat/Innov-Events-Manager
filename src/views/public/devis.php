@@ -15,11 +15,14 @@
  * @package    InnovEventsManager
  * @subpackage Views/Public
  * @author     Romain Remusat
- * @version    2.4.0
+ * @version    2.5.0
  */
 
 // Injection dynamique du titre pour le composant global d'en-tête HTML
 $pageTitle = "Innov'Events - Demande de Devis";
+
+$old = $_SESSION['old_inputs'] ?? [];
+unset($_SESSION['old_inputs']);
 
 // Architecture Modulaire : Chargement de l'en-tête global et de la barre de navigation
 require __DIR__ . '/../partials/header.php';
@@ -64,68 +67,97 @@ require __DIR__ . '/../partials/header.php';
 
     <main class="container my-5">
         <div class="pt-4">
-            <h2 class="fw-bold text-dark  mb-5  tracking-wide" >Parlez-nous de votre projet.</h2>
+            <h2 class="fw-bold text-dark mb-4 tracking-wide">Parlez-nous de votre projet.</h2>
+
+            <?php if (!empty($_SESSION['flash_error'])): ?>
+                <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>
+                    <strong>Veuillez corriger les éléments suivants :</strong><br>
+                    <?= $_SESSION['flash_error']; ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+                </div>
+                <?php unset($_SESSION['flash_error']); ?>
+            <?php endif; ?>
+
             <form action="index.php?action=devis" method="POST" class="p-4 border rounded shadow-sm bg-white">
 
                 <div class="row mb-3">
                     <div class="col-md-6 mb-3 mb-md-0">
                         <label for="company_name" class="form-label text-muted small fw-bold">NOM DE L'ENTREPRISE *</label>
-                        <input type="text" class="form-control" id="company_name" name="company_name" placeholder="Ex: TechCorp" required>
+                        <input type="text" class="form-control" id="company_name" name="company_name"
+                               value="<?= htmlspecialchars($old['company_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                               placeholder="Ex: TechCorp" required>
                     </div>
                     <div class="col-md-6">
                         <label for="contact_name" class="form-label text-muted small fw-bold">NOM & PRÉNOM DU CONTACT *</label>
-                        <input type="text" class="form-control" id="contact_name" name="contact_name" placeholder="Ex: Jean Dupont" required>
+                        <input type="text" class="form-control" id="contact_name" name="contact_name"
+                               value="<?= htmlspecialchars($old['contact_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                               placeholder="Ex: Jean Dupont" required>
                     </div>
                 </div>
 
                 <div class="row mb-3">
                     <div class="col-md-6 mb-3 mb-md-0">
                         <label for="email" class="form-label text-muted small fw-bold">ADRESSE EMAIL PROFESSIONNELLE *</label>
-                        <input type="email" class="form-control" id="email" name="email" placeholder="Ex: j.dupont@entreprise.com" required>
+                        <input type="email" class="form-control" id="email" name="email"
+                               value="<?= htmlspecialchars($old['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                               placeholder="Ex: j.dupont@entreprise.com" required>
                     </div>
                     <div class="col-md-6">
                         <label for="phone" class="form-label text-muted small fw-bold">NUMÉRO DE TÉLÉPHONE *</label>
-                        <input type="tel" class="form-control" id="phone" name="phone" placeholder="Ex: 01 23 45 67 89" required>
+                        <input type="tel" class="form-control" id="phone" name="phone"
+                               value="<?= htmlspecialchars($old['phone'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                               placeholder="Ex: 01 23 45 67 89" required>
                     </div>
                 </div>
 
                 <div class="row mb-3">
                     <div class="col-md-6 mb-3 mb-md-0">
                         <label for="event_type" class="form-label text-muted small fw-bold">TYPE D'ÉVÉNEMENT *</label>
+                        <?php $selectedType = $old['event_type'] ?? ''; ?>
                         <select class="form-select" id="event_type" name="event_type" required>
-                            <option value="" selected disabled>Choisir une option...</option>
-                            <option value="Séminaire">Séminaire</option>
-                            <option value="Soirée de Gala">Soirée de Gala</option>
-                            <option value="Lancement de produit">Lancement de produit</option>
-                            <option value="Team Building">Team Building</option>
-                            <option value="Autre">Autre</option>
+                            <option value="" <?= empty($selectedType) ? 'selected' : ''; ?> disabled>Choisir une option...</option>
+                            <option value="Séminaire" <?= $selectedType === 'Séminaire' ? 'selected' : ''; ?>>Séminaire</option>
+                            <option value="Soirée de Gala" <?= $selectedType === 'Soirée de Gala' ? 'selected' : ''; ?>>Soirée de Gala</option>
+                            <option value="Lancement de produit" <?= $selectedType === 'Lancement de produit' ? 'selected' : ''; ?>>Lancement de produit</option>
+                            <option value="Team Building" <?= $selectedType === 'Team Building' ? 'selected' : ''; ?>>Team Building</option>
+                            <option value="Autre" <?= $selectedType === 'Autre' ? 'selected' : ''; ?>>Autre</option>
                         </select>
                     </div>
                     <div class="col-md-6 mb-3 mb-md-0">
                         <label for="event_date" class="form-label text-muted small fw-bold">DATE SOUHAITÉE *</label>
-                        <input type="date" class="form-control" id="event_date" name="event_date" required>
+                        <input type="date" class="form-control" id="event_date" name="event_date"
+                               min="<?= date('Y-m-d'); ?>"
+                               value="<?= htmlspecialchars($old['event_date'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" required>
                     </div>
                 </div>
 
                 <div class="row mb-3">
                     <div class="col-md-6 mb-3 mb-md-0">
                         <label for="location" class="form-label text-muted small fw-bold">LIEU / VILLE SOUHAITÉ *</label>
-                        <input type="text" class="form-control" id="location" name="location" placeholder="Ex: Paris, Lyon, Sur site entreprise..." required>
+                        <input type="text" class="form-control" id="location" name="location"
+                               value="<?= htmlspecialchars($old['location'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                               placeholder="Ex: Paris, Lyon, Sur site entreprise..." required>
                     </div>
                     <div class="col-md-3 mb-3 mb-md-0">
                         <label for="estimated_participants" class="form-label text-muted small fw-bold">PARTICIPANTS *</label>
-                        <input type="number" class="form-control" id="estimated_participants" name="estimated_participants" placeholder="Ex: 50" min="1" required>
+                        <input type="number" class="form-control" id="estimated_participants" name="estimated_participants"
+                               value="<?= htmlspecialchars((string)($old['estimated_participants'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                               placeholder="Ex: 50" min="1" required>
                     </div>
                     <div class="col-md-3">
-                        <label for="budget" class="form-label text-muted small fw-bold">BUDGET ESTIMÉ (€) *</label>
-                        <input type="number" class="form-control" id="budget" name="budget" placeholder="Ex: 5000" min="0" step="100" required>
+                        <label for="budget" class="form-label text-muted small fw-bold">BUDGET ESTIMÉ (€)</label>
+                        <input type="number" class="form-control" id="budget" name="budget"
+                               value="<?= htmlspecialchars((string)($old['budget'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                               placeholder="Ex: 5000 (Facultatif)" min="0" step="100">
                     </div>
                 </div>
 
                 <div class="row mb-4">
                     <div class="col-md-12">
                         <label for="description" class="form-label text-muted small fw-bold">DESCRIPTION DU PROJET *</label>
-                        <textarea class="form-control" id="description" name="description" rows="8" placeholder="Décrivez brièvement vos attentes (ex: besoin d'un traiteur, location de salle...)" required></textarea>
+                        <textarea class="form-control" id="description" name="description" rows="6"
+                                  placeholder="Décrivez brièvement vos attentes (ex: besoin d'un traiteur, location de salle, animations...)" required><?= htmlspecialchars($old['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
                     </div>
                 </div>
 
@@ -158,35 +190,33 @@ require __DIR__ . '/../partials/header.php';
                                 <img src="https://images.unsplash.com/photo-1431540015161-0bf868a2d407?q=80&w=600&auto=format&fit=crop" class="w-100 h-100" style="object-fit: cover;" alt="Séminaire TechCorp">
                             </div>
                             <div class="p-3">
-                                <span class="text-primary label-minimal mb-1 d-block" style="font-size: 0.65rem;">Team Building</span>
-                                <h4 class="h6 fw-semibold text-dark mb-2">Séminaire Annuel TechCorp</h4>
-                                <p class="text-muted mb-0 small lh-base">Rassembler 150 collaborateurs dans un éco-lodge connecté avec ateliers collaboratifs et animations immersives.</p>
+                                <span class="badge bg-secondary mb-2">Séminaire</span>
+                                <h4 class="h6 fw-bold">Convention Nationale TechCorp</h4>
+                                <p class="text-muted small mb-0">Paris — 150 participants</p>
                             </div>
                         </div>
                     </div>
-
                     <div class="col-md-4">
                         <div class="project-card-minimal">
                             <div class="ratio ratio-16x9 bg-light">
-                                <img src="https://images.unsplash.com/photo-1469371670807-013ccf25f16a?q=80&w=600&auto=format&fit=crop" class="w-100 h-100" style="object-fit: cover;" alt="Soirée de Gala Luxury Hotel">
+                                <img src="https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=600&auto=format&fit=crop" class="w-100 h-100" style="object-fit: cover;" alt="Gala Innov">
                             </div>
                             <div class="p-3">
-                                <span class="text-success label-minimal mb-1 d-block" style="font-size: 0.65rem;">Soirée d'exception</span>
-                                <h4 class="h6 fw-semibold text-dark mb-2">Gala Annuel Luxury Group</h4>
-                                <p class="text-muted mb-0 small lh-base">Scénographie lumineuse haut de gamme, dîner gastronomique et concert privé pour célébrer les performances annuelles.</p>
+                                <span class="badge bg-secondary mb-2">Gala</span>
+                                <h4 class="h6 fw-bold">Soirée Annuelle des Lauréats</h4>
+                                <p class="text-muted small mb-0">Lyon — 300 participants</p>
                             </div>
                         </div>
                     </div>
-
                     <div class="col-md-4">
                         <div class="project-card-minimal">
                             <div class="ratio ratio-16x9 bg-light">
-                                <img src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=600&auto=format&fit=crop" class="w-100 h-100" style="object-fit: cover;" alt="Lancement de produit NextGen">
+                                <img src="https://images.unsplash.com/photo-1475721027785-f74eccf877e2?q=80&w=600&auto=format&fit=crop" class="w-100 h-100" style="object-fit: cover;" alt="Team Building">
                             </div>
                             <div class="p-3">
-                                <span class="text-warning label-minimal mb-1 d-block" style="font-size: 0.65rem;">Lancement de marque</span>
-                                <h4 class="h6 fw-semibold text-dark mb-2">Keynote Produit NextGen</h4>
-                                <p class="text-muted mb-0 small lh-base">Organisation d'une conférence de presse interactive et retransmise en direct pour dévoiler la nouvelle gamme logicielle.</p>
+                                <span class="badge bg-secondary mb-2">Team Building</span>
+                                <h4 class="h6 fw-bold">Challenge Outdoor Innovation</h4>
+                                <p class="text-muted small mb-0">Annecy — 80 participants</p>
                             </div>
                         </div>
                     </div>
@@ -195,7 +225,4 @@ require __DIR__ . '/../partials/header.php';
         </div>
     </section>
 
-<?php
-// Architecture Modulaire : Chargement du pied de page global
-require __DIR__ . '/../partials/footer.php';
-?>
+<?php require __DIR__ . '/../partials/footer.php'; ?>

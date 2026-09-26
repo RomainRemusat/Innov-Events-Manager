@@ -3,11 +3,20 @@
  * Vue : Dossier Client (Informations & Historique des Devis)
  *
  * @var array $client Informations du client (Table Users)
+ * @var array $clientEvents Historique complet des événements du client
  * @var array $clientQuotes Historique des devis du client
  */
 ?>
 <div class="container-fluid bg-light min-vh-100 py-4">
     <div class="container">
+        <?php foreach (['flash_success' => 'success', 'flash_error' => 'danger'] as $key => $color): ?>
+            <?php if (!empty($_SESSION[$key])): ?>
+                <div class="alert alert-<?= $color ?>" role="alert">
+                    <?= htmlspecialchars($_SESSION[$key], ENT_QUOTES, 'UTF-8') ?>
+                </div>
+                <?php unset($_SESSION[$key]); ?>
+            <?php endif; ?>
+        <?php endforeach; ?>
 
         <!-- En-tête et navigation -->
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -22,6 +31,24 @@
             </a>
         </div>
 
+        <section class="card card-body mb-4" aria-labelledby="client-events-heading">
+            <h2 id="client-events-heading" class="h5">Historique des événements</h2>
+            <?php if (!$clientEvents): ?>
+                <p class="text-muted mb-0">Aucun événement rattaché à ce client.</p>
+            <?php else: ?>
+                <div class="table-responsive"><table class="table align-middle">
+                    <thead><tr><th scope="col">Événement</th><th scope="col">Début</th><th scope="col">Lieu</th><th scope="col">Statut</th></tr></thead>
+                    <tbody><?php foreach ($clientEvents as $clientEvent): ?>
+                        <tr>
+                            <td><a href="index.php?action=admin_event_detail&id=<?= (int)$clientEvent['id'] ?>"><?= htmlspecialchars($clientEvent['title'], ENT_QUOTES, 'UTF-8') ?></a></td>
+                            <td><?= date('d/m/Y H:i', strtotime($clientEvent['start_date'])) ?></td>
+                            <td><?= htmlspecialchars($clientEvent['location'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars(Event::STATUS_LABELS[Event::normalizeStatus($clientEvent['status'])] ?? $clientEvent['status'], ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?></tbody>
+                </table></div>
+            <?php endif; ?>
+        </section>
         <div class="row g-4">
             <!-- Bloc Informations Personnelles -->
             <div class="col-md-4">
@@ -41,15 +68,17 @@
 
                         <!-- Action métier : Modifier -->
                         <div class="mt-4 pt-3 border-top">
+                            <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
                             <a href="index.php?action=edit_client&id=<?= (int)$client['id'] ?>" class="btn btn-sm btn-primary w-100">
                                 <i class="fa-solid fa-pen me-2"></i>Modifier les informations
                             </a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Bloc Historique des Devis (Exigence du cahier des charges) -->
+            <!-- Demandes et propositions commerciales du client -->
             <div class="col-md-8">
                 <div class="card border-0 shadow-sm rounded-3 h-100">
                     <div class="card-header bg-white border-bottom py-3">
@@ -93,9 +122,11 @@
                                             </td>
                                             <td class="px-4 py-3 text-center">
                                                 <?php if (!empty($quote['id_devis'])): ?>
+                                                    <?php if (($_SESSION['user_role'] ?? '') === 'ADMIN'): ?>
                                                     <a href="index.php?action=edit_devis&id=<?= (int)$quote['id_devis'] ?>" class="btn btn-sm btn-outline-primary" title="Ouvrir le devis">
                                                         <i class="fa-solid fa-arrow-up-right-from-square"></i>
                                                     </a>
+                                                    <?php endif; ?>
                                                 <?php else: ?>
                                                     <span class="text-muted small">Pas de devis</span>
                                                 <?php endif; ?>

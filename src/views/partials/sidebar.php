@@ -14,11 +14,15 @@ $currentAction = $_GET['action'] ?? 'dashboard';
 require_once __DIR__ . '/../../models/sql/Prospect.php';
 require_once __DIR__ . '/../../models/sql/Devis.php';
 
-$prospectModel = new Prospect();
-$nbActiveProspects = $prospectModel->NbActive();
+$isAdmin = ($_SESSION['user_role'] ?? '') === 'ADMIN';
+$nbActiveProspects = $nbPendingModifications = 0;
+if ($isAdmin) {
+    $prospectModel = new Prospect();
+    $nbActiveProspects = $prospectModel->NbActive();
 
-$devisModel = new Devis();
-$nbPendingModifications = $devisModel->countPendingModifications();
+    $devisModel = new Devis();
+    $nbPendingModifications = $devisModel->countPendingModifications();
+}
 
 $navigation = [
         'Générales' => [
@@ -39,7 +43,7 @@ $navigation = [
                 [
                         'label'  => 'Événements',
                         'url'    => 'index.php?action=admin_events',
-                        'active' => ['admin_events', 'event_detail'],
+                        'active' => ['admin_events', 'admin_event_detail', 'admin_edit_event'],
                         'badge'  => null,
                         'badgeClass' => 'bg-secondary',
                 ],
@@ -55,21 +59,28 @@ $navigation = [
                         'url'    => 'index.php?action=admin_devis',
                         'active' => ['admin_devis', 'edit_devis'],
                         'badge'  => $nbPendingModifications > 0 ? $nbPendingModifications : null,
-                        'badgeClass' => 'bg-danger', // Alerte visuelle rouge pour Chloé
+                        'badgeClass' => 'bg-danger', // Met en évidence les demandes de modification en attente.
                 ],
         ],
         'Administration & Système' => [
                 [
-                        'label'  => 'Gestion d\'Équipe',
-                        'url'    => '#',
-                        'active' => ['teams'],
+                        'label'  => 'Comptes clients et employés',
+                        'url'    => 'index.php?action=admin_accounts',
+                        'active' => ['admin_accounts'],
                         'badge'  => null,
                         'badgeClass' => 'bg-secondary',
                 ],
                 [
                         'label'  => 'Avis & Témoignages',
-                        'url'    => '#',
-                        'active' => ['reviews'],
+                        'url'    => 'index.php?action=staff_reviews',
+                        'active' => ['staff_reviews'],
+                        'badge'  => null,
+                        'badgeClass' => 'bg-secondary',
+                ],
+                [
+                        'label'  => 'Contenus publics',
+                        'url'    => 'index.php?action=admin_site_settings',
+                        'active' => ['admin_site_settings'],
                         'badge'  => null,
                         'badgeClass' => 'bg-secondary',
                 ],
@@ -99,6 +110,51 @@ $navigation = [
                 ],
         ],
 ];
+
+if (!$isAdmin) {
+    $navigation = [
+        'Espace employé' => [
+            [
+                'label' => 'Tableau de bord',
+                'url' => 'index.php?action=dashboard',
+                'active' => ['dashboard'],
+                'badge' => null,
+                'badgeClass' => 'bg-secondary',
+            ],
+            [
+                'label' => 'Événements',
+                'url' => 'index.php?action=admin_events',
+                'active' => ['admin_events', 'admin_event_detail'],
+                'badge' => null,
+                'badgeClass' => 'bg-secondary',
+            ],
+            [
+                'label' => 'Clients',
+                'url' => 'index.php?action=admin_clients',
+                'active' => ['admin_clients', 'clients', 'view_client'],
+                'badge' => null,
+                'badgeClass' => 'bg-secondary',
+            ],
+            [
+                'label' => 'Avis & Témoignages',
+                'url' => 'index.php?action=staff_reviews',
+                'active' => ['staff_reviews'],
+                'badge' => null,
+                'badgeClass' => 'bg-secondary',
+            ],
+        ],
+        'Compte' => [
+            [
+                'label' => 'Déconnexion',
+                'url' => 'index.php?action=logout',
+                'active' => [],
+                'badge' => null,
+                'itemClass' => 'mt-3',
+                'badgeClass' => 'bg-secondary',
+            ],
+        ],
+    ];
+}
 ?>
 
 <nav class="col-md-3 col-lg-2 d-md-block bg-secondary-subtle border-end min-vh-100 p-4">
@@ -108,6 +164,9 @@ $navigation = [
 
             <?php foreach ($items as $item): ?>
                 <?php
+                if (!$isAdmin && in_array($item['active'][0] ?? '', ['prospects', 'admin_devis', 'mongo_logs', 'admin_accounts'], true)) {
+                    continue;
+                }
                 $isActive  = in_array($currentAction, $item['active'], true);
                 $itemClass = $item['itemClass'] ?? 'mb-1';
                 $badge     = $item['badge'] ?? null;

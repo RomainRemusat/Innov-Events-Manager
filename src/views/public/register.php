@@ -32,7 +32,7 @@ unset($_SESSION['old_inputs']);
             <div class="col-md-8 col-lg-5">
 
                 <div class="text-center mb-4">
-                    <h2 class="fw-bold text-dark tracking-tight">Rejoignez Innov'Events</h2>
+                    <h1 class="fw-bold text-dark tracking-tight h2">Rejoignez Innov'Events</h1>
                     <p class="text-muted small">Créez votre compte pour suivre vos devis et planifier vos futurs événements.</p>
                 </div>
 
@@ -105,7 +105,8 @@ unset($_SESSION['old_inputs']);
                                    aria-required="true"
                                    placeholder="alice@luxe.com"
                                    autocomplete="email"
-                                   aria-describedby="emailHelp">
+                                   aria-describedby="emailHelp"
+                                   value="<?= htmlspecialchars($old['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                             <div id="emailHelp" class="form-text text-muted" style="font-size: 0.75rem;">Cette adresse servira d'identifiant de connexion.</div>
                             <div class="invalid-feedback">Veuillez saisir une adresse email valide.</div>
                         </div>
@@ -167,12 +168,7 @@ unset($_SESSION['old_inputs']);
     </div>
 
     <script>
-        /**
-         * Module de Validation Évoluée Côté Client (Fail-Fast Logic)
-         * * Intercepte les événements de saisie et de soumission du formulaire d'inscription
-         * pour appliquer dynamiquement les pseudo-classes Bootstrap (.is-valid / .is-invalid).
-         * Évite les allers-retours serveurs superflus tout en maintenant une UX réactive.
-         */
+        /** Active le retour visuel des contrôles du formulaire d'inscription. */
         document.addEventListener('DOMContentLoaded', function () {
             const form = document.getElementById('registerForm');
             const inputs = form.querySelectorAll('input[required]');
@@ -180,12 +176,14 @@ unset($_SESSION['old_inputs']);
             const rgpdCheckbox = document.getElementById('rgpd_register');
             const rgpdFeedback = document.getElementById('rgpdFeedback');
 
-            // Expression régulière stricte de complexité de mot de passe (Miroir de la logique PHP)
+            // Cette règle reflète la validation exécutée à nouveau par le serveur.
             const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
 
             /**
-             * Évalue la conformité d'un champ spécifique et lui affecte sa classe d'état visuel.
-             * @param {HTMLInputElement} input
+             * Met à jour l'état visuel d'un champ selon sa validité native ou métier.
+             *
+             * @param {HTMLInputElement} input Champ à contrôler.
+             * @returns {boolean} Vrai lorsque le champ peut être soumis.
              */
             function validateField(input) {
                 let isValid = true;
@@ -210,7 +208,7 @@ unset($_SESSION['old_inputs']);
                 return isValid;
             }
 
-            // 1. Validation en temps réel lors de la saisie (Sensation de fluidité pour l'utilisateur)
+            // Donne un retour immédiat sans remplacer la validation côté serveur.
             inputs.forEach(input => {
                 input.addEventListener('input', function () {
                     // Pour le mot de passe, on attend qu'il respecte la regex avant d'afficher l'état valide
@@ -226,17 +224,16 @@ unset($_SESSION['old_inputs']);
                     }
                 });
 
-                // Validation stricte lorsque l'utilisateur quitte le champ focus (Blur Event)
+                // Vérifie aussi le champ lorsque l'utilisateur le quitte.
                 input.addEventListener('blur', function () {
                     validateField(input);
                 });
             });
 
-            // 2. Interception de la soumission globale du formulaire
+            // Bloque la soumission tant qu'un contrôle visible reste invalide.
             form.addEventListener('submit', function (event) {
                 let isFormValid = true;
 
-                // Évaluation séquentielle de chaque contrôle obligatoire
                 inputs.forEach(input => {
                     const isFieldValid = validateField(input);
                     if (!isFieldValid) {
@@ -244,12 +241,11 @@ unset($_SESSION['old_inputs']);
                     }
                 });
 
-                // Clause de garde finale : blocage de la requête HTTP POST si une anomalie est détectée
                 if (!isFormValid) {
                     event.preventDefault();
                     event.stopPropagation();
 
-                    // Focus automatique sur le premier champ en erreur pour optimiser l'accessibilité
+                    // Replace le focus sur le premier champ à corriger.
                     const firstInvalid = form.querySelector('.is-invalid');
                     if (firstInvalid) {
                         firstInvalid.focus();

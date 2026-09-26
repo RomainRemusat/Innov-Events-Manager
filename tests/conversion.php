@@ -1,0 +1,304 @@
+<?php
+
+// docker compose exec -T app php tests/conversion.php
+// Bases SQL/MongoDB temporaires : aucune donnée de travail ni aucun mail modifié.
+require_once __DIR__ . '/../src/services/ConversionService.php';
+require_once __DIR__ . '/../src/models/sql/Devis.php';
+
+function verify(bool $condition, string $message): void
+{
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
+}
+
+$name = 'innovevents_test_conversion_' . bin2hex(random_bytes(6));
+$pdo = new PDO('mysql:host=db;charset=utf8mb4', 'root', 'root_password', [
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    PDO::ATTR_EMULATE_PREPARES => false,
+]);
+$mongo = new MongoDB\Driver\Manager('mongodb://mongodb:27017');
+$_ENV['MONGO_URI'] = 'mongodb://mongodb:27017';
+$_ENV['MONGO_DATABASE'] = $name;
+$pdo->exec("CREATE DATABASE `$name`");
+try {
+    $pdo->exec("USE `$name`");
+    $pdo->exec(file_get_contents(__DIR__ . '/../scripts/schema.sql'));
+    $pdo->exec(file_get_contents(__DIR__ . '/../scripts/initialise.sql'));
+
+    // Oriente aussi les modèles Company et User vers la base de test.
+    $databaseClass = new ReflectionClass(Database::class);
+    $database = $databaseClass->newInstanceWithoutConstructor();
+    $databaseClass->getProperty('pdo')->setValue($database, $pdo);
+    $databaseClass->getProperty('instance')->setValue(null, $database);
+    verify(Database::getInstance()->query('SELECT DATABASE()')->fetchColumn() === $name,
+        'Le service doit exclusivement utiliser la base temporaire');
+
+    $pdo->exec("INSERT INTO prospects (company_name, contact_name, email, phone, event_type)
+        VALUES ('NextGen Software', 'Amandine Legrand', 'a.legrand@nextgen.io', '0102030405', 'Séminaire')");
+    $prospectId = (int)$pdo->lastInsertId();
+    $data = [
+        'prospect_id' => $prospectId,
+        'company_name' => 'NextGen Software',
+        'contact_name' => 'Amandine Legrand',
+        'email' => 'a.legrand@nextgen.io',
+        'phone' => '01 02 03 04 05',
+        'event_title' => 'Conversion de test',
+        'start_date' => '2026-10-12T14:30',
+        'location' => 'Paris',
+        'estimated_participants' => 25,
+        'event_type' => 'Conférence',
+        'description' => 'Projet ajusté pendant la conversion',
+    ];
+    $service = new ConversionService();
+    $snapshot = static function () use ($pdo): array {
+        $rows = [];
+        foreach (['companies', 'users', 'prospects', 'events', 'devis'] as $table) {
+            $rows[$table] = $pdo->query("SELECT * FROM $table ORDER BY 1")->fetchAll();
+        }
+        return $rows;
+    };
+    $before = $snapshot();
+    foreach ([
+        ['start_date' => 'demain'], ['start_date' => '2026-02-30T12:00'],
+        ['start_date' => '2026-10-12T25:00'], ['end_date' => 'invalide'],
+        ['end_date' => '2026-10-12T14:30'], ['end_date' => '2026-10-11T14:30'],
+        ['contact_name' => ' '], ['phone' => ''], ['phone' => 'abcdef'],
+        ['estimated_participants' => '12abc'], ['estimated_participants' => '1.5'],
+        ['estimated_participants' => 0], ['estimated_participants' => -1],
+        ['estimated_participants' => '2147483648'], ['estimated_participants' => ''],
+        ['prospect_id' => '1abc'], ['email' => ['invalide']], ['event_type' => ''],
+        ['description' => ''], ['company_name' => str_repeat('é', 256)], ['siren' => '123abc456'],
+        ['email' => 'chloe@innovevents.fr'], ['email' => 'jose@innovevents.fr'],
+        ['company_name' => 'Autre entreprise'],
+    ] as $invalid) {
+        try {
+            $service->convertProspectToClient(array_replace($data, $invalid), null, 1);
+            throw new RuntimeException('Conversion invalide acceptée : ' . json_encode($invalid));
+        } catch (InvalidArgumentException $error) {
+            verify(!$pdo->inTransaction() && $snapshot() === $before, 'Écriture après validation refusée');
+        }
+    }
+    $pdo->exec('UPDATE users SET is_deleted = 1 WHERE id = 4');
+    try {
+        $service->convertProspectToClient($data, null, 1);
+        throw new RuntimeException('Compte désactivé réutilisé');
+    } catch (InvalidArgumentException $error) {
+        verify(str_contains($error->getMessage(), 'actif'), 'Mauvais rejet du compte désactivé');
+    }
+    $pdo->exec('UPDATE users SET is_deleted = 0 WHERE id = 4');
+    foreach ([[], ['error' => UPLOAD_ERR_PARTIAL], ['error' => UPLOAD_ERR_INI_SIZE]] as $file) {
+        try {
+            $service->convertProspectToClient($data, $file, 1);
+            throw new RuntimeException('Erreur de téléversement ignorée');
+        } catch (InvalidArgumentException $error) {
+            verify($snapshot() === $before, 'Conversion partielle après erreur image');
+        }
+    }
+    echo "OK : validation stricte, comptes protégés et erreurs de téléversement bloquantes.\n";
+    foreach ([['is_visible' => '1'], ['is_visible' => '1', 'publication_consent' => 'on']] as $publication) {
+        try {
+            $service->convertProspectToClient(array_merge($data, $publication), null, 1);
+            throw new RuntimeException('Publication sans accord acceptée');
+        } catch (InvalidArgumentException $e) {
+            verify($pdo->query("SELECT status FROM prospects WHERE id = $prospectId")->fetchColumn() === 'à contacter',
+                'La publication refusée ne doit pas convertir le prospect');
+        }
+    }
+    $devisId = $service->convertProspectToClient($data, null, 1);
+    $event = $pdo->query('SELECT * FROM events ORDER BY id DESC LIMIT 1')->fetch();
+    verify((int)$event['is_published'] === 0 && $event['publication_consent_at'] === null,
+        'Un nouveau projet doit être privé par défaut');
+    verify($event['start_date'] === '2026-10-12 14:30:00', 'Date de début incorrecte');
+    verify($event['title'] === $data['event_title'] && (int)$event['client_id'] === 4
+        && (int)$event['company_id'] === 3 && $event['status'] === 'brouillon', 'Événement incorrect');
+    $prospect = $pdo->query("SELECT * FROM prospects WHERE id = $prospectId")->fetch();
+    verify($prospect['status'] === 'converti' && (int)$prospect['user_id'] === 4
+        && (int)$prospect['company_id'] === 3, 'Prospect non converti');
+    $devis = $pdo->query("SELECT * FROM devis WHERE id_devis = $devisId")->fetch();
+    verify((int)$devis['id_prospect'] === $prospectId && $devis['status'] === 'brouillon', 'Devis incorrect');
+    verify((int)$devis['event_id'] === (int)$event['id'], 'Lien événement/devis absent');
+    $devisModel = new Devis();
+    $pdfData = $devisModel->findWithProspect($devisId);
+    verify($pdfData['event_date'] === '2026-10-12' && $pdfData['event_type'] === 'Conférence'
+        && (int)$pdfData['estimated_participants'] === 25
+        && $pdfData['description'] === $data['description'] && $pdfData['location'] === 'Paris',
+        'Les données du PDF ne correspondent pas au projet converti');
+    $pdo->exec("INSERT INTO prestations (devis_id, libelle, montant_ht) VALUES ($devisId, 'Prestation du premier projet', 100)");
+    $logs = $mongo->executeQuery($name . '.logs', new MongoDB\Driver\Query([
+        'type_action' => 'CONVERSION_PROSPECT', 'details.devis_id' => $devisId,
+    ]))->toArray();
+    verify(count($logs) === 1 && $logs[0]->id_utilisateur === 1
+        && $logs[0]->details->event_id === (int)$event['id'], 'Journal de conversion incorrect');
+    echo "OK : conversion réelle, start_date, liens client/entreprise, devis et journal MongoDB.\n";
+
+    $pdo->exec("INSERT INTO prospects (company_name, contact_name, email, phone, event_type)
+        VALUES ('NextGen Software', 'Amandine Legrand', 'a.legrand@nextgen.io', '0102030405', 'Autre')");
+    $data['prospect_id'] = (int)$pdo->lastInsertId();
+    $data['event_title'] = 'Deuxième projet du même client';
+    $data['event_status'] = 'planifié';
+    $data['is_visible'] = '1';
+    $data['publication_consent'] = '1';
+    $secondQuote = $service->convertProspectToClient($data, null, 1);
+    unset($data['is_visible'], $data['publication_consent']);
+    $secondEvent = (int)$pdo->query("SELECT event_id FROM devis WHERE id_devis = $secondQuote")->fetchColumn();
+    verify((new Event())->findPublishedById($secondEvent) !== null, 'Projet confirmé non publié');
+    verify((int)$pdo->query("SELECT publication_consent_by FROM events WHERE id = $secondEvent")->fetchColumn() === 1,
+        'Auteur de la confirmation absent');
+    verify($pdo->query("SELECT status FROM events WHERE id = $secondEvent")->fetchColumn() === 'planifié',
+        'Le statut initial planifié doit être conservé');
+    $first = $devisModel->findByEventIdWithPrestations((int)$event['id']);
+    $second = $devisModel->findByEventIdWithPrestations($secondEvent);
+    verify((int)$first['id_devis'] === $devisId && count($first['prestations']) === 1
+        && (int)$second['id_devis'] === $secondQuote && $second['prestations'] === [],
+        'Les devis/prestations de deux événements du même client sont mélangés');
+    verify($first['reference_pdf'] !== $second['reference_pdf'], 'Collision des noms de PDF');
+    $pdo->exec("UPDATE devis SET event_id = NULL WHERE id_devis = $secondQuote");
+    verify($devisModel->findByEventIdWithPrestations($secondEvent) === null, 'Un devis historique ne doit pas être deviné');
+    $pdo->exec("UPDATE devis SET event_id = $secondEvent WHERE id_devis = $secondQuote");
+    $pdo->exec("DELETE FROM events WHERE id = $secondEvent");
+    verify($pdo->query("SELECT event_id FROM devis WHERE id_devis = $secondQuote")->fetchColumn() === null,
+        'La suppression de l’événement doit conserver le devis sans lien');
+    echo "OK : isolation de deux projets, données PDF synchronisées, absence de lien et suppression événement.\n";
+
+    $eventModel = new Event();
+    $eventId = (int)$event['id'];
+    verify(!$eventModel->setPublication($eventId, true, false, 1), 'Publication sans accord autorisée');
+    verify(!$eventModel->setPublication($eventId, true, true, 2), 'Employé autorisé à publier');
+    verify(!$eventModel->setPublication($eventId, true, true, 3), 'Client autorisé à publier');
+    verify(!$eventModel->setPublication(2147483647, true, true, 1), 'Événement inexistant publié');
+    verify($eventModel->setPublication($eventId, true, true, 1), 'Confirmation refusée');
+    verify($eventModel->findPublishedById($eventId) === null, 'Brouillon exposé malgré son statut');
+    $pdo->exec("UPDATE events SET status = 'planifié', event_type = 'PublicationTest', theme = 'ConsentTest' WHERE id = $eventId");
+    verify($eventModel->findPublishedById($eventId) !== null, 'Événement confirmé non accessible');
+    verify(count($eventModel->findPublishedEvents(null, null, 'PublicationTest', 'ConsentTest')) === 1,
+        'Catalogue confirmé incorrect');
+    verify(in_array('PublicationTest', $eventModel->getFilterCriteria()['types'], true), 'Type confirmé absent');
+    verify(!$eventModel->setPublication($eventId, true, true, 1), 'Une requête répétée ne doit pas réécrire la confirmation');
+    verify($eventModel->setPublication($eventId, false, false, 1), 'Retrait refusé');
+    verify($eventModel->findPublishedById($eventId) === null, 'Fiche encore publique après retrait');
+    verify($eventModel->findPublishedEvents(null, null, 'PublicationTest') === [], 'Catalogue exposé après retrait');
+    verify(!in_array('ConsentTest', $eventModel->getFilterCriteria()['themes'], true), 'Filtre exposé après retrait');
+    verify(!$eventModel->setPublication($eventId, true, false, 1), 'Republication sans nouvel accord');
+    $pdo->exec("UPDATE events SET is_published = 1 WHERE id = $eventId");
+    verify($eventModel->findPublishedById($eventId) === null, 'Ancien événement publié sans accord exposé');
+    verify($eventModel->findPublishedEvents(null, null, 'PublicationTest') === [], 'Ancien événement dans le catalogue');
+    verify(!in_array('PublicationTest', $eventModel->getFilterCriteria()['types'], true), 'Ancien type exposé');
+    verify($eventModel->setPublication($eventId, true, true, 1), 'Reconfirmation historique refusée');
+    verify($eventModel->setPublication($eventId, false, false, 1), 'Second retrait refusé');
+    $pdo->exec("UPDATE events SET status = 'brouillon' WHERE id = $eventId");
+    echo "OK : accord explicite, auteur, droits, brouillon, catalogue, fiche, filtres, historique et retrait.\n";
+    verify(!$eventModel->updateStatus($eventId, 'inconnu', 'brouillon'), 'Statut inconnu accepté');
+    verify(!$eventModel->updateStatus($eventId, 'en cours', 'brouillon'), 'Démarrage sans devis accepté');
+    $pdo->exec("UPDATE devis SET status = 'accepté' WHERE id_devis = $devisId");
+    $oldStatus = 'brouillon';
+    foreach (array_keys(Event::STATUS_LABELS) as $status) {
+        if ($status === $oldStatus) continue;
+        verify($eventModel->updateStatus($eventId, $status, $oldStatus), "Statut refusé : $status");
+        verify($pdo->query("SELECT status FROM events WHERE id = $eventId")->fetchColumn() === $status, 'Statut SQL incorrect');
+        $oldStatus = $status;
+    }
+    verify(!$eventModel->updateStatus($eventId, 'brouillon', 'planifié'), 'État concurrent écrasé');
+    verify(!$eventModel->updateStatus(2147483647, 'brouillon', 'planifié'), 'Événement inexistant accepté');
+    $pdo->exec("UPDATE events SET status = 'annuler' WHERE id = $eventId");
+    verify($eventModel->updateStatus($eventId, 'annuler', 'annuler'), 'Ancien libellé non normalisé');
+    verify($pdo->query("SELECT status FROM events WHERE id = $eventId")->fetchColumn() === 'annulé', 'Annulation non normalisée');
+    $pdo->exec("INSERT INTO devis (id_prospect, event_id, reference_pdf, status) VALUES ($prospectId, $eventId, 'revision.pdf', 'refusé')");
+    verify(!$eventModel->updateStatus($eventId, 'en cours', 'annulé'), 'Ancienne version acceptée utilisée malgré la dernière version refusée');
+    foreach (['inconnu', 'en cours'] as $invalidStatus) {
+        try {
+            $service->convertProspectToClient(array_replace($data, ['event_status' => $invalidStatus]), null, 1);
+            throw new RuntimeException('Statut initial invalide accepté');
+        } catch (InvalidArgumentException $error) {
+            verify(str_contains($error->getMessage(), 'Statut initial'), 'Mauvaise validation du statut initial');
+        }
+    }
+    echo "OK : référentiel des statuts, devis accepté obligatoire, concurrence et compatibilité annuler.\n";
+
+    $pdo->exec("INSERT INTO prospects (company_name, contact_name, email, phone, event_type)
+        VALUES ('NextGen Software', 'Amandine Legrand', 'a.legrand@nextgen.io', '0102030405', 'Autre')");
+    $data['prospect_id'] = (int)$pdo->lastInsertId();
+    // Échec réel en fin de transaction, sans modifier le service ni toucher la base de travail.
+    verify($pdo->query('SELECT DATABASE()')->fetchColumn() === $name, 'Base temporaire attendue');
+    $pdo->exec("CREATE TRIGGER `$name`.fail_quote BEFORE INSERT ON `$name`.devis FOR EACH ROW
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Échec devis simulé'");
+
+    $before = $snapshot();
+    $data['company_name'] = 'Entreprise à annuler';
+    $data['email'] = 'rollback@example.test';
+    $image = tempnam(sys_get_temp_dir(), 'conversion_');
+    file_put_contents($image, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='));
+    $imageDirectory = __DIR__ . '/../public/uploads/events/';
+    $imagesBefore = glob($imageDirectory . '*');
+    try {
+        $service->convertProspectToClient($data, [
+            'error' => UPLOAD_ERR_OK, 'tmp_name' => $image, 'size' => filesize($image),
+        ], 1);
+        throw new RuntimeException('Une erreur SQL était attendue');
+    } catch (PDOException $error) {
+        verify($error->getCode() === '45000', 'Erreur SQL inattendue');
+    } finally {
+        unlink($image);
+    }
+    verify(!$pdo->inTransaction() && $snapshot() === $before, 'Rollback incomplet');
+    verify(glob($imageDirectory . '*') === $imagesBefore, 'Image orpheline après rollback');
+    echo "OK : rollback SQL complet et suppression de l’image si la création du devis échoue.\n";
+    $pdo->exec('DROP TRIGGER fail_quote');
+
+    // Deux connexions indépendantes attendent la libération du même dossier.
+    $data['company_name'] = 'NextGen Software';
+    $data['email'] = 'a.legrand@nextgen.io';
+    $data['end_date'] = '2026-10-12T18:30:45';
+    $workerCode = 'require ' . var_export(__DIR__ . '/../src/services/ConversionService.php', true) . ';'
+        . '$pdo = new PDO(' . var_export("mysql:host=db;dbname=$name;charset=utf8mb4", true)
+        . ', "root", "root_password", [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);'
+        . '$class = new ReflectionClass(Database::class); $db = $class->newInstanceWithoutConstructor();'
+        . '$class->getProperty("pdo")->setValue($db, $pdo); $class->getProperty("instance")->setValue(null, $db);'
+        . '$_ENV["MONGO_URI"] = "mongodb://mongodb:27017"; $_ENV["MONGO_DATABASE"] = ' . var_export($name, true) . ';'
+        . 'echo "ready\n"; flush(); try { (new ConversionService())->convertProspectToClient('
+        . var_export($data, true) . ', null, 1); echo "converted"; }'
+        . 'catch (InvalidArgumentException $e) { echo "refused"; }';
+    $workers = [];
+    $pdo->beginTransaction();
+    $pdo->query('SELECT id FROM prospects WHERE id = ' . (int)$data['prospect_id'] . ' FOR UPDATE');
+    try {
+        for ($i = 0; $i < 2; $i++) {
+            $process = proc_open([PHP_BINARY, '-r', $workerCode], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+            verify(is_resource($process), 'Impossible de lancer la conversion concurrente');
+            $workers[] = [$process, $pipes];
+            stream_set_timeout($pipes[1], 10);
+            verify(fgets($pipes[1]) === "ready\n", 'Conversion concurrente non démarrée');
+        }
+        usleep(200000);
+        foreach ($workers as [$process]) {
+            verify(proc_get_status($process)['running'], 'La conversion doit attendre le verrou du dossier');
+        }
+        $pdo->commit();
+        $results = [];
+        foreach ($workers as [$process, $pipes]) {
+            $results[] = stream_get_contents($pipes[1]);
+            verify(stream_get_contents($pipes[2]) === '', 'Erreur dans la conversion concurrente');
+        }
+        sort($results);
+        verify($results === ['converted', 'refused'], 'Double conversion concurrente acceptée');
+        verify((int)$pdo->query('SELECT COUNT(*) FROM devis WHERE id_prospect = ' . (int)$data['prospect_id'])->fetchColumn() === 1,
+            'Plusieurs devis créés pour la même conversion');
+        verify($pdo->query('SELECT end_date FROM events ORDER BY id DESC LIMIT 1')->fetchColumn() === '2026-10-12 18:30:45',
+            'Les secondes de la date de fin doivent être conservées');
+    } finally {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        foreach ($workers as [$process, $pipes]) {
+            foreach ($pipes as $pipe) fclose($pipe);
+            if (proc_get_status($process)['running']) proc_terminate($process);
+            proc_close($process);
+        }
+    }
+    echo "OK : deux conversions concurrentes, une seule création de devis et dates avec secondes.\n";
+} finally {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    $pdo->exec("DROP DATABASE `$name`");
+    $mongo->executeCommand($name, new MongoDB\Driver\Command(['dropDatabase' => 1]));
+}
