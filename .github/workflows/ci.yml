@@ -1,0 +1,61 @@
+name: Tests
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Préparer la configuration locale
+        run: cp .env.example .env
+
+      - name: Construire et démarrer Docker
+        run: docker compose up -d --build
+
+      - name: Installer les dépendances PHP
+        run: docker compose exec -T app composer install --no-interaction --prefer-dist
+
+      - name: Attendre MySQL
+        run: |
+          for attempt in $(seq 1 30); do
+            if docker compose exec -T db mysqladmin ping -uroot -proot_password --silent; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs db
+          exit 1
+
+      - name: Initialiser la base de démonstration
+        run: |
+          docker compose exec -T db mysql --default-character-set=utf8mb4 -uroot -proot_password innovevents_db < scripts/schema.sql
+          docker compose exec -T db mysql --default-character-set=utf8mb4 -uroot -proot_password innovevents_db < scripts/initialise.sql
+
+      - name: Exécuter les tests PHP
+        run: |
+          docker compose exec -T app php tests/password_policy.php
+          docker compose exec -T app php tests/conversion.php
+
+      - name: Exécuter les tests Python
+        run: |
+          for test in tests/*.py; do
+            echo "==> $test"
+            python -B "$test"
+          done
+
+      - name: Afficher les journaux Docker en cas d'échec
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Arrêter les services
+        if: always()
+        run: docker compose down -v
