@@ -25,7 +25,9 @@ jobs:
         run: docker compose exec -T app composer install --no-interaction --prefer-dist
 
       - name: Préparer les répertoires d'écriture
-        run: docker compose exec -T app chown -R www-data:www-data storage/devis public/uploads/events
+        run: |
+          docker compose exec -T app chown -R www-data:www-data storage/devis public/uploads/events
+          docker compose exec -T app chmod -R a+rwX storage/devis public/uploads/events
 
       - name: Attendre MySQL
         run: |
