@@ -13,6 +13,7 @@ class MobileController extends BaseController
     public function dashboard(): void
     {
         $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+        $this->rememberMobilePreference();
         $events = (new Event())->findUpcomingEvents(25);
         require __DIR__ . '/../views/mobile/dashboard.php';
     }
@@ -20,6 +21,7 @@ class MobileController extends BaseController
     public function event(): void
     {
         $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+        $this->rememberMobilePreference();
         $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $event = $id ? (new Event())->findMobileById((int)$id) : null;
         if (!$event) {
@@ -35,6 +37,7 @@ class MobileController extends BaseController
     public function addNote(): void
     {
         $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+        $this->rememberMobilePreference();
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
             http_response_code(405);
             header('Allow: POST');
@@ -61,5 +64,19 @@ class MobileController extends BaseController
         }
         header('Location: index.php?action=mobile_event&id=' . (int)$eventId);
         exit;
+    }
+
+    /** Mémorise le mode mobile jusqu'à la fermeture du navigateur, sans donnée d'identité. */
+    private function rememberMobilePreference(): void
+    {
+        $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+        setcookie('innovevents_interface', 'mobile', [
+            'expires' => 0,
+            'path' => '/',
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+        $_COOKIE['innovevents_interface'] = 'mobile';
     }
 }

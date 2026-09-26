@@ -73,6 +73,19 @@ def main():
             assert response.status == 200 and response.read()
     print("OK : manifeste, service worker, styles, script et icône PWA accessibles.", flush=True)
 
+    # Une consultation ponctuelle du tableau de bord complet ne doit pas faire
+    # perdre le contexte PWA lors du changement de compte du personnel.
+    code, _, full_dashboard = request(staff, "dashboard")
+    assert code == 200 and "Mon espace employé" in full_dashboard
+    code, headers, _ = request(staff, "logout")
+    assert code == 302 and headers["Location"].endswith("login")
+    # Même une route protégée du site complet ne doit pas écraser l'accueil PWA.
+    code, headers, _ = request(staff, "admin_accounts")
+    assert code == 302 and headers["Location"].endswith("login")
+    code, headers, _ = login(staff, "chloe@innovevents.fr")
+    assert code == 302 and headers["Location"].endswith("mobile_dashboard")
+    print("OK : préférence PWA conservée après espace complet, déconnexion et changement de compte.", flush=True)
+
 
 if __name__ == "__main__":
     main()
