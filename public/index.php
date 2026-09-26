@@ -53,6 +53,7 @@ require_once __DIR__ . '/../src/controllers/AdminEventController.php';
 require_once __DIR__ . '/../src/controllers/DashboardController.php';
 require_once __DIR__ . '/../src/controllers/ReviewController.php';
 require_once __DIR__ . '/../src/controllers/PublicPageController.php';
+require_once __DIR__ . '/../src/controllers/MobileController.php';
 
 // -----------------------------------------------------------------------------
 // 4. RÉSOLUTION DE L'ACTION ET ROUTAGE (White-list Pattern)
@@ -60,6 +61,21 @@ require_once __DIR__ . '/../src/controllers/PublicPageController.php';
 $action = filter_input(INPUT_GET, 'action', FILTER_DEFAULT) ?? 'home';
 
 switch (true) {
+    // -------------------------------------------------------------------
+    // ROUTES : APPLICATION MOBILE INSTALLABLE (PWA)
+    // -------------------------------------------------------------------
+    case ($action === 'mobile_dashboard'):
+        (new MobileController())->dashboard();
+        break;
+
+    case ($action === 'mobile_event'):
+        (new MobileController())->event();
+        break;
+
+    case ($action === 'mobile_add_note'):
+        (new MobileController())->addNote();
+        break;
+
     // -------------------------------------------------------------------
     // ROUTES : AUTHENTIFICATION & COMPTE (AuthController)
     // -------------------------------------------------------------------

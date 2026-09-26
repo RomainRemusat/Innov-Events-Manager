@@ -1,98 +1,74 @@
-**Innov’Events Manager**
+# Innov'Events Manager
 
-Projet en cours de développement pour l’ECF du titre professionnel Concepteur
-Développeur d’Applications (Studi). L’objectif est de centraliser les prospects,
-clients, événements et devis de l’agence Innov’Events.
+Application de gestion événementielle réalisée pour l'ECF du titre professionnel
+Concepteur développeur d'applications. Elle centralise les prospects, clients,
+événements, devis, tâches, avis et journaux d'audit d'Innov'Events.
 
-État documenté au **9 septembre 2026** : l’application web et les scripts SQL
-existent, mais des corrections fonctionnelles et de sécurité restent nécessaires.
-L’application mobile et le déploiement en ligne ne sont pas encore livrés dans
-ce dépôt.
+## Fonctionnalités principales
 
-**Technologies présentes**
+- site public : événements, avis, contact, demande de devis et pages légales ;
+- inscription, authentification, mot de passe oublié et changement obligatoire ;
+- espace client : suivi et réponse aux devis, profil, suppression du compte et avis ;
+- espace employé : consultation des clients et événements, notes, tâches et modération ;
+- espace administrateur : prospects, clients, événements, devis, comptes et journaux ;
+- génération et envoi des devis PDF ;
+- PWA réservée au personnel : événements à venir, contacts et notes rapides ;
+- journalisation des actions sensibles dans MongoDB.
 
-| Élément | Implémentation actuelle |
+## Architecture et technologies
+
+| Élément | Technologie |
 | --- | --- |
-| Serveur web | PHP 8.2 / Apache, image `php:8.2-apache` |
-| Organisation | Point d’entrée `public/index.php`, contrôleurs, modèles, vues et services PHP |
-| SQL | MySQL 8.0 : données clients, commerciales, événements, tâches, avis et contenus publics administrables |
-| NoSQL | MongoDB pour les journaux d’actions ; connexion et affichage des journaux vérifiés |
-| Interface | HTML, CSS et Bootstrap 5 ; aucun SCSS trouvé dans le dépôt |
+| Application | PHP 8.2, Apache, architecture MVC et services métier |
+| Interface | HTML5, CSS3 et Bootstrap 5 |
+| Base relationnelle | MySQL 8 et PDO |
+| Journalisation | MongoDB |
+| Courriels locaux | PHPMailer et MailHog |
 | PDF | Dompdf |
-| Emails | PHPMailer vers MailHog pour une partie des envois ; certains appels `mail()` restent à corriger |
-| Environnement local | Docker Compose : application, MySQL, MongoDB, MailHog et phpMyAdmin |
+| Environnement | Docker Compose |
 
-Les tâches assignées et les avis clients modérés disposent de parcours complets.
-Le stockage MongoDB ne garantit pas, à lui seul, l’immutabilité des journaux.
+Le point d'entrée HTTP est `public/index.php`. Les devis générés sont conservés
+hors du dossier public dans `storage/devis/` et servis après contrôle des droits.
 
-**Installation locale**
+## Installation locale
 
-Prérequis : Git et Docker avec le moteur démarré et la commande `docker compose`
-disponible. PHP et Composer sont fournis dans le conteneur applicatif. Python 3
-est nécessaire uniquement pour les tests SQL.
-
-1. Cloner le dépôt et sélectionner la branche à tester :
+Prérequis : Git, Docker et la commande `docker compose`.
 
 ```bash
 git clone https://github.com/RomainRemusat/Innov-Events-Manager.git
 cd Innov-Events-Manager
-git checkout feature/evenement
+git switch main
 ```
 
-Cette documentation décrit la branche `feature/evenement` en cours de correction.
-Les branches `dev` et `main` existent, mais ne contiennent pas nécessairement les
-mêmes modifications. Les corrections doivent être intégrées après vérification.
+Créer la configuration locale :
 
-2. Créer `.env` à partir du fichier réellement présent dans le dépôt, sans écraser
-une configuration locale existante.
-
-Sous Linux/macOS ou Git Bash :
+Sous Linux, macOS ou Git Bash :
 
 ```bash
-cp .env.example.php .env
+cp .env.example .env
 ```
 
 Sous PowerShell :
 
 ```powershell
-Copy-Item .env.example.php .env
+Copy-Item .env.example .env
 ```
 
-Malgré son extension `.php`, ce modèle contient des lignes `CLE=valeur`, pas du
-code PHP. Pour l’installation actuelle, conserver les paramètres SQL suivants :
-
-```dotenv
-DB_HOST=db
-DB_PORT=3306
-DB_NAME=innovevents_db
-DB_USER=root
-DB_PASS=root_password
-```
-
-Compose utilise `.env` pour sa configuration. En revanche, les identifiants SQL
-de `src/config/Database.php` et la connexion MailHog de `MailService.php` sont
-encore codés en dur. Modifier uniquement `.env` ne reconfigure donc pas toute
-l’application. Les variables MongoDB d’authentification du modèle ne sont pas
-transmises au service MongoDB par le Compose actuel.
-
-3. Construire et démarrer les services, puis installer les dépendances :
+Démarrer les services et installer les dépendances :
 
 ```bash
 docker compose up -d --build
-docker compose exec app composer install
+docker compose exec -T app composer install
 docker compose ps
 ```
 
-Attendre que MySQL accepte les connexions avant d’importer le SQL :
+Attendre que MySQL soit disponible :
 
 ```bash
 docker compose exec -T db mysql -uroot -proot_password -e 'SELECT 1'
 ```
 
-Si la base n’est pas encore prête, attendre puis relancer cette commande.
-
-4. Initialiser **uniquement une base vide**, avec le schéma puis le jeu d’essai.
-Sous Linux/macOS ou Git Bash :
+Initialiser une base vide sous Linux, macOS ou Git Bash :
 
 ```bash
 docker compose exec -T db mysql --default-character-set=utf8mb4 -uroot -proot_password innovevents_db < scripts/schema.sql
@@ -102,216 +78,103 @@ docker compose exec -T db mysql --default-character-set=utf8mb4 -uroot -proot_pa
 Sous PowerShell :
 
 ```powershell
-docker compose cp scripts/schema.sql db:/tmp/innovevents-schema.sql
-docker compose exec -T db sh -c 'exec mysql --default-character-set=utf8mb4 -uroot -proot_password innovevents_db < /tmp/innovevents-schema.sql'
-# Continuer uniquement si le schéma a été importé sans erreur.
-docker compose cp scripts/initialise.sql db:/tmp/innovevents-initialise.sql
-docker compose exec -T db sh -c 'exec mysql --default-character-set=utf8mb4 -uroot -proot_password innovevents_db < /tmp/innovevents-initialise.sql'
+docker compose cp scripts/schema.sql db:/tmp/schema.sql
+docker compose exec -T db sh -c 'mysql --default-character-set=utf8mb4 -uroot -proot_password innovevents_db < /tmp/schema.sql'
+docker compose cp scripts/initialise.sql db:/tmp/initialise.sql
+docker compose exec -T db sh -c 'mysql --default-character-set=utf8mb4 -uroot -proot_password innovevents_db < /tmp/initialise.sql'
 ```
 
-Pour une base existante, suivre [le guide des scripts SQL](scripts/README.md).
-`schema.sql` refuse les tables déjà présentes ; `initialise.sql` ne doit pas être
-rejoué sur les données de travail. Les volumes SQL et MongoDB persistent après
-un arrêt normal des services.
+Ces deux scripts servent uniquement à une installation vierge. Pour une base
+existante, suivre le [guide des migrations](scripts/README.md).
 
-**Services locaux**
-
-Ports avec la configuration fournie :
+## Services locaux
 
 | Service | Adresse |
 | --- | --- |
-| Application web | http://localhost:8081 |
-| Connexion | http://localhost:8081/index.php?action=login |
+| Application | http://localhost:8081 |
+| PWA du personnel | http://localhost:8081/index.php?action=mobile_dashboard |
+| MailHog | http://localhost:8025 |
 | phpMyAdmin | http://localhost:8082 |
-| Interface MailHog | http://localhost:8025 |
-| SMTP MailHog | `localhost:1025` depuis l’hôte ; `mailhog:1025` depuis PHP |
-| MySQL | `localhost:3306` depuis l’hôte ; `db:3306` depuis PHP |
-| MongoDB | `localhost:27017` depuis l’hôte ; `mongodb:27017` depuis PHP |
+| MySQL | `localhost:3306` |
+| MongoDB | `localhost:27017` |
 
-MailHog capture les emails localement : ils ne sont pas distribués aux véritables
-boîtes des destinataires. Cette configuration est destinée au développement.
+Depuis un téléphone connecté au même réseau, remplacer `localhost` par l'adresse
+IPv4 de l'ordinateur. MailHog intercepte les messages : aucun email local n'est
+distribué à une boîte réelle.
 
-**Comptes du jeu d’essai**
+## Comptes de démonstration
 
-Les mots de passe ci-dessous ont été vérifiés avec `password_verify()` sur les
-hashes de [scripts/initialise.sql](scripts/initialise.sql).
+Le jeu de données de `scripts/initialise.sql` crée les comptes suivants :
 
-| Rôle | Email | Mot de passe du jeu d’essai |
+| Rôle | Identifiant | Mot de passe |
 | --- | --- | --- |
-| Administratrice — Chloé | `chloe@innovevents.fr` | `Password123!` |
-| Employé — José | `jose@innovevents.fr` | `Password123!` |
-| Cliente — Alice | `client@luxe.com` | `Password123!` |
-| Cliente — Amandine | `a.legrand@nextgen.io` | `Password123!` |
+| Administratrice | `chloe@innovevents.fr` | `Password123!` |
+| Employé | `jose@innovevents.fr` | `Password123!` |
+| Cliente | `client@luxe.com` | `Password123!` |
+| Cliente | `a.legrand@nextgen.io` | `Password123!` |
 
-Ces identifiants concernent une base alimentée avec ce jeu d’essai. Une base
-existante peut contenir des mots de passe modifiés. Le jeu d’essai contient
-uniquement ces quatre comptes : un administrateur, un employé et deux clientes.
-Alice et Amandine ont chacune leurs dossiers, pour tester notamment l’interdiction
-d’accès aux devis d’une autre cliente.
+Ces identifiants sont réservés à la démonstration et ne doivent pas être utilisés
+sur un environnement public.
 
-`Password123!` respecte la règle de l’ECF (p. 5) : au moins 8 caractères,
-une majuscule, une minuscule, un chiffre et un caractère spécial. Il est stocké
-sous forme de hash bcrypt, avec un sel distinct pour chaque compte.
+## Tests automatisés
 
-Ces quatre comptes sont préconfigurés pour la démonstration. Les mots de passe
-temporaires issus d’un oubli (p. 6) ou de la création automatique d’un compte
-client (p. 10) imposent un changement à la première connexion, via
-`must_change_password = 1`. Le jeu d’essai utilise `0` pour les comptes déjà prêts.
+Les conteneurs doivent être démarrés et la base locale initialisée. Les scénarios
+qui créent des données utilisent des dossiers synthétiques et les suppriment à la
+fin de leur exécution.
 
-**État des fonctionnalités et livrables**
-
-| Domaine | État vérifié / travail restant |
-| --- | --- |
-| Docker local | Cinq services démarrés lors de l’audit ; build de production et configuration par environnement à finaliser |
-| SQL | Création manuelle, données de démonstration et mises à jour alignées sur l’export du 09/09/2026 ; tests de migration réussis |
-| Événements publics | Liste, détail, filtres dates/type/thème ; brouillons exclus et montants commerciaux non affichés |
-| Inscription et connexion | Pseudo unique persisté, consentement serveur, session régénérée, retour à la page initiale et journaux MongoDB vérifiés |
-| Demande de devis | Formulaire, consentement et limites contrôlés côté serveur ; insertion, confirmation administrable et journalisation vérifiées |
-| Conversion | Colonne `start_date` corrigée ; conversion avec compte existant et rollback vérifiés sur bases temporaires. Parcours HTTP, nouveau compte et image à compléter |
-| Devis et PDF | Génération réservée à ADMIN et au client propriétaire, testée sur Docker ; envois et téléchargement client restent à corriger |
-| Réponse client | Acceptation/refus/modification présents ; motif non imposé côté serveur, transitions et notifications à fiabiliser |
-| Clients, événements et notes | Listes, fiches, indicateurs et certaines mutations présents ; mutations structurelles réservées à ADMIN ; consultation et ajout de notes événement conservés pour EMPLOYEE. CRUD et profil à compléter |
-| Journalisation et sécurité | Mutations sensibles et téléchargements PDF journalisés ; permissions, méthodes HTTP, CSRF et confirmations destructives testés |
-| Tâches et avis | Tâches assignées avec progression des statuts ; avis après événement terminé, correction après refus, modération par le personnel et publication vérifiés |
-| Contact et pages légales | Formulaire de contact relié au SMTP ; mentions légales, confidentialité, CGU et CGV accessibles publiquement |
-| Contenus publics | Message de remerciement après demande de devis modifiable par l’administrateur |
-| Mobile | Parcours dédié non réalisé ; le dossier mobile est vide |
-| Accessibilité | Recette structurelle et visuelle effectuée : focus, lien d’évitement, contrastes personnalisés, labels et responsive corrigés ; conformité RGAA non certifiée |
-| Conception | Charte, trois wireframes et trois mockups web, MCD et diagrammes présents ; modèles à actualiser, maquettes mobile et schéma d’architecture complet à fournir |
-| Tests applicatifs | Contrôles SQL, politique des mots de passe et connexion/journalisation disponibles ; couverture du parcours commercial aux trois niveaux et rapport de couverture encore à réaliser |
-| CI/CD et production | Aucun pipeline ni déploiement en ligne documenté dans le dépôt ; hébergeur à choisir/configurer |
-| Documentation utilisateur et veille | À compléter |
-
-Les tests et la présence de mécanismes de sécurité ne constituent pas une
-certification globale de conformité OWASP, RGPD ou RGAA.
-
-**Vérifications disponibles**
-
-Vérification des règles de mot de passe et des hashes du jeu d’essai (sans base) :
+Contrôles principaux :
 
 ```bash
 docker compose exec -T app php tests/password_policy.php
-```
-
-Vérification SQL :
-
-```bash
-python tests/sql_migrations.py
-```
-
-Ce contrôle utilise un MySQL Docker temporaire sans connexion à la base de travail.
-Il vérifie l’installation vierge, le refus de réinitialisation, deux passages des
-migrations, la conservation des données et les contraintes. Une option `--export`
-permet de vérifier une sauvegarde locale ; voir [le guide SQL](scripts/README.md).
-Ces tests ne calculent pas la couverture PHP et ne remplacent pas les tests E2E.
-
-Vérification HTTP des quatre connexions et de leurs journaux MongoDB, sur le Docker
-local démarré et les comptes de démonstration :
-
-```bash
-python tests/login_logging.py
-```
-
-Ce contrôle ouvre puis ferme ses sessions, vérifie les redirections et lit les
-journaux dans MongoDB et l’interface admin. Il ne modifie pas les données SQL,
-mais conserve les journaux de connexion normaux produits pendant le test.
-
-Vérification du service de conversion sur des bases SQL et MongoDB temporaires :
-
-```bash
 docker compose exec -T app php tests/conversion.php
-```
-
-Ce test utilise les services Docker locaux et crée des bases au nom aléatoire,
-supprimées en fin d’exécution. Il vérifie la date de début, les liens métier, le
-devis, le journal et le rollback. Il utilise un client existant, sans envoyer de mail.
-
-Vérification des accès directs aux routes prospects (réservées à ADMIN) :
-
-```bash
-python tests/prospect_access.py
-```
-
-Sur Docker local avec les quatre comptes de démonstration, ce test vérifie les
-lectures et POST des visiteurs, clients, employé et administrateur. Il crée puis
-supprime deux prospects synthétiques ; les dossiers existants restent inchangés.
-Les journaux normaux produits par le test sont conservés. Aucun mail n’est envoyé.
-
-Vérification des autorisations de génération PDF :
-
-```bash
-python -B tests/pdf_access.py
-```
-
-Le test utilise les quatre comptes de démonstration et un devis existant par cliente.
-Il vérifie les PDF autorisés et le refus des accès directs aux devis d’autrui, ainsi
-que les accès visiteur, employé et administrateur. Aucune écriture SQL, aucun mail
-ni sauvegarde de PDF ; les journaux de connexion sont conservés.
-
-Vérification des permissions employé et administrateur :
-
-```bash
-python -B tests/staff_permissions.py
-```
-
-Conversion, modification/suppression de client, prestations, envoi de devis,
-statut et image d’événement sont réservés à ADMIN. EMPLOYEE conserve la consultation
-des clients/événements et l’ajout de notes sur un événement. Les notes globales sont
-réservées à ADMIN. Son dashboard redirige vers la liste des événements.
-
-Le test crée des dossiers synthétiques sur le Docker local et contrôle les refus
-par accès direct, les lectures et notes employé, puis les mutations administrateur,
-y compris un téléversement PNG. Il nettoie les dossiers, le PNG et le PDF créés.
-Les journaux et l’email de test envoyé à MailHog restent disponibles localement.
-Les fonctionnalités mobiles, le déploiement et les autres livrables ECF restent à compléter.
-
-Vérification des finitions web :
-
-```bash
+python -B tests/sql_migrations.py
+python -B tests/login_logging.py
+python -B tests/commercial_workflow.py
+python -B tests/mobile_app.py
+python -B tests/public_pages.py
+python -B tests/reviews.py
 python -B tests/web_finishing.py
 ```
 
-Le test vérifie la persistance du pseudo, le consentement serveur, le retour après
-connexion, la structure HTML des pages publiques, les labels, le focus, les
-contrastes personnalisés et l’inventaire des actions sensibles journalisées. Le
-compte, les messages et les données synthétiques sont supprimés après exécution.
-La recette détaillée est disponible dans `docs/RECETTE_WEB_2026-09-24.md`.
+Les autres scénarios de sécurité, de droits, d'erreurs d'écriture et de cycle de
+vie se trouvent dans [`tests/`](tests/). La recette humaine est décrite dans
+[`docs/RECETTE_WEB_2026-09-24.md`](docs/RECETTE_WEB_2026-09-24.md).
 
-Vérification isolée du dépôt, de la modération et de la publication des avis :
+La CI exécute les tests à chaque push sur `dev` et `main`, ainsi que pour les pull
+requests qui ciblent ces branches. Une livraison ne doit pas être effectuée si la
+CI échoue.
 
-```bash
-python -B tests/reviews.py
-```
+## PWA mobile
 
-Ce test crée puis supprime sa propre base SQL et sa collection MongoDB. Il vérifie
-la propriété des événements, le statut terminé, le cycle refus/correction/validation,
-les rôles, le CSRF, l’échappement HTML et les affichages client, personnel et public.
+La PWA est destinée aux comptes `ADMIN` et `EMPLOYEE`. Elle présente les
+événements à venir, les coordonnées du client et les actions téléphone, email,
+itinéraire et ajout de note. Le navigateur conserve le contexte mobile pendant
+sa session afin qu'un changement de compte du personnel revienne dans la PWA.
 
-Vérification des pages publiques, du contact et du message de devis administrable :
+Pour bénéficier de l'installation complète et du service worker hors de
+`localhost`, l'application doit être servie en HTTPS.
 
-```bash
-python -B tests/public_pages.py
-```
+## Git
 
-Le test utilise une base temporaire et MailHog, puis supprime les données et le
-message créés. Il couvre les pages légales, la validation du contact, l’échappement
-HTML, le SMTP et la modification réservée à l’administrateur.
+- `main` : version validée destinée à la production ;
+- `dev` : intégration des fonctionnalités testées ;
+- `feature/*` : développement isolé.
 
-**Git et suivi du projet**
+Une fonctionnalité est intégrée dans `dev` après validation, puis dans `main`
+pour préparer une livraison. Les messages de commit utilisent principalement
+les préfixes `feat`, `fix`, `test`, `docs`, `refactor` et `chore`.
 
-Les branches `main`, `dev` et `feature/*` sont présentes. Le workflow visé est de
-partir de `dev`, développer et tester une fonctionnalité, puis intégrer vers `dev`
-et ensuite `main`. La présence d’une branche `main` ne prouve pas un déploiement
-ou une validation automatique : la CI/CD reste à mettre en place.
+## Déploiement
 
-Conventions de messages utilisées : `feat`, `fix`, `refactor`, `docs` et `test`.
-Des captures Trello existent dans `docs/element_graphique/`. Le lien partagé et
-l’état actuel du Kanban restent à documenter. Les colonnes prévues sont Backlog,
-Sprint, En cours, Terminé sur dev et, facultativement, Intégré à main.
+Le dépôt fournit actuellement un environnement Docker local reproductible. Aucun
+hébergeur public ni déploiement automatique n'est encore configuré. Une mise en
+ligne nécessite au minimum :
 
-**Documents**
+- un nom de domaine et HTTPS ;
+- des secrets SQL, MongoDB et SMTP propres à l'environnement ;
+- un serveur SMTP réel ;
+- des volumes persistants et une stratégie de sauvegarde ;
+- l'exclusion des outils d'administration et des ports de données de l'accès public.
 
-- [Guide SQL : installation, migrations et tests](scripts/README.md)
-
-Les documents Word et les visuels de conception se trouvent dans `docs/`.
-Ils doivent être synchronisés avec la version finale de l’application.
+Cette section devra contenir l'URL et la procédure reproductible après le premier
+déploiement vérifié sur l'hébergeur choisi.
