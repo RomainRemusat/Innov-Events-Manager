@@ -4,10 +4,9 @@ Projet en cours de développement pour l’ECF du titre professionnel Concepteur
 Développeur d’Applications (Studi). L’objectif est de centraliser les prospects,
 clients, événements et devis de l’agence Innov’Events.
 
-État documenté au **9 septembre 2026** : l’application web et les scripts SQL
-existent, mais des corrections fonctionnelles et de sécurité restent nécessaires.
-L’application mobile et le déploiement en ligne ne sont pas encore livrés dans
-ce dépôt.
+État documenté au **26 septembre 2026** : l’application web, la PWA mobile du
+personnel et les scripts SQL sont disponibles dans le dépôt. Le déploiement en
+ligne et son automatisation restent à configurer sur l’hébergeur retenu.
 
 **Technologies présentes**
 
@@ -175,7 +174,7 @@ client (p. 10) imposent un changement à la première connexion, via
 | Tâches et avis | Tâches assignées avec progression des statuts ; avis après événement terminé, correction après refus, modération par le personnel et publication vérifiés |
 | Contact et pages légales | Formulaire de contact relié au SMTP ; mentions légales, confidentialité, CGU et CGV accessibles publiquement |
 | Contenus publics | Message de remerciement après demande de devis modifiable par l’administrateur |
-| Mobile | Parcours dédié non réalisé ; le dossier mobile est vide |
+| Mobile | PWA dédiée au personnel : événements à venir, fiche concise, contact téléphone/email/itinéraire et ajout rapide de notes |
 | Accessibilité | Recette structurelle et visuelle effectuée : focus, lien d’évitement, contrastes personnalisés, labels et responsive corrigés ; conformité RGAA non certifiée |
 | Conception | Charte, trois wireframes et trois mockups web, MCD et diagrammes présents ; modèles à actualiser, maquettes mobile et schéma d’architecture complet à fournir |
 | Tests applicatifs | Contrôles SQL, politique des mots de passe et connexion/journalisation disponibles ; couverture du parcours commercial aux trois niveaux et rapport de couverture encore à réaliser |
@@ -263,7 +262,17 @@ Le test crée des dossiers synthétiques sur le Docker local et contrôle les re
 par accès direct, les lectures et notes employé, puis les mutations administrateur,
 y compris un téléversement PNG. Il nettoie les dossiers, le PNG et le PDF créés.
 Les journaux et l’email de test envoyé à MailHog restent disponibles localement.
-Les fonctionnalités mobiles, le déploiement et les autres livrables ECF restent à compléter.
+Le déploiement en ligne et les autres livrables ECF restent à compléter.
+
+Vérification de la PWA mobile :
+
+```bash
+python -B tests/mobile_app.py
+```
+
+Ce scénario vérifie l'accès réservé à ADMIN et EMPLOYEE, la liste des événements,
+la fiche client, les liens natifs téléphone/email/cartographie, l'ajout sécurisé
+d'une note et la disponibilité du manifeste, du service worker et des ressources.
 
 Vérification des finitions web :
 
