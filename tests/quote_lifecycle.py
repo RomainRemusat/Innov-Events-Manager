@@ -94,6 +94,12 @@ def main():
         page = call("require 'src/controllers/QuoteController.php'; (new QuoteController())->editDevis(99);")
         assert 'action=send_quote_to_client' not in base64.b64decode(page['body']).decode('utf-8')
         assert base64.b64decode(call(f"(new PdfController())->downloadPdf('{name}.pdf');", user=3)['body']) == current_pdf
+        download_logs = php(prefix + rf"""
+            $manager = new MongoDB\Driver\Manager('mongodb://mongodb:27017');
+            $query = new MongoDB\Driver\Query(['type_action'=>'TELECHARGEMENT_DEVIS','details.devis_id'=>99]);
+            echo json_encode(count($manager->executeQuery('{name}.logs',$query)->toArray()));
+        """)
+        assert download_logs == 3, f'Trois téléchargements autorisés doivent être journalisés, obtenu : {download_logs}'
 
         # Le serveur SMTP local doit avoir reçu exactement les deux propositions autorisées.
         with urllib.request.urlopen('http://localhost:8025/api/v2/search?kind=to&query=' + email) as response:

@@ -114,9 +114,9 @@ def main():
             ]);
             echo json_encode($id>0 && $service->wasCredentialsEmailSent()===false);
         """)
-        registration = call('(new AuthController())->register($_POST);', dict(firstname='Test', lastname='Client', username='test', email='register@example.test', password='Password123!'))
+        registration = call('(new AuthController())->register($_POST);', dict(firstname='Test', lastname='Client', username='test', email='register@example.test', password='Password123!', rgpd_consent='on'))
         assert 'créé' in registration['session']['login_success'] and 'pas pu' in registration['session']['login_success']
-        request = call('(new QuoteController())->submitQuote($_POST);', dict(company_name='NextGen Software', contact_name='Test Client', email='request@example.test', phone='0102030405', event_type='Autre', event_date='2099-01-01', location='Paris', estimated_participants='10', description='Projet de test'))
+        request = call('(new QuoteController())->submitQuote($_POST);', dict(company_name='NextGen Software', contact_name='Test Client', email='request@example.test', phone='0102030405', event_type='Autre', event_date='2099-01-01', location='Paris', estimated_participants='10', description='Projet de test', rgpd_consent='on'))
         assert 'Demande reçue' in base64.b64decode(request['body']).decode()
         assert 'inutile de la soumettre à nouveau' in base64.b64decode(request['body']).decode()
         print('OK : erreurs d’écriture signalées et conversion conservée après échec d’envoi des accès.', flush=True)
