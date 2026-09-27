@@ -1,4 +1,10 @@
 <?php
+/**
+ * En-tête commun de l'interface mobile.
+ *
+ * @var string|null $mobileTitle Titre de la page.
+ * @var string|null $mobileBack  URL de retour, absente sur le tableau de bord.
+ */
 $mobileTitle = $mobileTitle ?? 'Innov’Events Mobile';
 $mobileBack = $mobileBack ?? null;
 ?>
