@@ -45,9 +45,14 @@ def main():
 
     code, _, detail = request(staff, f"mobile_event&id={event_id}")
     assert code == 200
-    for expected in ["Ajouter une note rapide", "mailto:", "tel:", "google.com/maps/search"]:
+    for expected in ["Ajouter une note rapide", f"mobile_client&amp;event_id={event_id}", "google.com/maps/search"]:
         assert expected in detail, expected
     token = re.search(r'name="csrf_token"\s+value="([^"]+)"', detail).group(1)
+
+    code, _, contact = request(staff, f"mobile_client&event_id={event_id}")
+    assert code == 200
+    for expected in ["Fiche client", "mailto:", "tel:", "google.com/maps/search"]:
+        assert expected in contact, expected
 
     marker = "Note mobile " + secrets.token_hex(5)
     try:

@@ -120,6 +120,14 @@ def main():
         assert code == 302 and headers["Location"] == "index.php?action=admin_site_settings"
         print("OK : retour à la page initialement demandée après connexion.", flush=True)
 
+        event_id = php(sql_prefix + "echo json_encode((int)$db->query('SELECT id FROM events ORDER BY id LIMIT 1')->fetchColumn());")
+        assert event_id, "Un événement de démonstration est requis pour la recette mobile"
+        code, _, event_page = request(admin, f"mobile_event&id={event_id}")
+        assert code == 200 and f"mobile_client&amp;event_id={event_id}" in event_page
+        code, _, client_page = request(admin, f"mobile_client&event_id={event_id}")
+        assert code == 200 and 'href="mailto:' in client_page and "google.com/maps/search" in client_page
+        print("OK : fiche client mobile accessible depuis l’événement avec actions de contact.", flush=True)
+
         public = opener()
         for action in ["home", "events", "reviews", "contact", "devis", "login", "show_register",
                        "mentions_legales", "cgu", "cgv", "politique_confidentialite"]:

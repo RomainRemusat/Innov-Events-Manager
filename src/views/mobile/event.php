@@ -1,13 +1,12 @@
 <?php
+/**
+ * @var array<string, mixed>             $event Événement et contact client associé.
+ * @var array<int, array<string, mixed>> $notes Notes collaboratives de l'événement.
+ */
 $mobileTitle = $event['title'] . ' — Innov’Events Mobile';
 $mobileBack = 'index.php?action=mobile_dashboard';
 $start = new DateTimeImmutable((string)$event['start_date']);
 $end = !empty($event['end_date']) ? new DateTimeImmutable((string)$event['end_date']) : null;
-$clientAddress = trim(implode(' ', array_filter([
-    $event['address'] ?? null,
-    $event['postal_code'] ?? null,
-    $event['city'] ?? null,
-])));
 require __DIR__ . '/_header.php';
 ?>
 <article>
@@ -27,15 +26,7 @@ require __DIR__ . '/_header.php';
         <p class="mobile-eyebrow">Contact</p>
         <h2 id="client-title"><?= htmlspecialchars(trim($event['firstname'] . ' ' . $event['lastname']), ENT_QUOTES, 'UTF-8') ?></h2>
         <p><?= htmlspecialchars($event['company_name'] ?: 'Compte individuel', ENT_QUOTES, 'UTF-8') ?></p>
-        <div class="mobile-actions">
-            <?php if (!empty($event['phone'])): ?>
-                <a class="mobile-action" href="tel:<?= htmlspecialchars(preg_replace('/[^0-9+]/', '', (string)$event['phone']), ENT_QUOTES, 'UTF-8') ?>">Appeler</a>
-            <?php endif; ?>
-            <a class="mobile-action" href="mailto:<?= htmlspecialchars($event['client_email'], ENT_QUOTES, 'UTF-8') ?>">Envoyer un email</a>
-            <?php if ($clientAddress !== ''): ?>
-                <a class="mobile-action" href="https://www.google.com/maps/search/?api=1&amp;query=<?= rawurlencode($clientAddress) ?>" target="_blank" rel="noopener noreferrer">Itinéraire client</a>
-            <?php endif; ?>
-        </div>
+        <a class="mobile-action" href="index.php?action=mobile_client&amp;event_id=<?= (int)$event['id'] ?>">Ouvrir la fiche client</a>
     </section>
 
     <section class="mobile-section" aria-labelledby="note-title">
