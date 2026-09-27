@@ -76,6 +76,10 @@ switch (true) {
         (new MobileController())->event();
         break;
 
+    case ($action === 'mobile_client'):
+        (new MobileController())->client();
+        break;
+
     case ($action === 'mobile_add_note'):
         (new MobileController())->addNote();
         break;

@@ -391,7 +391,7 @@ class Event
      */
     public function findMobileById(int $id): ?array
     {
-        $stmt = $this->db->prepare("SELECT e.id, e.title, e.start_date, e.end_date,
+        $stmt = $this->db->prepare("SELECT e.id, e.client_id, e.title, e.start_date, e.end_date,
                 e.location, e.status, e.event_type, e.theme, e.estimated_participants,
                 u.firstname, u.lastname, u.email AS client_email,
                 c.name AS company_name, c.address, c.postal_code, c.city,

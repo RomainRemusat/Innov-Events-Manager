@@ -34,6 +34,21 @@ class MobileController extends BaseController
         require __DIR__ . '/../views/mobile/event.php';
     }
 
+    public function client(): void
+    {
+        $this->checkAuth(['ADMIN', 'EMPLOYEE']);
+        $this->rememberMobilePreference();
+        $eventId = filter_input(INPUT_GET, 'event_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $client = $eventId ? (new Event())->findMobileById((int)$eventId) : null;
+        if (!$client) {
+            http_response_code(404);
+            $_SESSION['mobile_error'] = 'Client introuvable.';
+            header('Location: index.php?action=mobile_dashboard');
+            exit;
+        }
+        require __DIR__ . '/../views/mobile/client.php';
+    }
+
     public function addNote(): void
     {
         $this->checkAuth(['ADMIN', 'EMPLOYEE']);
