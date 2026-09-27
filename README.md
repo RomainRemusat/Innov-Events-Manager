@@ -166,15 +166,26 @@ les préfixes `feat`, `fix`, `test`, `docs`, `refactor` et `chore`.
 
 ## Déploiement
 
-Le dépôt fournit actuellement un environnement Docker local reproductible. Aucun
-hébergeur public ni déploiement automatique n'est encore configuré. Une mise en
-ligne nécessite au minimum :
+L'application est déployée sur Fly.io à l'adresse suivante :
+<https://innov-events-manager-romain.fly.dev>.
 
-- un nom de domaine et HTTPS ;
-- des secrets SQL, MongoDB et SMTP propres à l'environnement ;
-- un serveur SMTP réel ;
-- des volumes persistants et une stratégie de sauvegarde ;
-- l'exclusion des outils d'administration et des ports de données de l'accès public.
+L'environnement de production comprend trois machines Docker dans la région de
+Paris (`cdg`) : l'application PHP/Apache, MySQL et MongoDB. Chaque service dispose
+d'un volume persistant chiffré. MySQL et MongoDB restent sur le réseau privé de
+Fly.io ; seule l'application web est exposée en HTTPS.
 
-Cette section devra contenir l'URL et la procédure reproductible après le premier
-déploiement vérifié sur l'hébergeur choisi.
+Le 27 septembre 2026, les contrôles suivants ont été réalisés sur cet
+environnement : page d'accueil en HTTPS, connexion administrateur, accès au
+tableau de bord, écriture et lecture d'un journal MongoDB, contrôle de santé et
+conservation d'un fichier après redémarrage de la machine applicative.
+
+Le workflow GitHub Actions exécute toute la suite de tests avant le déploiement de
+`main`. La configuration détaillée, la création des volumes, les secrets attendus
+et les commandes de contrôle sont décrits dans
+[`docs/DEPLOIEMENT_FLY.md`](docs/DEPLOIEMENT_FLY.md).
+Un [glossaire des commandes](docs/GLOSSAIRE_COMMANDES_DEPLOIEMENT.md) est fourni
+pour expliquer les opérations présentées dans la documentation technique.
+
+Les comptes fournis par le jeu d'essai sont publics et réservés à la démonstration
+de l'ECF. Le serveur SMTP réel doit être configuré avec les secrets Fly avant de
+tester l'envoi de courriels vers Internet.
