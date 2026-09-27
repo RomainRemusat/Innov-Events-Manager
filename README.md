@@ -26,6 +26,10 @@ Concepteur développeur d'applications. Elle centralise les prospects, clients,
 | Courriels locaux | PHPMailer et MailHog |
 | PDF | Dompdf |
 | Environnement | Docker Compose |
+| Tests unitaires | PHPUnit 11 |
+| Tests fonctionnels et E2E | Scripts Python 3 |
+| Couverture | Xdebug |
+| Intégration et déploiement continus | GitHub Actions |
 
 Le point d'entrée HTTP est `public/index.php`. Les devis générés sont conservés
 hors du dossier public dans `storage/devis/` et servis après contrôle des droits.
@@ -125,6 +129,7 @@ fin de leur exécution.
 Contrôles principaux :
 
 ```bash
+docker compose exec -T app vendor/bin/phpunit --configuration phpunit.xml
 docker compose exec -T app php tests/password_policy.php
 docker compose exec -T app php tests/conversion.php
 python -B tests/sql_migrations.py
@@ -139,6 +144,13 @@ python -B tests/web_finishing.py
 Les autres scénarios de sécurité, de droits, d'erreurs d'écriture et de cycle de
 vie se trouvent dans [`tests/`](tests/). La recette humaine est décrite dans
 [`docs/RECETTE_WEB_2026-09-24.md`](docs/RECETTE_WEB_2026-09-24.md).
+
+La couverture mesurée avec Xdebug après exécution des scripts PHP historiques
+et des 28 scénarios Python est de
+**73,51 %**, soit 3 585 lignes exécutées sur 4 877 lignes PHP instrumentées dans
+`src/` et `public/index.php`. PHPUnit vérifie les règles isolées ; les scripts
+Python contrôlent les parcours HTTP, les droits, MySQL, MongoDB et les courriels
+interceptés par MailHog.
 
 La CI exécute les tests à chaque push sur `dev` et `main`, ainsi que pour les pull
 requests qui ciblent ces branches. Une livraison ne doit pas être effectuée si la
