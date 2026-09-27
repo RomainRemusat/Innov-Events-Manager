@@ -1,4 +1,5 @@
 <?php
+/** @var array<int, array<string, mixed>> $events Événements à venir accessibles au personnel. */
 $mobileTitle = 'Événements à venir — Innov’Events Mobile';
 require __DIR__ . '/_header.php';
 ?>

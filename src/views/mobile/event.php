@@ -1,4 +1,8 @@
 <?php
+/**
+ * @var array<string, mixed>             $event Événement et contact client associé.
+ * @var array<int, array<string, mixed>> $notes Notes collaboratives de l'événement.
+ */
 $mobileTitle = $event['title'] . ' — Innov’Events Mobile';
 $mobileBack = 'index.php?action=mobile_dashboard';
 $start = new DateTimeImmutable((string)$event['start_date']);

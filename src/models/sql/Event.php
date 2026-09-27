@@ -383,7 +383,7 @@ class Event
     }
 
     /**
-     * Renvoie la fiche concise utilisée par l'application mobile du personnel.
+     * Renvoie un événement et les coordonnées de son client pour l'application mobile.
      * Le téléphone provient de la dernière demande liée au client, car le compte
      * utilisateur ne stocke pas cette donnée dans le schéma actuel.
      *

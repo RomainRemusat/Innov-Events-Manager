@@ -1,5 +1,15 @@
 <?php
 
+/**
+ * Contrôleur de l'application mobile installable destinée au personnel.
+ *
+ * Il protège les écrans par rôle, charge les événements et contacts utiles
+ * en déplacement, puis traite l'ajout rapide de notes collaboratives.
+ *
+ * @package    InnovEventsManager
+ * @subpackage Controllers
+ */
+
 declare(strict_types=1);
 
 require_once __DIR__ . '/BaseController.php';
@@ -10,6 +20,7 @@ require_once __DIR__ . '/../models/nosql/Log.php';
 /** Interface mobile installable destinée au personnel en déplacement. */
 class MobileController extends BaseController
 {
+    /** Affiche les événements à venir dans l'interface mobile du personnel. */
     public function dashboard(): void
     {
         $this->checkAuth(['ADMIN', 'EMPLOYEE']);
@@ -18,6 +29,7 @@ class MobileController extends BaseController
         require __DIR__ . '/../views/mobile/dashboard.php';
     }
 
+    /** Affiche les informations opérationnelles et les notes d'un événement. */
     public function event(): void
     {
         $this->checkAuth(['ADMIN', 'EMPLOYEE']);
@@ -34,6 +46,7 @@ class MobileController extends BaseController
         require __DIR__ . '/../views/mobile/event.php';
     }
 
+    /** Affiche la fiche de contact du client rattaché à un événement. */
     public function client(): void
     {
         $this->checkAuth(['ADMIN', 'EMPLOYEE']);
@@ -49,6 +62,7 @@ class MobileController extends BaseController
         require __DIR__ . '/../views/mobile/client.php';
     }
 
+    /** Enregistre une note rapide depuis la fiche événement mobile. */
     public function addNote(): void
     {
         $this->checkAuth(['ADMIN', 'EMPLOYEE']);

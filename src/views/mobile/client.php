@@ -1,4 +1,5 @@
 <?php
+/** @var array<string, mixed> $client Événement utilisé pour retrouver le contact client associé. */
 $mobileTitle = 'Fiche client — Innov’Events Mobile';
 $mobileBack = 'index.php?action=mobile_event&id=' . (int)$client['id'];
 $clientAddress = trim(implode(' ', array_filter([
