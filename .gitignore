@@ -45,6 +45,11 @@ Thumbs.db
 # --- Rapports d'analyse et de tests (AT3) ---
 /tests/report/
 tests/__pycache__
+/storage/coverage/
+/storage/phpunit-cache/
+
+# --- Documents de travail générés localement ---
+/doc_refresh/
 
 # --- Bases de données temporaires locales ---
 *.sqlite
