@@ -1,0 +1,87 @@
+erDiagram
+    ENTREPRISE {
+        int identifiant
+        string nom
+        string siren
+        string adresse
+    }
+
+    UTILISATEUR {
+        int identifiant
+        string email
+        string pseudo
+        string nom
+        string prenom
+        string role
+    }
+
+    PROSPECT {
+        int identifiant
+        string societe
+        string contact
+        string besoin
+        string statut
+    }
+
+    EVENEMENT {
+        int identifiant
+        string titre
+        datetime debut
+        string lieu
+        string statut
+        boolean publie
+    }
+
+    DEVIS {
+        int identifiant
+        int revision
+        decimal montant_ht
+        decimal tva
+        string statut
+    }
+
+    PRESTATION {
+        int identifiant
+        string libelle
+        decimal montant_ht
+    }
+
+    NOTE {
+        int identifiant
+        string contenu
+        datetime creation
+    }
+
+    TACHE {
+        int identifiant
+        string titre
+        string statut
+    }
+
+    AVIS {
+        int identifiant
+        int note
+        string commentaire
+        string statut
+    }
+
+    PARAMETRE_SITE {
+        string cle
+        string valeur
+    }
+
+    ENTREPRISE o|--o{ UTILISATEUR : regroupe
+    UTILISATEUR o|--o{ PROSPECT : prend_en_charge
+    ENTREPRISE o|--o{ PROSPECT : concerne
+    UTILISATEUR ||--o{ EVENEMENT : est_client_de
+    ENTREPRISE o|--o{ EVENEMENT : organise
+    PROSPECT ||--o{ DEVIS : recoit
+    EVENEMENT o|--o{ DEVIS : rattache
+    DEVIS ||--o{ PRESTATION : contient
+    EVENEMENT o|--o{ NOTE : documente
+    UTILISATEUR ||--o{ NOTE : redige
+    EVENEMENT ||--o{ TACHE : planifie
+    UTILISATEUR ||--o{ TACHE : participe
+    EVENEMENT ||--o| AVIS : recoit
+    UTILISATEUR o|--o{ AVIS : modere
+    UTILISATEUR o|--o{ PARAMETRE_SITE : modifie

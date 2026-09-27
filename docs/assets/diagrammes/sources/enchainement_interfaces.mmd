@@ -1,0 +1,17 @@
+flowchart LR
+    A[Accueil public] --> B[Événements]
+    A --> C[Avis]
+    A --> D[Contact]
+    A --> E[Demande de devis]
+    E --> F[Remerciement]
+    A --> G[Connexion]
+    G --> H{Rôle}
+    H -->|Client| I[Espace client]
+    H -->|Employé| J[Tableau de bord employé]
+    H -->|Administrateur| K[Tableau de bord administrateur]
+    J --> L[PWA : événements à venir]
+    K --> L
+    L --> M[Fiche événement]
+    M --> N[Ajout d'une note]
+    M --> O[Fiche client]
+    O --> P[Appel, courriel ou itinéraire]

@@ -1,0 +1,118 @@
+erDiagram
+    COMPANIES {
+        INT id PK
+        VARCHAR name
+        VARCHAR siren
+        VARCHAR address
+        VARCHAR postal_code
+        VARCHAR city
+    }
+
+    USERS {
+        INT id PK
+        INT company_id FK
+        VARCHAR email UK
+        VARCHAR password
+        VARCHAR username UK
+        VARCHAR firstname
+        VARCHAR lastname
+        VARCHAR role
+        BOOLEAN must_change_password
+        BOOLEAN is_deleted
+    }
+
+    PROSPECTS {
+        INT id PK
+        INT user_id FK
+        INT company_id FK
+        VARCHAR company_name
+        VARCHAR contact_name
+        VARCHAR email
+        VARCHAR phone
+        VARCHAR event_type
+        DATE event_date
+        DECIMAL budget
+        VARCHAR status
+    }
+
+    EVENTS {
+        INT id PK
+        INT client_id FK
+        INT company_id FK
+        VARCHAR title
+        DATETIME start_date
+        DATETIME end_date
+        VARCHAR location
+        VARCHAR status
+        BOOLEAN is_published
+        DATETIME publication_consent_at
+    }
+
+    DEVIS {
+        INT id_devis PK
+        INT id_prospect FK
+        INT event_id FK
+        INT revision
+        VARCHAR reference_pdf
+        DECIMAL montant_ht
+        DECIMAL tva
+        VARCHAR status
+        TEXT change_reason
+    }
+
+    PRESTATIONS {
+        INT id PK
+        INT devis_id FK
+        VARCHAR libelle
+        DECIMAL montant_ht
+    }
+
+    NOTES {
+        INT id PK
+        INT event_id FK
+        INT user_id FK
+        TEXT content
+        TIMESTAMP created_at
+    }
+
+    TASKS {
+        INT id PK
+        INT event_id FK
+        INT assigned_user_id FK
+        INT created_by FK
+        VARCHAR title
+        VARCHAR status
+    }
+
+    REVIEWS {
+        INT id PK
+        INT event_id FK,UK
+        INT rating
+        TEXT comment
+        VARCHAR status
+        INT moderated_by FK
+    }
+
+    SITE_SETTINGS {
+        VARCHAR setting_key PK
+        TEXT setting_value
+        INT updated_by FK
+        TIMESTAMP updated_at
+    }
+
+    COMPANIES o|--o{ USERS : regroupe
+    USERS o|--o{ PROSPECTS : gere
+    COMPANIES o|--o{ PROSPECTS : concerne
+    USERS ||--o{ EVENTS : possede
+    COMPANIES o|--o{ EVENTS : organise
+    PROSPECTS ||--o{ DEVIS : recoit
+    EVENTS o|--o{ DEVIS : rattache
+    DEVIS ||--o{ PRESTATIONS : contient
+    EVENTS o|--o{ NOTES : documente
+    USERS ||--o{ NOTES : redige
+    EVENTS ||--o{ TASKS : planifie
+    USERS ||--o{ TASKS : assigne
+    USERS ||--o{ TASKS : cree
+    EVENTS ||--o| REVIEWS : recoit
+    USERS o|--o{ REVIEWS : modere
+    USERS o|--o{ SITE_SETTINGS : modifie

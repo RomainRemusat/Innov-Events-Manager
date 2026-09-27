@@ -1,0 +1,49 @@
+sequenceDiagram
+    autonumber
+    actor Visiteur
+    actor Admin
+    actor Client
+    participant App as Application PHP
+    participant SQL as MySQL
+    participant PDF as Service PDF
+    participant Mail as Service SMTP
+    participant Logs as MongoDB
+
+    Visiteur->>App: Soumet une demande de devis avec consentement
+    App->>App: Valide CSRF, champs et consentement
+    App->>SQL: Cree le prospect
+    SQL-->>App: Identifiant du prospect
+    App->>Logs: Journalise DEMANDE_DEVIS
+    App->>Mail: Notifie l'equipe
+    App-->>Visiteur: Affiche le message de remerciement
+
+    Admin->>App: Qualifie puis convertit le prospect
+    App->>SQL: Cree entreprise, client et evenement
+    App->>Logs: Journalise qualification et conversion
+    Admin->>App: Cree le devis et ses prestations
+    App->>SQL: Enregistre devis et prestations
+    App->>Logs: Journalise les creations
+
+    Admin->>App: Envoie le devis
+    App->>PDF: Genere le document PDF
+    PDF-->>App: Fichier stocke hors du webroot
+    App->>SQL: Met a jour revision et statut
+    App->>Mail: Envoie le devis au client
+    App->>Logs: Journalise generation et envoi
+
+    Client->>App: Telecharge son devis
+    App->>SQL: Verifie identite, proprietaire et statut
+    App-->>Client: Transmet le PDF autorise
+    App->>Logs: Journalise le telechargement
+
+    alt Le client accepte
+        Client->>App: Accepte la revision courante
+        App->>SQL: Verrouille le devis accepte
+        App->>Mail: Notifie l'equipe
+        App->>Logs: Journalise l'acceptation
+    else Le client demande une modification
+        Client->>App: Transmet un motif
+        App->>SQL: Enregistre motif et nouveau statut
+        App->>Mail: Notifie l'equipe
+        App->>Logs: Journalise la demande
+    end

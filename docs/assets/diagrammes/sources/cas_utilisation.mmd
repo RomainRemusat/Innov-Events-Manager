@@ -1,0 +1,40 @@
+flowchart LR
+    VIS([Visiteur])
+    CLI([Client])
+    EMP([Employe])
+    ADM([Administrateur])
+
+    subgraph SYSTEME[Innov'Events Manager]
+        UC1([Consulter les evenements et avis publics])
+        UC2([Envoyer une demande de devis ou de contact])
+        UC3([Creer un compte et s'authentifier])
+        UC4([Consulter et repondre a un devis])
+        UC5([Consulter ses projets et modifier son profil])
+        UC6([Publier un avis et supprimer son compte])
+        UC7([Consulter les dossiers clients et projets])
+        UC8([Gerer notes, taches et avis])
+        UC9([Qualifier et convertir un prospect])
+        UC10([Gerer comptes, clients et evenements])
+        UC11([Creer, generer et envoyer un devis])
+        UC12([Administrer les contenus publics])
+        UC13([Consulter les journaux d'audit])
+    end
+
+    VIS --> UC1
+    VIS --> UC2
+    VIS --> UC3
+    CLI --> UC3
+    CLI --> UC4
+    CLI --> UC5
+    CLI --> UC6
+    EMP --> UC3
+    EMP --> UC7
+    EMP --> UC8
+    ADM --> UC3
+    ADM --> UC7
+    ADM --> UC8
+    ADM --> UC9
+    ADM --> UC10
+    ADM --> UC11
+    ADM --> UC12
+    ADM --> UC13
