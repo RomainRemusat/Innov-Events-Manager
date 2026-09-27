@@ -24,8 +24,8 @@ class Log
     public function __construct()
     {
         try {
-            $uri = $_ENV['MONGO_URI'] ?? 'mongodb://mongodb:27017';
-            $dbName = $_ENV['MONGO_DATABASE'] ?? 'innovevents_nosql';
+            $uri = $_ENV['MONGO_URI'] ?? (getenv('MONGO_URI') ?: 'mongodb://mongodb:27017');
+            $dbName = $_ENV['MONGO_DATABASE'] ?? (getenv('MONGO_DATABASE') ?: 'innovevents_nosql');
 
             $this->namespace = "{$dbName}.logs";
             $this->manager = new \MongoDB\Driver\Manager($uri);

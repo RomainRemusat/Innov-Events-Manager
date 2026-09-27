@@ -44,17 +44,31 @@ class MailService
         // CONFIGURATION TECHNIQUE DU SERVEUR SMTP DE TEST (MailHog)
         // ---------------------------------------------------------------------
         $mail->isSMTP();
-        $mail->Host        = $_ENV['SMTP_HOST'] ?? 'mailhog'; // Résolution DNS Docker interne basée sur le nom du service
-        $mail->Port        = (int)($_ENV['SMTP_PORT'] ?? 1025);      // Port d'écoute standard pour l'ingestion SMTP de MailHog
-        $mail->SMTPAuth    = false;     // Authentification désactivée (sécurisé dans l'environnement local)
-        $mail->SMTPAutoTLS = false;     // Désactive le chiffrement TLS explicite requis en production
+        $mail->Host        = $_ENV['SMTP_HOST'] ?? (getenv('SMTP_HOST') ?: 'mailhog');
+        $mail->Port        = (int)($_ENV['SMTP_PORT'] ?? (getenv('SMTP_PORT') ?: 1025));
+        $mail->SMTPAuth    = ($_ENV['SMTP_AUTH'] ?? (getenv('SMTP_AUTH') ?: '0')) === '1';
+        $mail->SMTPAutoTLS = ($_ENV['SMTP_TLS'] ?? (getenv('SMTP_TLS') ?: '0')) === '1';
+        if ($mail->SMTPAuth) {
+            $mail->Username = $_ENV['SMTP_USER'] ?? (getenv('SMTP_USER') ?: '');
+            $mail->Password = $_ENV['SMTP_PASS'] ?? (getenv('SMTP_PASS') ?: '');
+        }
+        if ($mail->SMTPAutoTLS) {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        }
         $mail->Timeout = 10;
         $mail->CharSet     = 'UTF-8';   // Encodage universel pour prévenir les altérations d'accents
 
         // Définition de l'identité de l'expéditeur unique (Conformité DKIM/SPF théorique)
-        $mail->setFrom('no-reply@innovevents.fr', "L'équipe Innov'Events");
+        $mail->setFrom($_ENV['SMTP_FROM'] ?? (getenv('SMTP_FROM') ?: 'no-reply@innovevents.fr'), "L'équipe Innov'Events");
 
         return $mail;
+    }
+
+    /** Construit une URL publique correcte en local comme en production. */
+    private function appUrl(string $action): string
+    {
+        $baseUrl = rtrim($_ENV['BASE_URL'] ?? (getenv('BASE_URL') ?: 'http://localhost:8081'), '/');
+        return $baseUrl . '/index.php?action=' . rawurlencode($action);
     }
 
     /** Transmet un message du formulaire public à l'équipe. */
@@ -96,6 +110,7 @@ class MailService
             $mail->addAddress($email, $firstname);
             $mail->isHTML(true);
             $mail->Subject = "Bienvenue chez Innov'Events - Activation de votre compte";
+            $loginUrl = htmlspecialchars($this->appUrl('login'), ENT_QUOTES, 'UTF-8');
 
             $mail->Body = "
                 <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;'>
@@ -108,7 +123,7 @@ class MailService
                     <p style='line-height: 1.6;'>Votre compte client a été créé avec succès sur notre plateforme d'accompagnement <strong>Innov'Events Manager</strong>.</p>
                     <p style='line-height: 1.6;'>Vous pouvez dès à présent vous connecter pour suivre l'édition de vos demandes de devis et collaborer en temps réel avec Chloé pour l'organisation de vos projets.</p>
                     <div style='text-align: center; margin: 30px 0;'>
-                        <a href='http://localhost:8081/index.php?action=login' style='background-color: #3B82F6; color: #ffffff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>Accéder à mon espace sécurisé</a>
+                        <a href='{$loginUrl}' style='background-color: #3B82F6; color: #ffffff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>Accéder à mon espace sécurisé</a>
                     </div>
                     <p style='line-height: 1.6; margin-bottom: 0;'>À très bientôt,<br><strong>L'équipe Innov'Events</strong></p>
                 </div>
@@ -137,6 +152,7 @@ class MailService
             $mail->addAddress($email, $firstname);
             $mail->isHTML(true);
             $mail->Subject = "Réinitialisation de votre mot de passe - Innov'Events";
+            $loginUrl = htmlspecialchars($this->appUrl('login'), ENT_QUOTES, 'UTF-8');
 
             $mail->Body = "
                 <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;'>
@@ -151,7 +167,7 @@ class MailService
                     </div>
                     <p style='line-height: 1.6; color: #dc2626; font-size: 13px;'><strong>Consigne de sécurité :</strong> Il vous sera expressément demandé de définir un nouveau mot de passe personnel dès votre accès à la plateforme.</p>
                     <div style='text-align: center; margin: 25px 0;'>
-                        <a href='http://localhost:8081/index.php?action=login' style='background-color: #3B82F6; color: #ffffff; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>Se connecter</a>
+                        <a href='{$loginUrl}' style='background-color: #3B82F6; color: #ffffff; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>Se connecter</a>
                     </div>
                 </div>
             ";
@@ -212,6 +228,7 @@ class MailService
             $participants = htmlspecialchars((string)($quoteData['estimated_participants'] ?? 'N/A'));
             $budget       = !empty($quoteData['budget']) ? number_format((float)$quoteData['budget'], 2, ',', ' ') . ' €' : 'Non précisé';
             $description  = nl2br(htmlspecialchars($quoteData['description'] ?? 'Aucune description'));
+            $dashboardUrl = htmlspecialchars($this->appUrl('dashboard'), ENT_QUOTES, 'UTF-8');
 
             $mail->Body = "
                 <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 8px;'>
@@ -235,7 +252,7 @@ class MailService
                     </div>
 
                     <div style='text-align: center; margin-top: 30px;'>
-                        <a href='http://localhost:8081/index.php?action=dashboard' style='background-color: #0F172A; color: #ffffff; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px;'>Accéder au tableau de bord</a>
+                        <a href='{$dashboardUrl}' style='background-color: #0F172A; color: #ffffff; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px;'>Accéder au tableau de bord</a>
                     </div>
                 </div>
             ";
@@ -264,6 +281,7 @@ class MailService
             $mail->addAddress($clientEmail, $clientName);
             $mail->isHTML(true);
             $mail->Subject = "Votre proposition commerciale personnalisée - Innov'Events";
+            $clientDashboardUrl = htmlspecialchars($this->appUrl('client_dashboard'), ENT_QUOTES, 'UTF-8');
 
             $mail->Body = "
                 <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;'>
@@ -275,7 +293,7 @@ class MailService
                     <p style='line-height: 1.6;'>Vous trouverez en pièce jointe de ce courriel votre <strong>devis contractuel au format PDF</strong> détaillant l'ensemble des prestations retenues.</p>
                     <p style='line-height: 1.6;'>Vous pouvez également vous connecter directement à votre espace client pour valider ce document ou solliciter des ajustements :</p>
                     <div style='text-align: center; margin: 30px 0;'>
-                        <a href='http://localhost:8081/index.php?action=client_dashboard' style='background-color: #3B82F6; color: #ffffff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>Consulter sur mon espace client</a>
+                        <a href='{$clientDashboardUrl}' style='background-color: #3B82F6; color: #ffffff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>Consulter sur mon espace client</a>
                     </div>
                     <p style='line-height: 1.6; margin-bottom: 0;'>Restant à votre entière disposition,<br><strong>Chloé - Direction Innov'Events</strong></p>
                 </div>

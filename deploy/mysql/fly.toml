@@ -1,0 +1,18 @@
+app = "innov-events-mysql-romain"
+primary_region = "cdg"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  MYSQL_DATABASE = "innovevents_db"
+  MYSQL_USER = "innovevents"
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[[mounts]]
+  source = "mysql_data"
+  destination = "/var/lib/mysql"

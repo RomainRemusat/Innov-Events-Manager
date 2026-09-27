@@ -1,0 +1,17 @@
+.git
+.github
+.env
+.idea
+.vscode
+vendor
+node_modules
+docs
+tests
+backups
+*.log
+storage/devis/*.pdf
+!storage/devis/Devis_ALTER_20260819_134422.pdf
+!storage/devis/Devis_EVENT_20260819_153946.pdf
+public/uploads/events/*
+!public/uploads/events/event_5c6c4886f81713243caf.png
+!public/uploads/events/event_9ca27f2ed5a2d0a0267f.png
