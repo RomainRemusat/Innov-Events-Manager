@@ -1,0 +1,40 @@
+flowchart LR
+    U[Visiteur / Client / Employe / Administrateur]
+
+    subgraph CLIENT[Poste utilisateur]
+        B[Navigateur<br/>HTML5 / Bootstrap / CSS]
+    end
+
+    subgraph APPLICATION[Application PHP Apache]
+        F[Front Controller<br/>public/index.php]
+        C[Controleurs]
+        S[Services metier]
+        V[Vues PHP]
+    end
+
+    subgraph DATA[Couche acces aux donnees]
+        M[Modeles SQL via PDO]
+        L[Modele de journalisation MongoDB]
+    end
+
+    subgraph INFRA[Services Docker et stockage]
+        SQL[(MySQL 8)]
+        NOSQL[(MongoDB)]
+        MAIL[MailHog / SMTP]
+        FS[(Stockage prive des PDF)]
+    end
+
+    U --> B
+    B --> F
+    F --> C
+    C --> V
+    V --> B
+    C --> S
+    C --> M
+    C --> L
+    S --> M
+    S --> L
+    S --> MAIL
+    S --> FS
+    M --> SQL
+    L --> NOSQL

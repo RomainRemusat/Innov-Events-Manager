@@ -18,6 +18,7 @@ node_modules/
 # --- Fichiers résiduels systèmes (OS) ---
 .DS_Store
 Thumbs.db
+~$*.docx
 
 # --- Configurations locales d'IDE ---
 .idea/
@@ -57,3 +58,4 @@ tests/__pycache__
 /backups/
 # Documents de travail locaux
 /docs/AUDIT_*
+/docs/GUIDE UTILISATEUR — INNOV'EVENTS MANAGER.docx
