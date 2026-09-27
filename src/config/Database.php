@@ -32,14 +32,16 @@ class Database {
      * Initialise la connexion PDO avec l'infrastructure Docker.
      */
     private function __construct() {
-        // Configuration de la connexion réseau (Mise à niveau UTF-8 stricte)
-        $host    = 'db'; // Correspond au nom exact du service MySQL dans docker-compose.yml
-        $db      = 'innovevents_db';
-        $user    = 'root';
-        $pass    = 'root_password';
-        $charset = 'utf8mb4'; // Encodage global préservant l'intégrité des accents français et des émojis
+        // Les valeurs par défaut correspondent à Docker local. En production,
+        // Fly.io injecte les mêmes paramètres sous forme de secrets.
+        $host    = getenv('DB_HOST') ?: 'db';
+        $port    = getenv('DB_PORT') ?: '3306';
+        $db      = getenv('DB_NAME') ?: 'innovevents_db';
+        $user    = getenv('DB_USER') ?: 'root';
+        $pass    = getenv('DB_PASS') ?: 'root_password';
+        $charset = 'utf8mb4';
 
-        $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+        $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
 
         try {
             $this->pdo = new PDO($dsn, $user, $pass, [

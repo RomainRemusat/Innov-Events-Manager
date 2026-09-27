@@ -2,7 +2,7 @@
 FROM php:8.2-apache
 
 # --- CONFIGURATION APACHE : Dossier racine pointant vers "public" ---
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
 RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
@@ -29,4 +29,18 @@ RUN a2enmod rewrite
 COPY . /var/www/html/
 COPY public/.user.ini /usr/local/etc/php/conf.d/uploads.ini
 
+# Les dépendances doivent être présentes dans l'image distante ; le dossier
+# vendor local est volontairement exclu du contexte Docker.
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+# Apache doit pouvoir enregistrer et supprimer les fichiers créés par l'application.
+RUN mkdir -p /var/www/html/storage/devis /var/www/html/public/uploads/events && \
+    chown -R www-data:www-data /var/www/html/storage /var/www/html/public/uploads
+
+COPY docker/fly-entrypoint.sh /usr/local/bin/fly-entrypoint
+RUN chmod +x /usr/local/bin/fly-entrypoint
+
 EXPOSE 80
+
+ENTRYPOINT ["fly-entrypoint"]
+CMD ["apache2-foreground"]

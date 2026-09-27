@@ -383,6 +383,30 @@ class Event
     }
 
     /**
+     * Renvoie la fiche concise utilisée par l'application mobile du personnel.
+     * Le téléphone provient de la dernière demande liée au client, car le compte
+     * utilisateur ne stocke pas cette donnée dans le schéma actuel.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findMobileById(int $id): ?array
+    {
+        $stmt = $this->db->prepare("SELECT e.id, e.title, e.start_date, e.end_date,
+                e.location, e.status, e.event_type, e.theme, e.estimated_participants,
+                u.firstname, u.lastname, u.email AS client_email,
+                c.name AS company_name, c.address, c.postal_code, c.city,
+                (SELECT p.phone FROM prospects p
+                    WHERE p.user_id = e.client_id ORDER BY p.id DESC LIMIT 1) AS phone
+            FROM events e
+            INNER JOIN users u ON u.id = e.client_id
+            LEFT JOIN companies c ON c.id = e.company_id
+            WHERE e.id = :id LIMIT 1");
+        $stmt->execute(['id' => $id]);
+        $event = $stmt->fetch(\PDO::FETCH_ASSOC);
+        return $event !== false ? $event : null;
+    }
+
+    /**
      * Met à jour le statut opérationnel d'un événement.
      * L'administrateur peut corriger les états sans ordre imposé ; le démarrage
      * exige toutefois l'acceptation du dernier devis explicitement associé.

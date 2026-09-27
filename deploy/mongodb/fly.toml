@@ -1,0 +1,17 @@
+app = "innov-events-mongodb-romain"
+primary_region = "cdg"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  MONGO_INITDB_DATABASE = "innovevents_nosql"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[[mounts]]
+  source = "mongo_data"
+  destination = "/data/db"

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Serveur Web (Application PHP-Apache / Front Controller)
   app:

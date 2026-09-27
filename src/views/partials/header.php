@@ -118,6 +118,13 @@ $currentAction = $_GET['action'] ?? 'home';
                                 <i class="bi bi-speedometer2 me-1" aria-hidden="true"></i> Mon Espace
                             </a>
                         </li>
+                        <?php if (in_array($_SESSION['user_role'] ?? '', ['ADMIN', 'EMPLOYEE'], true)): ?>
+                            <li class="nav-item">
+                                <a class="btn btn-outline-light btn-sm me-1" href="index.php?action=mobile_dashboard">
+                                    <i class="bi bi-phone me-1" aria-hidden="true"></i> Mobile
+                                </a>
+                            </li>
+                        <?php endif; ?>
                         <?php if (($_SESSION['user_role'] ?? '') === 'CLIENT'): ?>
                             <li class="nav-item">
                                 <a class="btn btn-light btn-sm me-1" href="index.php?action=client_profile">Mon profil</a>

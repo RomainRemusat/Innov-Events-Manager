@@ -243,9 +243,22 @@ class AuthController extends BaseController
                 'user_role' => $user['role']
             ]);
 
-            $defaultDestination = in_array($user['role'], ['ADMIN', 'EMPLOYEE'], true)
-                ? 'index.php?action=dashboard' : 'index.php?action=client_dashboard';
-            header('Location: ' . ($this->pullLoginDestination() ?? $defaultDestination));
+            $isStaff = in_array($user['role'], ['ADMIN', 'EMPLOYEE'], true);
+            $requestedDestination = $this->pullLoginDestination();
+            $mobilePreferred = $isStaff && ($_COOKIE['innovevents_interface'] ?? '') === 'mobile';
+            $defaultDestination = $isStaff
+                ? ($mobilePreferred ? 'index.php?action=mobile_dashboard' : 'index.php?action=dashboard')
+                : 'index.php?action=client_dashboard';
+            if ($mobilePreferred) {
+                // Une route du site complet visitée pendant une déconnexion ne
+                // doit jamais remplacer le point d'entrée de la PWA.
+                $requestedDestination = null;
+            }
+            if ($requestedDestination === 'index.php?action=mobile_dashboard'
+                && !in_array($user['role'], ['ADMIN', 'EMPLOYEE'], true)) {
+                $requestedDestination = null;
+            }
+            header('Location: ' . ($requestedDestination ?? $defaultDestination));
             exit();
 
         } else {

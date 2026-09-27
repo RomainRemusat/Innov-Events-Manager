@@ -4,6 +4,10 @@
 -- OBJECTIF : DML - Jeu de démonstration (4 comptes et 2 entreprises clientes)
 -- =====================================================================
 
+-- Ce fichier est exécuté dans une connexion distincte de schema.sql lors de
+-- l'initialisation MySQL. Le jeu de données doit donc déclarer son encodage.
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 -- 1. Entreprises des deux clientes de démonstration (B2B)
 INSERT INTO companies (id, name, siren, address, postal_code, city) VALUES
     (2, 'Luxury Hotel Group', '987654321', '45 boulevard de la Croisette', '06400', 'Cannes'),
