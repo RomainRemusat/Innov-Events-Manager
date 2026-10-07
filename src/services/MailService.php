@@ -110,7 +110,7 @@ class MailService
             $mail->addAddress($email, $firstname);
             $mail->isHTML(true);
             $mail->Subject = "Bienvenue chez Innov'Events - Activation de votre compte";
-            $loginUrl = htmlspecialchars($this->appUrl('login'), ENT_QUOTES, 'UTF-8');
+            $loginUrl = htmlspecialchars($this->appUrl('login') . '&email=' . rawurlencode($email), ENT_QUOTES, 'UTF-8');
 
             $mail->Body = "
                 <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;'>
@@ -152,7 +152,7 @@ class MailService
             $mail->addAddress($email, $firstname);
             $mail->isHTML(true);
             $mail->Subject = "Réinitialisation de votre mot de passe - Innov'Events";
-            $loginUrl = htmlspecialchars($this->appUrl('login'), ENT_QUOTES, 'UTF-8');
+            $loginUrl = htmlspecialchars($this->appUrl('login') . '&email=' . rawurlencode($email), ENT_QUOTES, 'UTF-8');
 
             $mail->Body = "
                 <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;'>

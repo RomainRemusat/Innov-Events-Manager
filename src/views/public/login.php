@@ -15,6 +15,9 @@
 
 // Configuration du titre de la page pour le composant d'en-tête dynamique
 $pageTitle = "Connexion - Innov'Events Manager";
+$loginEmail = trim((string)($_SESSION['login_email'] ?? $_GET['email'] ?? ''));
+$loginEmail = filter_var($loginEmail, FILTER_VALIDATE_EMAIL) ? $loginEmail : '';
+unset($_SESSION['login_email']);
 
 // Architecture Modulaire : Chargement de l'en-tête global et de la barre de navigation
 require __DIR__ . '/../partials/header.php';
@@ -59,7 +62,8 @@ require __DIR__ . '/../partials/header.php';
                                    required
                                    aria-required="true"
                                    placeholder="chloe@innovevents.fr"
-                                   autocomplete="email">
+                                   autocomplete="email"
+                                   value="<?= htmlspecialchars($loginEmail, ENT_QUOTES, 'UTF-8') ?>">
                         </div>
 
                         <div>

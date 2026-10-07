@@ -35,6 +35,7 @@ class AuthController extends BaseController
      */
     public function showLoginForm(): void
     {
+        $this->startSession();
         require __DIR__ . '/../views/public/login.php';
     }
 
@@ -194,6 +195,15 @@ class AuthController extends BaseController
      */
     public function login(array $postData): void
     {
+        $this->startSession();
+        if (empty($postData['csrf_token'])
+            || !hash_equals($_SESSION['csrf_token'] ?? '', (string)$postData['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            $_SESSION['login_email'] = trim((string)($postData['email'] ?? ''));
+            $_SESSION['login_error'] = "La page de connexion a expiré. Veuillez réessayer avec le formulaire actualisé.";
+            header('Location: index.php?action=login');
+            exit();
+        }
         $this->validateCsrf($postData);
 
         $email = filter_var($postData['email'] ?? '', FILTER_VALIDATE_EMAIL);
@@ -207,8 +217,16 @@ class AuthController extends BaseController
 
         $userModel = new User();
         $user = $userModel->findByEmail($email);
+        $passwordMatches = $user && password_verify($password, $user['password']);
 
-        if ($user && password_verify($password, $user['password'])) {
+        // Les clients copient souvent le mot de passe temporaire depuis un e-mail.
+        // Tolérer uniquement dans ce cas les espaces ajoutés autour par la sélection.
+        if (!$passwordMatches && $user && !empty($user['must_change_password'])) {
+            $trimmedPassword = preg_replace('/^\s+|\s+$/u', '', $password) ?? trim($password);
+            $passwordMatches = $trimmedPassword !== '' && password_verify($trimmedPassword, $user['password']);
+        }
+
+        if ($user && $passwordMatches) {
             if (!empty($user['is_deleted'])) {
                 $this->auditAuthAttempt("TENTATIVE_CONNEXION_REFUSEE", (int)$user['id'], [
                     'message'   => "Tentative de connexion sur un compte désactivé ou supprimé : $email",
@@ -230,6 +248,7 @@ class AuthController extends BaseController
             $_SESSION['user_firstname'] = $user['firstname'] ?? '';
             $_SESSION['user_username']  = $user['username'] ?? '';
             $_SESSION['user_name']      = $user['username'] ?: ($user['firstname'] ?? 'Utilisateur');
+            unset($_SESSION['login_email']);
 
             $_SESSION['force_password_change'] = !empty($user['must_change_password']);
             if ($_SESSION['force_password_change']) {
@@ -269,6 +288,7 @@ class AuthController extends BaseController
             ]);
 
             $_SESSION['login_error'] = "Identifiants de connexion invalides. Veuillez réessayer.";
+            $_SESSION['login_email'] = trim((string)($postData['email'] ?? ''));
             header('Location: index.php?action=login');
             exit();
         }
