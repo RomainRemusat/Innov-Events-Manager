@@ -24,6 +24,16 @@ def main():
             """)
             ids.append(user_id)
 
+            if role == 'CLIENT':
+                expired_client = urllib.request.build_opener(
+                    urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()), NoRedirect())
+                code, headers, _ = request(expired_client, 'login', dict(
+                    email=f'{marker}_{role}@example.test', password='Temporary123!', csrf_token='expired'))
+                assert code == 302 and headers['Location'].endswith('=login')
+                expired_page = request(expired_client, 'login')[2]
+                assert 'page de connexion a expiré' in expired_page
+                assert f'value="{marker}_{role}@example.test"' in expired_page
+
             def login(password='Temporary123!'):
                 client = urllib.request.build_opener(
                     urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()), NoRedirect())
@@ -34,7 +44,7 @@ def main():
                 assert code == 302
                 return client, token, headers['Location']
 
-            client, token, destination = login()
+            client, token, destination = login('  Temporary123!  ')
             assert destination.endswith('=force_password_change')
             routes = ['client_dashboard', 'client_profile', 'dashboard', 'admin_events', 'mongo_logs',
                       'generate_pdf&id=1', 'download_pdf&file=test.pdf', 'download_devis&id=1']
@@ -66,6 +76,8 @@ def main():
             """)
             client, token, destination = login('Personal123!')
             assert destination.endswith('=client_dashboard' if role == 'CLIENT' else '=dashboard')
+            _, _, destination = login(' Personal123! ')
+            assert destination.endswith('=login'), 'Les espaces d’un mot de passe personnel ne doivent pas être ignorés'
 
             # Une restriction ajoutée en SQL doit affecter une session déjà ouverte.
             php(prefix + f"$db->exec('UPDATE users SET must_change_password=1 WHERE id={user_id}'); echo json_encode(true);")
