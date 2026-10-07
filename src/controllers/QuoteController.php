@@ -37,6 +37,20 @@ class QuoteController extends BaseController
     public function showForm(): void
     {
         $this->startSession();
+        $clientDefaults = [];
+        if (!empty($_SESSION['user_id'])) {
+            $this->checkAuth();
+            if (($_SESSION['user_role'] ?? '') === 'CLIENT') {
+                $client = (new User())->findById((int)$_SESSION['user_id']);
+                if ($client) {
+                    $clientDefaults = [
+                        'company_name' => $client['company_name'] ?? '',
+                        'contact_name' => trim(($client['firstname'] ?? '') . ' ' . ($client['lastname'] ?? '')),
+                        'email' => $client['email'] ?? '',
+                    ];
+                }
+            }
+        }
         require __DIR__ . '/../views/public/devis.php';
     }
 
@@ -57,10 +71,17 @@ class QuoteController extends BaseController
         // Valide le jeton avant de traiter les données fournies par le visiteur.
         $this->validateCsrf($data);
 
+        $clientAccount = null;
+        if (!empty($_SESSION['user_id']) && ($_SESSION['user_role'] ?? '') === 'CLIENT') {
+            $clientAccount = (new User())->findById((int)$_SESSION['user_id']);
+        }
+
         // 2. Validation et assainissement des données
-        $companyName  = trim($data['company_name'] ?? '');
-        $contactName  = trim($data['contact_name'] ?? '');
-        $email        = filter_var(trim($data['email'] ?? ''), FILTER_SANITIZE_EMAIL);
+        $companyName  = trim($clientAccount['company_name'] ?? $data['company_name'] ?? '');
+        $contactName  = $clientAccount
+            ? trim(($clientAccount['firstname'] ?? '') . ' ' . ($clientAccount['lastname'] ?? ''))
+            : trim($data['contact_name'] ?? '');
+        $email        = filter_var(trim($clientAccount['email'] ?? $data['email'] ?? ''), FILTER_SANITIZE_EMAIL);
         $phone        = trim($data['phone'] ?? '');
         $eventType    = trim($data['event_type'] ?? '');
         $eventDate    = trim($data['event_date'] ?? '');

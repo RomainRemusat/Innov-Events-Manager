@@ -66,7 +66,15 @@ def main():
         assert first['quote']['status'] == 'étude côté client' and first['body'] == '', first
         version = int(first['quote']['revision'])
         page = call('(new ClientController())->showDashboard();', user=3)
-        assert f'name="revision" value="{version}"' in base64.b64decode(page['body']).decode('utf-8')
+        client_page = base64.b64decode(page['body']).decode('utf-8')
+        assert f'name="revision" value="{version}"' in client_page
+        assert 'Nouvelle demande de devis' in client_page
+        request_form = call("require 'src/controllers/QuoteController.php'; (new QuoteController())->showForm();", user=3)
+        request_page = base64.b64decode(request_form['body']).decode('utf-8')
+        assert 'automatiquement ajoutée à votre espace client' in request_page
+        assert 'value="Luxury Hotel Group"' in request_page
+        assert 'value="Alice Vancort"' in request_page
+        assert 'value="client@luxe.com"' in request_page
         pdf = call(f"(new PdfController())->downloadPdf('{name}.pdf');", user=3)
         original_pdf = base64.b64decode(pdf['body'])
         assert original_pdf.startswith(b'%PDF-')
