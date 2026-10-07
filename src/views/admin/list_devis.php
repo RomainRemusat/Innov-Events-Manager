@@ -122,6 +122,15 @@
                                             </span>
                                         </td>
                                         <td class="px-4 py-3 text-center">
+                                            <?php if ($st === 'accepté' && !empty($devis['event_id'])): ?>
+                                            <a href="index.php?action=admin_event_detail&amp;id=<?= (int)$devis['event_id'] ?>"
+                                               class="btn btn-sm btn-primary me-1"
+                                               title="Ouvrir l'événement associé"
+                                               aria-label="Ouvrir l'événement associé au devis <?= htmlspecialchars($devis['reference_pdf'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                                                <i class="fa-solid fa-calendar-check" aria-hidden="true"></i>
+                                            </a>
+                                            <?php endif; ?>
+
                                             <!-- Bouton Éditer -->
                                             <a href="index.php?action=edit_devis&id=<?= (int)$devis['id_devis'] ?>"
                                                class="btn btn-sm btn-outline-primary me-1"

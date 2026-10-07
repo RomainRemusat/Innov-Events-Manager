@@ -81,6 +81,12 @@ $totalTTC = $totalHT + $totalTVA;
 
                 <!-- Boutons d'action : Expédition, Génération PDF et Navigation -->
                 <div class="d-flex gap-2">
+                    <?php if ($status === 'accepté' && !empty($devis['event_id'])): ?>
+                    <a href="index.php?action=admin_event_detail&amp;id=<?= (int)$devis['event_id'] ?>"
+                       class="btn btn-primary shadow-sm">
+                        <i class="bi bi-calendar-event me-2" aria-hidden="true"></i>Ouvrir l'événement
+                    </a>
+                    <?php endif; ?>
                     <?php if ($status !== 'accepté'): ?>
                     <form action="index.php?action=send_quote_to_client" method="POST" class="d-inline"
                           onsubmit="return confirm('Confirmez-vous l\'envoi direct du devis au client par courriel ?');">

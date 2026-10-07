@@ -101,6 +101,7 @@ class Devis
                        d.revision,
                        d.change_reason,
                        d.id_prospect,
+                       d.event_id,
                        d.reference_pdf,
                        d.montant_ht,
                        d.tva,
@@ -265,6 +266,7 @@ class Devis
             $stmt = $this->db->query("
                 SELECT d.id_devis,
                        d.id_prospect,
+                       d.event_id,
                        d.reference_pdf,
                        d.status,
                        d.date_creation,

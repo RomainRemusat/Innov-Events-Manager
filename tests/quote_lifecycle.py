@@ -49,7 +49,7 @@ def main():
             $db->exec(file_get_contents('scripts/initialise.sql'));
             $db->exec("INSERT INTO prospects (id,user_id,company_name,contact_name,email,phone,event_type)
                 VALUES (99,3,'Test','Test','{email}','0000000000','Autre')");
-            $db->exec("INSERT INTO devis (id_devis,id_prospect,reference_pdf) VALUES (99,99,'{name}.pdf')");
+            $db->exec("INSERT INTO devis (id_devis,id_prospect,event_id,reference_pdf) VALUES (99,99,1,'{name}.pdf')");
             echo json_encode(true);
         """)
         response = call('(new ClientController())->handleQuoteResponse($_POST);', dict(devis_id=99, quote_action='accept', revision=1), 3)
@@ -112,7 +112,12 @@ def main():
         locked = call('(new PdfController())->sendQuoteToClient(99);')
         assert locked['quote']['status'] == 'accepté' and 'flash_error' in locked['session']
         page = call("require 'src/controllers/QuoteController.php'; (new QuoteController())->editDevis(99);")
-        assert 'action=send_quote_to_client' not in base64.b64decode(page['body']).decode('utf-8')
+        accepted_page = base64.b64decode(page['body']).decode('utf-8')
+        assert 'action=send_quote_to_client' not in accepted_page
+        assert 'action=admin_event_detail&amp;id=1' in accepted_page
+        assert "Ouvrir l'événement" in accepted_page
+        quote_list = call("require 'src/controllers/QuoteController.php'; (new QuoteController())->showDevisList();")
+        assert 'action=admin_event_detail&amp;id=1' in base64.b64decode(quote_list['body']).decode('utf-8')
         assert base64.b64decode(call(f"(new PdfController())->downloadPdf('{name}.pdf');", user=3)['body']) == current_pdf
         download_logs = php(prefix + rf"""
             $manager = new MongoDB\Driver\Manager('mongodb://mongodb:27017');
