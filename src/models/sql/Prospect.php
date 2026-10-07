@@ -200,6 +200,16 @@ class Prospect
         }
     }
 
+    /** Retourne le téléphone de la dernière demande appartenant au client. */
+    public function findLatestPhoneByClient(int $clientId): string
+    {
+        $stmt = $this->db->prepare("SELECT phone FROM prospects
+            WHERE user_id = ? AND phone <> ''
+            ORDER BY created_at DESC, id DESC LIMIT 1");
+        $stmt->execute([$clientId]);
+        return trim((string)($stmt->fetchColumn() ?: ''));
+    }
+
     /**
      * Enregistre une qualification et son motif sans rouvrir un dossier converti.
      * Le verrou SQL protège la vérification de l'état attendu jusqu'à l'écriture.
