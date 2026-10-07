@@ -7,8 +7,8 @@ Concepteur développeur d'applications. Elle centralise les prospects, clients,
 ## Fonctionnalités principales
 
 - site public : événements, avis, contact, demande de devis et pages légales ;
-- inscription, authentification, mot de passe oublié et changement obligatoire ;
-- espace client : suivi et réponse aux devis, profil, suppression du compte et avis ;
+- inscription, authentification, récupération et changement obligatoire du mot de passe temporaire ;
+- espace client : nouvelles demandes préremplies, suivi des révisions de devis, profil, suppression du compte et avis ;
 - espace employé : consultation des clients et événements, notes, tâches et modération ;
 - espace administrateur : prospects, clients, événements, devis, comptes et journaux ;
 - génération et envoi des devis PDF ;
@@ -33,6 +33,17 @@ Concepteur développeur d'applications. Elle centralise les prospects, clients,
 
 Le point d'entrée HTTP est `public/index.php`. Les devis générés sont conservés
 hors du dossier public dans `storage/devis/` et servis après contrôle des droits.
+
+## Conception et documentation du projet
+
+- [maquettes et wireframes Figma](https://www.figma.com/design/fSjrnve51GR4YqIKot80AA/Innov-Events-Manager-Design?t=C0g8gfehKuHZNVRr-0), avec les [exports web](docs/assets/conception/web/) et [mobiles](docs/assets/conception/mobile/) conservés dans le dépôt ;
+- diagrammes d'architecture, MCD, MPD, cas d'utilisation, enchaînement des interfaces et séquence, avec leurs [sources Mermaid](docs/assets/diagrammes/sources/) et leurs [exports](docs/assets/diagrammes/) ;
+- gestion de projet illustrée par le [tableau Kanban Trello](docs/assets/gestion-projet/trello-kanban.png) ;
+- [guide utilisateur](docs/GUIDE_UTILISATEUR.md), [recette web](docs/RECETTE_WEB_2026-09-24.md), [migrations SQL](scripts/README.md) et [déploiement Fly.io](docs/DEPLOIEMENT_FLY.md).
+
+Le dépôt suit un flux Git par branches et une intégration continue sur `dev` et
+`main`. La conception détaillée et les preuves destinées au dossier de projet
+restent dans `docs/` afin de conserver ce README comme point d'entrée synthétique.
 
 ## Installation locale
 
@@ -148,6 +159,8 @@ docker compose exec -T app php tests/conversion.php
 python -B tests/sql_migrations.py
 python -B tests/login_logging.py
 python -B tests/commercial_workflow.py
+python -B tests/quote_lifecycle.py
+python -B tests/forced_password.py
 python -B tests/mobile_app.py
 python -B tests/public_pages.py
 python -B tests/reviews.py
@@ -158,7 +171,7 @@ Les autres scénarios de sécurité, de droits, d'erreurs d'écriture et de cycl
 vie se trouvent dans [`tests/`](tests/). La recette humaine est décrite dans
 [`docs/RECETTE_WEB_2026-09-24.md`](docs/RECETTE_WEB_2026-09-24.md).
 
-La couverture mesurée avec Xdebug après exécution des 2 scripts PHP historiques
+La dernière couverture mesurée avec Xdebug après exécution des 2 scripts PHP historiques
 et des 26 scénarios Python est de
 **73,51 %**, soit 3 585 lignes exécutées sur 4 877 lignes PHP instrumentées dans
 `src/` et `public/index.php`. PHPUnit vérifie les règles isolées ; les scripts
