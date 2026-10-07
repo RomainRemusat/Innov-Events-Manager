@@ -132,6 +132,10 @@ require __DIR__ . '/../partials/header.php';
                                         $st = strtolower($quote['status'] ?? 'brouillon');
                                         $hasQuote = !empty($quote['id_devis']);
                                         $quoteUniqueId = (int)($quote['id_devis'] ?? $quote['prospect_id'] ?? $quote['id'] ?? 0);
+                                        $changeReason = trim((string)($quote['change_reason'] ?? ''));
+                                        $isRevisedProposal = $hasQuote
+                                            && $changeReason !== ''
+                                            && in_array($st, ['étude côté client', 'devis envoyé'], true);
                                         ?>
                                         <tr>
                                             <!-- Identifiant unique du dossier -->
@@ -166,8 +170,18 @@ require __DIR__ . '/../partials/header.php';
                                                     <?php endif; ?>
                                                 <?php elseif (in_array($st, ['étude côté client', 'devis envoyé'], true)): ?>
                                                     <span class="badge text-bg-info px-2.5 py-1.5 rounded-pill">
-                                                    <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i> Proposition reçue
-                                                </span>
+                                                        <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>
+                                                        <?= $isRevisedProposal ? 'Nouvelle proposition reçue' : 'Proposition reçue' ?>
+                                                        <?php if ($isRevisedProposal): ?>
+                                                            — révision <?= (int)($quote['revision'] ?? 1) ?>
+                                                        <?php endif; ?>
+                                                    </span>
+                                                    <?php if ($isRevisedProposal): ?>
+                                                        <div class="alert alert-info py-2 px-3 mt-2 mb-0 small text-start" role="status">
+                                                            <strong>Suite à votre demande :</strong><br>
+                                                            <?= nl2br(htmlspecialchars($changeReason, ENT_QUOTES, 'UTF-8')) ?>
+                                                        </div>
+                                                    <?php endif; ?>
                                                 <?php elseif ($st === 'accepté'): ?>
                                                     <span class="badge text-bg-success px-2.5 py-1.5 rounded-pill">
                                                     <i class="bi bi-check-circle-fill me-1" aria-hidden="true"></i> Validé

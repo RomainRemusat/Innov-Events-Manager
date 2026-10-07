@@ -285,6 +285,7 @@ class Prospect
             SELECT 
                 d.id_devis,
                 d.revision,
+                d.change_reason,
                 COALESCE(d.status, p.status) AS status,
                 p.status AS prospect_status,
                 p.rejection_reason,

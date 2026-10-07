@@ -66,10 +66,18 @@ def main():
         assert first['quote']['status'] == 'étude côté client' and first['body'] == '', first
         version = int(first['quote']['revision'])
         page = call('(new ClientController())->showDashboard();', user=3)
-        assert f'name="revision" value="{version}"' in base64.b64decode(page['body']).decode('utf-8')
+        first_page = base64.b64decode(page['body']).decode('utf-8')
+        assert f'name="revision" value="{version}"' in first_page
+        assert 'Nouvelle proposition reçue' not in first_page
         pdf = call(f"(new PdfController())->downloadPdf('{name}.pdf');", user=3)
         original_pdf = base64.b64decode(pdf['body'])
         assert original_pdf.startswith(b'%PDF-')
+        change_reason = 'Retirer la prestation optionnelle et ajuster le budget.'
+        requested = call('(new ClientController())->handleQuoteResponse($_POST);', dict(
+            devis_id=99, quote_action='request_change', revision=version, change_reason=change_reason
+        ), 3)
+        assert requested['quote']['status'] == 'modification'
+        assert requested['quote']['change_reason'] == change_reason
         assert php(prefix + "echo json_encode((new Prestation())->create(99,'Deuxième prestation',75));")
         hidden = call(f"(new PdfController())->downloadPdf('{name}.pdf');", user=3)
         assert hidden['body'] == '' and hidden['quote']['montant_ht'] == '175.00' and hidden['quote']['tva'] == '35.00'
@@ -79,6 +87,10 @@ def main():
         resent = call('(new PdfController())->sendQuoteToClient(99);')
         assert resent['quote']['status'] == 'étude côté client' and resent['body'] == ''
         assert int(resent['quote']['revision']) > version
+        revised_page = base64.b64decode(call('(new ClientController())->showDashboard();', user=3)['body']).decode('utf-8')
+        assert 'Nouvelle proposition reçue' in revised_page
+        assert f"révision {int(resent['quote']['revision'])}" in revised_page
+        assert change_reason in revised_page
         current_pdf = base64.b64decode(call(f"(new PdfController())->downloadPdf('{name}.pdf');", user=3)['body'])
         assert current_pdf.startswith(b'%PDF-') and current_pdf != original_pdf
         response = call('(new ClientController())->handleQuoteResponse($_POST);', dict(devis_id=99, quote_action='accept', revision=version), 3)

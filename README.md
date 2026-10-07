@@ -106,6 +106,19 @@ Depuis un téléphone connecté au même réseau, remplacer `localhost` par l'ad
 IPv4 de l'ordinateur. MailHog intercepte les messages : aucun email local n'est
 distribué à une boîte réelle.
 
+### Dépannage Docker sous Windows
+
+Si le conteneur `app` s'arrête avec l'erreur
+`exec /usr/local/bin/fly-entrypoint: no such file or directory`, le script de
+démarrage utilise probablement des fins de ligne Windows. La règle
+`.gitattributes` du projet impose le format LF attendu par Linux. Restaurer le
+script puis reconstruire le service :
+
+```powershell
+git restore --source=HEAD --worktree docker/fly-entrypoint.sh
+docker compose up -d --build app
+```
+
 ## Comptes de démonstration
 
 Le jeu de données de `scripts/initialise.sql` crée les comptes suivants :
