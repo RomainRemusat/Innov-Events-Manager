@@ -43,10 +43,12 @@ class QuoteController extends BaseController
             if (($_SESSION['user_role'] ?? '') === 'CLIENT') {
                 $client = (new User())->findById((int)$_SESSION['user_id']);
                 if ($client) {
+                    $phone = (new Prospect())->findLatestPhoneByClient((int)$_SESSION['user_id']);
                     $clientDefaults = [
                         'company_name' => $client['company_name'] ?? '',
                         'contact_name' => trim(($client['firstname'] ?? '') . ' ' . ($client['lastname'] ?? '')),
                         'email' => $client['email'] ?? '',
+                        'phone' => $phone,
                     ];
                 }
             }

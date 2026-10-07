@@ -76,6 +76,7 @@ def main():
         assert 'value="Luxury Hotel Group"' in request_page
         assert 'value="Alice Vancort"' in request_page
         assert 'value="client@luxe.com"' in request_page
+        assert 'value="0000000000"' in request_page
         pdf = call(f"(new PdfController())->downloadPdf('{name}.pdf');", user=3)
         original_pdf = base64.b64decode(pdf['body'])
         assert original_pdf.startswith(b'%PDF-')
