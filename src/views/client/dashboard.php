@@ -35,7 +35,12 @@ require __DIR__ . '/../partials/header.php';
                     Bonjour, <?= htmlspecialchars($clientName ?? 'Client', ENT_QUOTES, 'UTF-8'); ?> 👋
                 </h1>
                 <p class="text-muted">Bienvenue dans votre espace personnel. Suivez l'avancement de vos projets événementiels.</p>
-                <a href="index.php?action=client_profile" class="btn btn-outline-primary btn-sm">Modifier mon profil</a>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="index.php?action=devis" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-circle me-1" aria-hidden="true"></i> Nouvelle demande de devis
+                    </a>
+                    <a href="index.php?action=client_profile" class="btn btn-outline-primary btn-sm">Modifier mon profil</a>
+                </div>
             </div>
             <div class="col-2 text-end align-self-center">
                 <span class="badge bg-secondary px-3 py-2 text-uppercase fw-semibold" style="font-size: 0.8rem;">Espace Client</span>

@@ -27,7 +27,11 @@
                         <p class="alert alert-warning" role="alert">L’email de notification à notre équipe n’a pas pu être envoyé. Votre demande est conservée ; il est inutile de la soumettre à nouveau.</p>
                     <?php endif; ?>
                     <div class="pt-2">
-                        <a href="index.php" class="btn btn-primary px-4 shadow-sm"><i class="bi bi-house me-2"></i>Retour à l'accueil</a>
+                        <?php if (($_SESSION['user_role'] ?? '') === 'CLIENT'): ?>
+                            <a href="index.php?action=client_dashboard" class="btn btn-primary px-4 shadow-sm"><i class="bi bi-folder-check me-2"></i>Voir mes demandes</a>
+                        <?php else: ?>
+                            <a href="index.php" class="btn btn-primary px-4 shadow-sm"><i class="bi bi-house me-2"></i>Retour à l'accueil</a>
+                        <?php endif; ?>
                     </div>
                 </div>
             <?php else: ?>

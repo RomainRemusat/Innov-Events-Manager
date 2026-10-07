@@ -21,7 +21,8 @@
 // Injection dynamique du titre pour le composant global d'en-tête HTML
 $pageTitle = "Innov'Events - Demande de Devis";
 
-$old = $_SESSION['old_inputs'] ?? [];
+$old = array_merge($_SESSION['old_inputs'] ?? [], $clientDefaults ?? []);
+$isClientRequest = !empty($clientDefaults);
 unset($_SESSION['old_inputs']);
 
 // Architecture Modulaire : Chargement de l'en-tête global et de la barre de navigation
@@ -69,6 +70,13 @@ require __DIR__ . '/../partials/header.php';
         <div class="pt-4">
             <h2 class="fw-bold text-dark mb-4 tracking-wide">Parlez-nous de votre projet.</h2>
 
+            <?php if ($isClientRequest): ?>
+                <div class="alert alert-info" role="status">
+                    <i class="bi bi-person-check-fill me-2" aria-hidden="true"></i>
+                    Cette nouvelle demande sera automatiquement ajoutée à votre espace client.
+                </div>
+            <?php endif; ?>
+
             <?php if (!empty($_SESSION['flash_error'])): ?>
                 <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
                     <i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>
@@ -86,13 +94,13 @@ require __DIR__ . '/../partials/header.php';
                         <label for="company_name" class="form-label text-muted small fw-bold">NOM DE L'ENTREPRISE *</label>
                         <input type="text" class="form-control" id="company_name" name="company_name"
                                value="<?= htmlspecialchars($old['company_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
-                               placeholder="Ex: TechCorp" required>
+                               placeholder="Ex: TechCorp" <?= $isClientRequest ? 'readonly' : '' ?> required>
                     </div>
                     <div class="col-md-6">
                         <label for="contact_name" class="form-label text-muted small fw-bold">NOM & PRÉNOM DU CONTACT *</label>
                         <input type="text" class="form-control" id="contact_name" name="contact_name"
                                value="<?= htmlspecialchars($old['contact_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
-                               placeholder="Ex: Jean Dupont" required>
+                               placeholder="Ex: Jean Dupont" <?= $isClientRequest ? 'readonly' : '' ?> required>
                     </div>
                 </div>
 
@@ -101,7 +109,7 @@ require __DIR__ . '/../partials/header.php';
                         <label for="email" class="form-label text-muted small fw-bold">ADRESSE EMAIL PROFESSIONNELLE *</label>
                         <input type="email" class="form-control" id="email" name="email"
                                value="<?= htmlspecialchars($old['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
-                               placeholder="Ex: j.dupont@entreprise.com" required>
+                               placeholder="Ex: j.dupont@entreprise.com" <?= $isClientRequest ? 'readonly' : '' ?> required>
                     </div>
                     <div class="col-md-6">
                         <label for="phone" class="form-label text-muted small fw-bold">NUMÉRO DE TÉLÉPHONE *</label>
