@@ -173,7 +173,7 @@ vie se trouvent dans [`tests/`](tests/). La recette humaine est décrite dans
 
 La dernière couverture mesurée avec Xdebug après exécution des 2 scripts PHP historiques
 et des 26 scénarios Python est de
-**73,51 %**, soit 3 585 lignes exécutées sur 4 877 lignes PHP instrumentées dans
+**73,57 %**, soit 3 639 lignes exécutées sur 4 946 lignes PHP instrumentées dans
 `src/` et `public/index.php`. PHPUnit vérifie les règles isolées ; les scripts
 Python contrôlent les parcours HTTP, les droits, MySQL, MongoDB et les courriels
 interceptés par MailHog.
