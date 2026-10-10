@@ -30,7 +30,7 @@ require __DIR__ . '/../partials/header.php';
         <!-- EN-TÊTE DE BIENVENUE ET IDENTIFICATION DE L'ESPACE                  -->
         <!-- =================================================================== -->
         <div class="row mb-5">
-            <div class="col-10">
+            <div class="col-12 col-lg-10">
                 <h1 class="fw-bold text-dark">
                     Bonjour, <?= htmlspecialchars($clientName ?? 'Client', ENT_QUOTES, 'UTF-8'); ?> 👋
                 </h1>
@@ -42,7 +42,7 @@ require __DIR__ . '/../partials/header.php';
                     <a href="index.php?action=client_profile" class="btn btn-outline-primary btn-sm">Modifier mon profil</a>
                 </div>
             </div>
-            <div class="col-2 text-end align-self-center">
+            <div class="col-12 col-lg-2 text-start text-lg-end mt-3 mt-lg-0 align-self-center">
                 <span class="badge bg-secondary px-3 py-2 text-uppercase fw-semibold" style="font-size: 0.8rem;">Espace Client</span>
             </div>
         </div>
