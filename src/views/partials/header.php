@@ -65,7 +65,7 @@ $currentAction = $_GET['action'] ?? 'home';
 
             <!-- Navigation principale adaptée au contexte de session -->
             <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-                <ul class="navbar-nav align-items-center gap-lg-3">
+                <ul class="navbar-nav align-items-center gap-1 gap-lg-3">
 
                     <li class="nav-item">
                         <a class="nav-link text-uppercase fw-semibold <?= ($currentAction === 'events' || $currentAction === 'event_detail') ? 'active text-white' : 'text-white-50' ?>"
@@ -120,14 +120,14 @@ $currentAction = $_GET['action'] ?? 'home';
                         </li>
                         <?php if (in_array($_SESSION['user_role'] ?? '', ['ADMIN', 'EMPLOYEE'], true)): ?>
                             <li class="nav-item">
-                                <a class="btn btn-outline-light btn-sm me-1" href="index.php?action=mobile_dashboard">
+                                <a class="btn btn-outline-light btn-sm me-1 mt-2 mb-2 mt-lg-0 mb-lg-0" href="index.php?action=mobile_dashboard">
                                     <i class="bi bi-phone me-1" aria-hidden="true"></i> Mobile
                                 </a>
                             </li>
                         <?php endif; ?>
                         <?php if (($_SESSION['user_role'] ?? '') === 'CLIENT'): ?>
                             <li class="nav-item">
-                                <a class="btn btn-light btn-sm me-1" href="index.php?action=client_profile">Mon profil</a>
+                                <a class="btn btn-light btn-sm me-1 mt-2 mb-2 mb-lg-0 mt-lg-0" href="index.php?action=client_profile">Mon profil</a>
                             </li>
                         <?php endif; ?>
                         <li class="nav-item">
