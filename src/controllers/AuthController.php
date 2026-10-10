@@ -421,9 +421,11 @@ class AuthController extends BaseController
 
             // Retirer l'identité authentifiée et renouveler la session avant la reconnexion.
             $returnTo = $_SESSION['login_return_to'] ?? null;
+            $loginEmail = (string)$user['email'];
             $_SESSION = [];
             session_regenerate_id(true);
             if (is_string($returnTo)) $_SESSION['login_return_to'] = $returnTo;
+            $_SESSION['login_email'] = $loginEmail;
             $_SESSION['login_success'] = "Votre mot de passe a été personnalisé avec succès ! Veuillez vous reconnecter.";
             header('Location: index.php?action=login');
             exit();

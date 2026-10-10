@@ -69,7 +69,9 @@ def main():
             assert request(client, 'update_forced_password', dict(csrf_token=token,
                 new_password='Personal123!', confirm_password='Personal123!'))[1]['Location'].endswith('=login')
             assert request(client, 'client_profile')[1]['Location'].endswith('=login'), 'Session encore authentifiée'
-            assert 'personnalisé' in request(client, 'login')[2]
+            login_page = request(client, 'login')[2]
+            assert 'personnalisé' in login_page
+            assert f'value="{marker}_{role}@example.test"' in login_page
             assert php(prefix + f"""
                 $user = $db->query('SELECT * FROM users WHERE id={user_id}')->fetch();
                 echo json_encode((int)$user['must_change_password'] === 0 && password_verify('Personal123!', $user['password']));
