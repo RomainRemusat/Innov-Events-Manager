@@ -10,8 +10,10 @@ Ce script teste de bout en bout le workflow commercial :
 """
 
 import atexit
+import email as email_module
 import html
 import http.cookiejar
+import json
 import pathlib
 import re
 import secrets
@@ -19,6 +21,7 @@ import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
+from email.header import decode_header, make_header
 
 BASE_URL = "http://localhost:8081/index.php"
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -88,6 +91,16 @@ def cleanup_fixtures(suffix):
         "AND NOT EXISTS (SELECT 1 FROM events WHERE events.company_id=companies.id);"
     )
     subprocess.run(command[:-2] + ['-e', cleanup], cwd=ROOT, capture_output=True, text=True, check=False)
+    try:
+        url = 'http://localhost:8025/api/v2/search?kind=to&query=' + urllib.parse.quote(email)
+        with urllib.request.urlopen(url) as response:
+            messages = json.load(response)['items']
+        for message in messages:
+            urllib.request.urlopen(urllib.request.Request(
+                'http://localhost:8025/api/v1/messages/' + message['ID'], method='DELETE'
+            )).close()
+    except urllib.error.URLError:
+        pass
 
 
 def test_commercial_lifecycle():
@@ -222,6 +235,18 @@ def test_commercial_lifecycle():
     }
     _, text_conv_res, final_url = session_admin.post(f"{BASE_URL}?action=process_conversion", conv_payload)
     assert "action=edit_devis" in final_url or "Édition Devis" in text_conv_res
+
+    mail_url = 'http://localhost:8025/api/v2/search?kind=to&query=' + urllib.parse.quote(test_email)
+    with urllib.request.urlopen(mail_url) as response:
+        account_messages = json.load(response)['items']
+    assert len(account_messages) == 1, "Courriel de création de compte introuvable"
+    account_mail = email_module.message_from_bytes(account_messages[0]['Raw']['Data'].encode('utf-8'))
+    account_html = next(part.get_payload(decode=True).decode('utf-8') for part in account_mail.walk()
+                        if part.get_content_type() == 'text/html')
+    account_subject = str(make_header(decode_header(account_mail['Subject'])))
+    assert "Votre compte Innov'Events a été créé" in account_subject
+    assert test_email in account_html and 'Mot de passe temporaire' in account_html
+    assert 'demande de réinitialisation' not in account_html
 
     match_devis = re.search(r'id=(\d+)', final_url)
     if not match_devis:

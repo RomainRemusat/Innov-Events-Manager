@@ -196,12 +196,44 @@ class MailService
         return $this->sendResetPasswordEmail($email, $firstname, $tempPassword);
     }
 
-    /**
-     * Alias pour l'envoi de mot de passe temporaire avec prénom.
-     */
+    /** Envoie les premiers accès d'un compte créé par l'équipe Innov'Events. */
     public function sendTemporaryPasswordEmail(string $email, string $firstname, string $tempPassword): bool
     {
-        return $this->sendResetPasswordEmail($email, $firstname, $tempPassword);
+        try {
+            $mail = $this->createMailer();
+            $mail->addAddress($email, $firstname);
+            $mail->isHTML(true);
+            $mail->Subject = "Votre compte Innov'Events a été créé";
+
+            $safeFirstname = htmlspecialchars($firstname, ENT_QUOTES, 'UTF-8');
+            $safeEmail = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
+            $safePassword = htmlspecialchars($tempPassword, ENT_QUOTES, 'UTF-8');
+            $loginUrl = htmlspecialchars($this->appUrl('login') . '&email=' . rawurlencode($email), ENT_QUOTES, 'UTF-8');
+
+            $mail->Body = "
+                <div style='font-family: Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px;'>
+                    <div style='text-align: center; margin-bottom: 25px;'>
+                        <h1 style='color: #0F172A; font-size: 24px; font-weight: bold; margin: 0;'>INNOV'EVENTS</h1>
+                    </div>
+                    <h2 style='color: #0F172A; font-size: 18px;'>Bonjour {$safeFirstname},</h2>
+                    <p style='line-height: 1.6;'>Votre compte Innov'Events Manager a été créé. Voici vos identifiants temporaires :</p>
+                    <div style='background: #f8fafc; border: 1px dashed #cbd5e1; padding: 15px; margin: 20px 0; border-radius: 6px;'>
+                        <p style='margin: 0 0 10px;'><strong>Identifiant :</strong> {$safeEmail}</p>
+                        <p style='margin: 0;'><strong>Mot de passe temporaire :</strong> <span style='font-family: monospace; font-size: 18px; color: #2563EB;'>{$safePassword}</span></p>
+                    </div>
+                    <p style='line-height: 1.6; color: #dc2626; font-size: 13px;'><strong>Consigne de sécurité :</strong> lors de votre première connexion, vous devrez définir votre mot de passe personnel.</p>
+                    <div style='text-align: center; margin: 25px 0;'>
+                        <a href='{$loginUrl}' style='background-color: #3B82F6; color: #ffffff; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;'>Créer mon mot de passe personnel</a>
+                    </div>
+                </div>
+            ";
+            $mail->AltBody = "Bonjour {$firstname},\n\nVotre compte Innov'Events Manager a été créé.\nIdentifiant : {$email}\nMot de passe temporaire : {$tempPassword}\n\nLors de votre première connexion, vous devrez définir votre mot de passe personnel.";
+
+            return $mail->send();
+        } catch (Exception $e) {
+            error_log("Défaut MailService lors de l'envoi des accès temporaires : " . $e->getMessage());
+            return false;
+        }
     }
 
     /**
