@@ -4,6 +4,8 @@ Application de gestion événementielle réalisée pour l'ECF du titre professio
 Concepteur développeur d'applications. Elle centralise les prospects, clients,
 événements, devis, tâches, avis et journaux d'audit d'Innov'Events.
 
+**Site en ligne :** [innov-events-manager-romain.fly.dev](https://innov-events-manager-romain.fly.dev)
+
 ## Fonctionnalités principales
 
 - site public : événements, avis, contact, demande de devis et pages légales ;
