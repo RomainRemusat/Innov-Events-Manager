@@ -177,9 +177,6 @@ require __DIR__ . '/../partials/header.php';
                                                     <span class="badge text-bg-info px-2.5 py-1.5 rounded-pill">
                                                         <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>
                                                         <?= $isRevisedProposal ? 'Nouvelle proposition reçue' : 'Proposition reçue' ?>
-                                                        <?php if ($isRevisedProposal): ?>
-                                                            — révision <?= (int)($quote['revision'] ?? 1) ?>
-                                                        <?php endif; ?>
                                                     </span>
                                                     <?php if ($isRevisedProposal): ?>
                                                         <div class="alert alert-info py-2 px-3 mt-2 mb-0 small text-start" role="status">

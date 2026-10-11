@@ -97,7 +97,7 @@ def main():
         assert int(resent['quote']['revision']) > version
         revised_page = base64.b64decode(call('(new ClientController())->showDashboard();', user=3)['body']).decode('utf-8')
         assert 'Nouvelle proposition reçue' in revised_page
-        assert f"révision {int(resent['quote']['revision'])}" in revised_page
+        assert f"révision {int(resent['quote']['revision'])}" not in revised_page
         assert change_reason in revised_page
         current_pdf = base64.b64decode(call(f"(new PdfController())->downloadPdf('{name}.pdf');", user=3)['body'])
         assert current_pdf.startswith(b'%PDF-') and current_pdf != original_pdf
